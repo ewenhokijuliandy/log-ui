@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+.codegraph
+.playwright-mcp
+.taste-skill
+.commandcode
+*.log
+.DS_Store
