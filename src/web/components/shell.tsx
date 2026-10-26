@@ -191,7 +191,7 @@ function phaseLabel(phase: string): string {
   }
 }
 
-export function Statusbar({ showing, retained, dropped, zone }: StatusbarProps) {
+export function Statusbar({ showing, retained, dropped, zone, error }: StatusbarProps) {
   return (
     <footer className="statusbar">
       <span className="live">
@@ -207,6 +207,9 @@ export function Statusbar({ showing, retained, dropped, zone }: StatusbarProps) 
       </span>
       <span className="hide-sm">·</span>
       <span className="hide-sm">Times {zone === 'utc' ? 'UTC' : 'Local'}</span>
+      <span className="status-error" id="search-error" role="status">
+        {error ?? ''}
+      </span>
     </footer>
   )
 }
@@ -216,4 +219,5 @@ export type StatusbarProps = {
   retained: string
   dropped: string
   zone: Zone
+  error: string | null
 }

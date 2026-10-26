@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LevelChipKey } from '../../shared/levels.ts'
-import type { FilterState, RangeKey, SortKey } from '../lib/filters.ts'
-import { filterError, RANGE_LABELS, SORT_LABELS } from '../lib/filters.ts'
+import type { FilterState, SortKey } from '../lib/filters.ts'
+import {
+  customRangeError,
+  filterError,
+  MAX_PATTERN_LENGTH,
+  parseDateTimeInput,
+  RANGE_LABELS,
+  SORT_LABELS,
+  toDateTimeInput,
+} from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
+import type { Preset } from '../lib/presets.ts'
 import { Icon } from './icons.tsx'
 import { PopoverPanel, usePopover } from './popover.tsx'
 
@@ -33,6 +42,7 @@ export function Toolbar(props: ToolbarProps) {
     onApplyPreset,
     onSavePreset,
     onDeletePreset,
+    onRenamePreset,
   } = props
 
   const rangeMenu = usePopover()
@@ -40,7 +50,15 @@ export function Toolbar(props: ToolbarProps) {
   const presetMenu = usePopover()
   const [query, setQuery] = useState(filter.query)
   const [regexMode, setRegexMode] = useState(filter.regexMode)
+  const [customOpen, setCustomOpen] = useState(filter.range === 'custom')
+  const [fromInput, setFromInput] = useState(() => toDateTimeInput(filter.from))
+  const [toInput, setToInput] = useState(() => toDateTimeInput(filter.to))
+  const [saving, setSaving] = useState(false)
   const [presetName, setPresetName] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const saveRef = useRef<HTMLInputElement | null>(null)
+  const renameRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setQuery(filter.query)
@@ -49,6 +67,31 @@ export function Toolbar(props: ToolbarProps) {
   useEffect(() => {
     setRegexMode(filter.regexMode)
   }, [filter.regexMode])
+
+  useEffect(() => {
+    if (!rangeMenu.open) return
+    setFromInput(toDateTimeInput(filter.from))
+    setToInput(toDateTimeInput(filter.to))
+    setCustomOpen(filter.range === 'custom')
+  }, [rangeMenu.open, filter.range, filter.from, filter.to])
+
+  useEffect(() => {
+    if (presetMenu.open) return
+    setSaving(false)
+    setRenamingId(null)
+    setPresetName('')
+    setRenameValue('')
+  }, [presetMenu.open])
+
+  useEffect(() => {
+    if (!saving) return
+    saveRef.current?.focus()
+  }, [saving])
+
+  useEffect(() => {
+    if (renamingId === null) return
+    renameRef.current?.focus()
+  }, [renamingId])
 
   const handleDebounce = useRef<number | null>(null)
   useEffect(() => {
@@ -63,8 +106,32 @@ export function Toolbar(props: ToolbarProps) {
   }, [query, regexMode, filter, onFilter])
 
   const error = filterError(filter)
-  const searchBox = usePopover()
-  void searchBox
+  const fromMs = parseDateTimeInput(fromInput)
+  const toMs = parseDateTimeInput(toInput)
+  const customProblem = customRangeError(fromMs, toMs)
+
+  function applyCustomRange(): void {
+    if (fromMs === null || toMs === null || fromMs > toMs) return
+    onFilter({ ...filter, range: 'custom', from: fromMs, to: toMs })
+    setCustomOpen(false)
+    rangeMenu.close()
+  }
+
+  function commitPresetName(): void {
+    const name = presetName.trim()
+    if (name.length === 0) return
+    onSavePreset(name)
+    setPresetName('')
+    setSaving(false)
+    presetMenu.close()
+  }
+
+  function commitRename(id: string): void {
+    const name = renameValue.trim()
+    if (name.length > 0) onRenamePreset(id, name)
+    setRenamingId(null)
+    setRenameValue('')
+  }
 
   return (
     <div className="toolbar">
@@ -75,8 +142,11 @@ export function Toolbar(props: ToolbarProps) {
           type="text"
           placeholder="Search logs or /regex/"
           aria-label="Search logs"
+          aria-invalid={error !== null}
+          aria-describedby={error === null ? undefined : 'search-error'}
           autoComplete="off"
           spellCheck={false}
+          maxLength={MAX_PATTERN_LENGTH}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -128,18 +198,59 @@ export function Toolbar(props: ToolbarProps) {
           <span>{RANGE_LABELS[filter.range]}</span>
           <Icon name="chevron" />
         </button>
-        <PopoverPanel control={rangeMenu} label="Time range">
+        <PopoverPanel control={rangeMenu} label="Time range" width={300}>
           {(['5m', '15m', '1h', 'all'] as const).map((key) => (
             <MenuItem
               key={key}
               checked={filter.range === key}
               label={RANGE_LABELS[key]}
               onPress={() => {
+                setCustomOpen(false)
                 onFilter({ ...filter, range: key })
                 rangeMenu.close()
               }}
             />
           ))}
+          <MenuItem
+            checked={filter.range === 'custom'}
+            label="Custom range…"
+            onPress={() => setCustomOpen(true)}
+          />
+          {customOpen ? (
+            <div className="range-form">
+              <label className="range-field">
+                <span>From</span>
+                <input
+                  type="datetime-local"
+                  step={1}
+                  aria-label="Range start"
+                  max={toInput === '' ? undefined : toInput}
+                  value={fromInput}
+                  onChange={(event) => setFromInput(event.target.value)}
+                />
+              </label>
+              <label className="range-field">
+                <span>To</span>
+                <input
+                  type="datetime-local"
+                  step={1}
+                  aria-label="Range end"
+                  min={fromInput === '' ? undefined : fromInput}
+                  value={toInput}
+                  onChange={(event) => setToInput(event.target.value)}
+                />
+              </label>
+              {customProblem !== null ? <p className="range-error">{customProblem}</p> : null}
+              <button
+                className="btn primary"
+                type="button"
+                disabled={customProblem !== null}
+                onClick={applyCustomRange}
+              >
+                Apply range
+              </button>
+            </div>
+          ) : null}
         </PopoverPanel>
 
         <button
@@ -199,58 +310,97 @@ export function Toolbar(props: ToolbarProps) {
           <Icon name="bookmark" />
           Presets <span className="badge">{presets.length}</span>
         </button>
-        <PopoverPanel control={presetMenu} label="Filter presets">
+        <PopoverPanel control={presetMenu} label="Filter presets" width={300}>
           <div className="popover-title">Saved views</div>
           {presets.length === 0 ? (
             <p className="menu-note">No presets saved yet.</p>
           ) : (
-            presets.map((preset) => (
-              <div key={preset.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <MenuItem
-                  label={preset.name}
-                  onPress={() => {
-                    onApplyPreset(preset)
-                    presetMenu.close()
-                  }}
-                />
-                <button
-                  className="icon-btn"
-                  type="button"
-                  aria-label={`Delete preset ${preset.name}`}
-                  title={`Delete preset ${preset.name}`}
-                  onClick={() => onDeletePreset(preset.id)}
-                >
-                  <Icon name="trash" />
-                </button>
-              </div>
-            ))
+            presets.map((preset) =>
+              renamingId === preset.id ? (
+                <div key={preset.id} className="menu-form">
+                  <input
+                    ref={renameRef}
+                    type="text"
+                    aria-label={`Rename preset ${preset.name}`}
+                    autoComplete="off"
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename(preset.id)
+                      if (event.key === 'Escape') setRenamingId(null)
+                    }}
+                  />
+                  <button className="btn" type="button" onClick={() => commitRename(preset.id)}>
+                    Save
+                  </button>
+                </div>
+              ) : (
+                <div key={preset.id} className="preset-row">
+                  <MenuItem
+                    label={preset.name}
+                    onPress={() => {
+                      onApplyPreset(preset)
+                      presetMenu.close()
+                    }}
+                  />
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    aria-label={`Rename preset ${preset.name}`}
+                    title={`Rename preset ${preset.name}`}
+                    onClick={() => {
+                      setRenamingId(preset.id)
+                      setRenameValue(preset.name)
+                    }}
+                  >
+                    <Icon name="pencil" />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    type="button"
+                    aria-label={`Delete preset ${preset.name}`}
+                    title={`Delete preset ${preset.name}`}
+                    onClick={() => onDeletePreset(preset.id)}
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </div>
+              ),
+            )
           )}
           <button
             className="menu-item"
             type="button"
             role="menuitem"
             onClick={() => {
-              const name = presetName.trim()
-              onSavePreset(name)
-              setPresetName('')
-              presetMenu.close()
+              setSaving(true)
+              setRenamingId(null)
             }}
           >
             <Icon name="save" />
             <span className="grow">Save current view</span>
           </button>
-          <div className="menu-form">
-            <input
-              type="text"
-              placeholder="Name this view"
-              aria-label="Preset name"
-              autoComplete="off"
-              value={presetName}
-              onChange={(event) => setPresetName(event.target.value)}
-            />
-          </div>
+          {saving ? (
+            <div className="menu-form">
+              <input
+                ref={saveRef}
+                type="text"
+                placeholder="Name this view"
+                aria-label="Preset name"
+                autoComplete="off"
+                value={presetName}
+                onChange={(event) => setPresetName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitPresetName()
+                }}
+              />
+              <button className="btn" type="button" onClick={commitPresetName}>
+                Save
+              </button>
+            </div>
+          ) : null}
           <p className="menu-note">
-            Presets keep the search, regex mode, level and time range in this browser.
+            Presets keep the search, regex mode, level, time range and trace in this browser.
           </p>
         </PopoverPanel>
       </div>
@@ -271,21 +421,11 @@ export type ToolbarProps = {
   onToggleZone: () => void
   onToggleWrap: () => void
   onToggleAutoscroll: () => void
-  presets: PresetView[]
-  onApplyPreset: (preset: PresetView) => void
+  presets: Preset[]
+  onApplyPreset: (preset: Preset) => void
   onSavePreset: (name: string) => void
   onDeletePreset: (id: string) => void
-}
-
-export type PresetView = {
-  id: string
-  name: string
-  query: string
-  regex: boolean
-  level: LevelChipKey
-  range: RangeKey
-  sort: SortKey
-  trace: string | null
+  onRenamePreset: (id: string, name: string) => void
 }
 
 function LevelChip({ chip, pressed, count, onPress }: LevelChipProps) {

@@ -153,7 +153,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       createdAt: Date.now(),
       records: kept,
       dropped,
-      lineCount: records.length,
+      lineCount: kept.length,
       levelCounts: countLevels(kept),
       lastSeq: kept.length > 0 ? (kept[kept.length - 1]?.seq ?? null) : null,
       firstSeq: kept[0]?.seq ?? null,
@@ -186,7 +186,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     for (const item of meta) {
       const snapshot = await fetchJson<StreamSnapshot>(`/api/streams/${item.id}/logs`)
       if (snapshot === null) continue
-      entries.push(fromSnapshotWithCounts(item, snapshot))
+      entries.push(entryFromSnapshot(item, snapshot))
     }
     const ordered = orderEntries(entries)
     set({
@@ -221,7 +221,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
           ...item,
           records: merged,
           dropped: snapshot.dropped,
-          lineCount: Math.max(snapshot.records.length, merged.length),
+          lineCount: merged.length,
           levelCounts: countLevels(merged),
           lastSeq: snapshot.lastSeq ?? item.lastSeq,
           firstSeq: merged[0]?.seq ?? null,
@@ -306,7 +306,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
               ...item,
               records: merged,
               dropped: (event.dropped as number | undefined) ?? item.dropped,
-              lineCount: Math.max(item.lineCount, merged.length),
+              lineCount: merged.length,
               levelCounts: countLevels(merged),
               lastSeq: merged[merged.length - 1]?.seq ?? item.lastSeq,
               firstSeq: merged[0]?.seq ?? null,
@@ -348,16 +348,6 @@ function applyOrder(orderedIds: readonly string[]): void {
     .filter((entry) => entry !== undefined) as StreamEntry[]
   saveTabOrder(orderedIds)
   useStreams.setState({ streams: next })
-}
-
-function fromSnapshotWithCounts(meta: StreamMeta, snapshot: StreamSnapshot): StreamEntry {
-  const entry = entryFromSnapshot(meta, snapshot)
-  const records = entry.records
-  return {
-    ...entry,
-    lineCount: snapshot.lastSeq === null ? 0 : snapshot.lastSeq,
-    levelCounts: countLevels(records),
-  }
 }
 
 function hasGap(existing: readonly LogRecord[], incoming: readonly LogRecord[]): boolean {

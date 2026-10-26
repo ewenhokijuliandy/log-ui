@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { BUFFER_CAP, useStreams } from '../app/store.ts'
+import { useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { Icon } from './icons.tsx'
@@ -60,7 +60,7 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
               style={entry.status === 'stopped' ? { background: 'var(--faint)' } : undefined}
             />
             <span className="tab-label">{entry.name}</span>
-            <span className="tab-count">{formatNumber(Math.min(entry.lineCount, BUFFER_CAP))}</span>
+            <span className="tab-count">{formatNumber(entry.lineCount)}</span>
             <button
               className="close"
               type="button"

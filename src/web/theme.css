@@ -423,6 +423,13 @@ dialog:focus-visible {
   opacity: 0.9;
 }
 
+.btn:disabled,
+.btn:disabled:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn.icon {
   width: var(--control-h);
   padding: 0;
@@ -1848,6 +1855,54 @@ h1 {
 .menu-form .btn {
   height: 30px;
   padding: 0 11px;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.range-form {
+  display: grid;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.range-field {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: var(--fs-meta);
+}
+
+.range-field input {
+  height: 30px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-meta);
+  color-scheme: dark;
+}
+
+[data-theme="light"] .range-field input {
+  color-scheme: light;
+}
+
+.range-error {
+  color: var(--negative);
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+}
+
+.range-form .btn {
+  height: 30px;
 }
 
 dialog {

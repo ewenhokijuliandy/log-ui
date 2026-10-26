@@ -22,31 +22,32 @@ import { QuickStart } from '../components/quick.tsx'
 import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
 import { SignalStrip } from '../components/signal.tsx'
 import { StreamTabs } from '../components/tabs.tsx'
-import { type PresetView, Toolbar } from '../components/toolbar.tsx'
-import { type FilterState, filtersActive, type SortKey, visibleRecords } from '../lib/filters.ts'
+import { Toolbar } from '../components/toolbar.tsx'
+import {
+  DEFAULT_FILTER,
+  type FilterState,
+  filterError,
+  filtersActive,
+  type SortKey,
+  visibleRecords,
+} from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
+import { createPreset, loadPresets, type Preset, savePresets } from '../lib/presets.ts'
 import { applyTheme, loadPrefs, type Prefs, resolveTheme, savePrefs } from './prefs.ts'
-import { BUFFER_CAP, openSocket, type StreamEntry, useStreams } from './store.ts'
+import {
+  BUFFER_CAP,
+  chipCount,
+  levelCountTotal,
+  openSocket,
+  type StreamEntry,
+  useStreams,
+} from './store.ts'
 import { useUi } from './ui.ts'
 
 type PdfState = {
   title: string
   meta: string
   pages: string[]
-}
-
-const PRESETS_KEY = 'log-ui.presets'
-
-function loadPresets(): PresetView[] {
-  try {
-    const raw = window.localStorage.getItem(PRESETS_KEY)
-    if (raw === null) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed as PresetView[]
-  } catch {
-    return []
-  }
 }
 
 export function App() {
@@ -71,14 +72,9 @@ export function App() {
   const setResolvedTheme = useUi((state) => state.setTheme)
 
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs())
-  const [filter, setFilter] = useState<FilterState>({
-    query: '',
-    regexMode: false,
-    chip: 'all',
-    range: 'all',
-  })
+  const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
   const [sort, setSort] = useState<SortKey>('newest')
-  const [presets, setPresets] = useState<PresetView[]>(() => loadPresets())
+  const [presets, setPresets] = useState<Preset[]>(() => loadPresets(window.localStorage))
   const [sheet, setSheet] = useState<'settings' | 'help' | 'manual' | null>(null)
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [closeTarget, setCloseTarget] = useState<string | null>(null)
@@ -267,39 +263,39 @@ export function App() {
 
   function savePreset(name: string): void {
     if (name.length === 0) return
-    const preset: PresetView = {
-      id: crypto.randomUUID(),
-      name,
-      query: filter.query,
-      regex: filter.regexMode,
-      level: filter.chip,
-      range: filter.range,
-      sort,
-      trace: isolateTrace,
-    }
+    const preset = createPreset(crypto.randomUUID(), name, filter, sort, isolateTrace)
     const next = [...presets, preset]
     setPresets(next)
-    window.localStorage.setItem(PRESETS_KEY, JSON.stringify(next))
+    savePresets(window.localStorage, next)
+  }
+
+  function renamePreset(id: string, name: string): void {
+    const clean = name.trim()
+    if (clean.length === 0) return
+    const next = presets.map((preset) => (preset.id === id ? { ...preset, name: clean } : preset))
+    setPresets(next)
+    savePresets(window.localStorage, next)
   }
 
   function deletePreset(id: string): void {
     const next = presets.filter((preset) => preset.id !== id)
     setPresets(next)
-    window.localStorage.setItem(PRESETS_KEY, JSON.stringify(next))
+    savePresets(window.localStorage, next)
   }
 
   function clearFilters(): void {
-    setFilter({ query: '', regexMode: false, chip: 'all', range: 'all' })
+    setFilter({ ...DEFAULT_FILTER })
     setIsolate(null)
   }
 
   const chipCounts = {
-    error: chipTotal(active?.levelCounts, ['fatal', 'error']),
-    warn: chipTotal(active?.levelCounts, ['warn']),
-    info: chipTotal(active?.levelCounts, ['info']),
-    debug: chipTotal(active?.levelCounts, ['debug', 'trace']),
+    error: active === null ? 0 : chipCount(active.levelCounts, 'error'),
+    warn: active === null ? 0 : chipCount(active.levelCounts, 'warn'),
+    info: active === null ? 0 : chipCount(active.levelCounts, 'info'),
+    debug: active === null ? 0 : chipCount(active.levelCounts, 'debug'),
   }
 
+  const totalCount = active === null ? 0 : levelCountTotal(active.levelCounts)
   const totalLines = active?.lineCount ?? 0
   const droppedLines = active?.dropped ?? 0
   const clearedActive = active !== null && cleared.includes(active.id)
@@ -377,7 +373,7 @@ export function App() {
                     <div className="title-meta">
                       <span className="retained">
                         <span className="num">
-                          {formatNumber(Math.min(totalLines, BUFFER_CAP))}
+                          {formatNumber(totalLines)}
                           {droppedLines > 0
                             ? ` retained · ${formatNumber(droppedLines)} dropped`
                             : ' retained'}
@@ -423,7 +419,7 @@ export function App() {
                     onFilter={setFilter}
                     onSort={setSort}
                     chipCounts={chipCounts}
-                    totalCount={totalLines}
+                    totalCount={totalCount}
                     zone={prefs.zone}
                     autoscroll={prefs.autoscroll}
                     wrap={prefs.wrap}
@@ -444,12 +440,15 @@ export function App() {
                         regexMode: preset.regex,
                         chip: preset.level,
                         range: preset.range,
+                        from: preset.from,
+                        to: preset.to,
                       })
                       setSort(preset.sort)
                       setIsolate(preset.trace)
                     }}
                     onSavePreset={savePreset}
                     onDeletePreset={deletePreset}
+                    onRenamePreset={renamePreset}
                   />
 
                   <SignalStrip records={active.records} zone={prefs.zone} />
@@ -492,11 +491,10 @@ export function App() {
                 ? 'Quick start · waiting for a pipe'
                 : `${formatNumber(visible.length)} of ${formatNumber(totalLines)} in view`
             }
-            retained={
-              zeroStreams || active === null ? '-' : formatNumber(Math.min(totalLines, BUFFER_CAP))
-            }
+            retained={zeroStreams || active === null ? '-' : formatNumber(totalLines)}
             dropped={zeroStreams || active === null ? '-' : formatNumber(droppedLines)}
             zone={prefs.zone}
+            error={filterError(filter)}
           />
         </div>
       </div>
@@ -565,11 +563,6 @@ export function App() {
       />
     </>
   )
-}
-
-function chipTotal(counts: Record<string, number> | undefined, levels: readonly string[]): number {
-  if (counts === undefined) return 0
-  return levels.reduce((sum, level) => sum + (counts[level] ?? 0), 0)
 }
 
 function closeName(id: string | null, streams: readonly StreamEntry[]): string {

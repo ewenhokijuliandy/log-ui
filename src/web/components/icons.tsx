@@ -26,6 +26,7 @@ const SPRITE_SYMBOLS: readonly string[] = [
   'retry',
   'check',
   'save',
+  'pencil',
 ]
 
 export function Sprite() {
@@ -335,6 +336,22 @@ export function Sprite() {
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinejoin="round"
+          fill="none"
+        />
+      </symbol>
+      <symbol id="i-pencil" viewBox="0 0 16 16">
+        <path
+          d="M3 13h2.4L13 5.4 10.6 3 3 10.6V13Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <path
+          d="m9.6 4 2.4 2.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
           fill="none"
         />
       </symbol>
