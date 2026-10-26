@@ -9,7 +9,6 @@ import type {
   StreamSnapshot,
   StreamStatus,
 } from '../../shared/types.ts'
-import type { FilterState } from '../lib/filters.ts'
 import { loadTabOrder, saveTabOrder } from './prefs.ts'
 import { type ConnectionPhase, createStreamSocket, type ServerEvent } from './ws-client.ts'
 
@@ -28,28 +27,14 @@ export type StreamEntry = {
   firstSeq: number | null
 }
 
-export type ManualPayload = {
-  text: string
-}
-
-export type ConnectionState = ConnectionPhase
-
-export type Screen = 'stream' | 'quick'
-
 type StoreState = {
   streams: StreamEntry[]
   activeId: string | null
   manualCounter: number
   cleared: string[]
-  connection: ConnectionState
+  connection: ConnectionPhase
   simulatedLost: boolean
   bootError: string | null
-  totals: Record<string, { lineCount: number; dropped: number }>
-}
-
-export type ManualStreamInput = {
-  name: string
-  records: LogRecord[]
 }
 
 type StoreActions = {
@@ -121,7 +106,6 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   connection: 'connecting',
   simulatedLost: false,
   bootError: null,
-  totals: {},
 
   setActive: (id) => set({ activeId: id }),
 
@@ -387,17 +371,6 @@ export function openSocket(): void {
   ensureSocket()
 }
 
-export function socketHeld(): SocketHolder {
-  return holder
-}
-
-export function activeStreamOf(state: {
-  streams: readonly StreamEntry[]
-  activeId: string | null
-}): StreamEntry | null {
-  return state.streams.find((item) => item.id === state.activeId) ?? null
-}
-
 export function levelCountTotal(counts: LevelCounts): number {
   let total = 0
   for (const key of Object.keys(counts) as LogLevel[]) total += counts[key]
@@ -415,9 +388,3 @@ export function chipCount(counts: LevelCounts, chip: Exclude<LevelChipKey, 'all'
   for (const level of PER_CHIP[chip]) total += counts[level]
   return total
 }
-
-export function nextManualName(existing: readonly string[]): string {
-  return allocateStreamName(existing, 'manual')
-}
-
-export type { FilterState }

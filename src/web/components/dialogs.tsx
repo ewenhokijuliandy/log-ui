@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { parseLine } from '../../shared/parse-line.ts'
 import type { LogRecord } from '../../shared/types.ts'
 import { MANUAL_SAMPLE, PIPE_EXAMPLES, SHORTCUTS } from '../app/legacy-data.ts'
+import { copyText } from '../lib/clipboard.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { Icon } from './icons.tsx'
 
@@ -45,23 +46,6 @@ export function DialogFrame({
       {children}
     </dialog>
   )
-}
-
-export async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    const area = document.createElement('textarea')
-    area.value = text
-    area.style.position = 'fixed'
-    area.style.opacity = '0'
-    document.body.append(area)
-    area.select()
-    const ok = document.execCommand('copy')
-    area.remove()
-    return ok
-  }
 }
 
 export function PipeRow({ command }: { command: string }) {

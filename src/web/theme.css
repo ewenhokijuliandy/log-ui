@@ -1381,12 +1381,54 @@ h1 {
 }
 
 .inspector {
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
   border-left: 1px solid var(--border);
   background: var(--surface);
+}
+
+.inspector-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  z-index: 2;
+  width: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.inspector-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: transparent;
+  transition: background-color 140ms ease;
+}
+
+.inspector-resizer:hover::after,
+.inspector-resizer:focus-visible::after,
+.inspector-resizer.is-dragging::after {
+  background: var(--accent);
+}
+
+.inspector-resizer:focus-visible {
+  outline: none;
+}
+
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .inspector-head {
@@ -1482,7 +1524,8 @@ h1 {
   display: flex;
   align-items: baseline;
   gap: 4px;
-  list-style: none;
+  padding-right: 4px;
+  user-select: none;
   cursor: pointer;
 }
 
@@ -1507,11 +1550,74 @@ h1 {
   transform: rotate(90deg) translateX(1px);
 }
 
+.json-copy {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--faint);
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    color 120ms ease,
+    background-color 120ms ease;
+}
+
+.json-tree summary:hover .json-copy,
+.json-tree summary:focus-within .json-copy,
+.json-copy:focus-visible,
+.json-copy.is-copied {
+  opacity: 1;
+}
+
+.json-copy:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.json-copy.is-copied {
+  color: var(--accent);
+}
+
+.json-copy svg {
+  width: 12px;
+  height: 12px;
+}
+
 .json-leaf {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  width: 100%;
   min-width: 0;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.json-leaf:hover {
+  background: var(--raised);
+}
+
+.json-leaf:focus-visible {
+  outline-offset: -2px;
+}
+
+.json-copied {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: var(--fs-meta);
 }
 
 .json-key {

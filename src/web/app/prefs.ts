@@ -10,6 +10,10 @@ export type Prefs = {
 
 const PREFS_KEY = 'log-ui.prefs'
 const TAB_ORDER_KEY = 'log-ui.tabOrder'
+const INSPECTOR_WIDTH_KEY = 'log-ui.inspectorWidth'
+
+export const INSPECTOR_MIN_WIDTH = 280
+export const INSPECTOR_MAX_WIDTH = 720
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'dark',
@@ -74,5 +78,33 @@ export function loadTabOrder(): string[] | null {
 export function saveTabOrder(ids: readonly string[]): void {
   try {
     window.localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(ids))
+  } catch {}
+}
+
+export function defaultInspectorWidth(viewport = window.innerWidth): number {
+  return viewport <= 1180 ? 320 : 356
+}
+
+export function clampInspectorWidth(width: number, viewport = window.innerWidth): number {
+  if (!Number.isFinite(width)) return defaultInspectorWidth(viewport)
+  const ceiling = Math.min(INSPECTOR_MAX_WIDTH, Math.max(INSPECTOR_MIN_WIDTH, viewport - 480))
+  return Math.round(Math.min(ceiling, Math.max(INSPECTOR_MIN_WIDTH, width)))
+}
+
+export function loadInspectorWidth(): number | null {
+  try {
+    const raw = window.localStorage.getItem(INSPECTOR_WIDTH_KEY)
+    if (raw === null) return null
+    const value = Number(raw)
+    if (!Number.isFinite(value)) return null
+    return clampInspectorWidth(value)
+  } catch {
+    return null
+  }
+}
+
+export function saveInspectorWidth(width: number): void {
+  try {
+    window.localStorage.setItem(INSPECTOR_WIDTH_KEY, String(width))
   } catch {}
 }

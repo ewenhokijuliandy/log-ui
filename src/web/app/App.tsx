@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
 import type { LogRecord } from '../../shared/types.ts'
 import {
   ConfirmDialog,
-  copyText,
   HelpSheet,
   ManualDialog,
   PrintSheet,
@@ -23,6 +22,7 @@ import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
 import { SignalStrip } from '../components/signal.tsx'
 import { StreamTabs } from '../components/tabs.tsx'
 import { Toolbar } from '../components/toolbar.tsx'
+import { copyText } from '../lib/clipboard.ts'
 import {
   DEFAULT_FILTER,
   type FilterState,
@@ -33,7 +33,17 @@ import {
 } from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { createPreset, loadPresets, type Preset, savePresets } from '../lib/presets.ts'
-import { applyTheme, loadPrefs, type Prefs, resolveTheme, savePrefs } from './prefs.ts'
+import {
+  applyTheme,
+  clampInspectorWidth,
+  defaultInspectorWidth,
+  loadInspectorWidth,
+  loadPrefs,
+  type Prefs,
+  resolveTheme,
+  saveInspectorWidth,
+  savePrefs,
+} from './prefs.ts'
 import {
   BUFFER_CAP,
   chipCount,
@@ -70,6 +80,9 @@ export function App() {
   const setInspectorOpen = useUi((state) => state.setInspectorOpen)
   const inspectorOpen = useUi((state) => state.inspectorOpen)
   const setResolvedTheme = useUi((state) => state.setTheme)
+  const selectedSeq = useUi((state) =>
+    activeId === null ? null : (state.selectedSeq[activeId] ?? null),
+  )
 
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs())
   const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
@@ -79,12 +92,21 @@ export function App() {
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [closeTarget, setCloseTarget] = useState<string | null>(null)
   const [pdfState, setPdfState] = useState<PdfState | null>(null)
+  const [inspectorWidth, setInspectorWidth] = useState(
+    () => loadInspectorWidth() ?? defaultInspectorWidth(),
+  )
 
   const active = streams.find((entry) => entry.id === activeId) ?? null
 
   useEffect(() => {
     openSocket()
     void useStreams.getState().boot()
+  }, [])
+
+  useEffect(() => {
+    const onResize = () => setInspectorWidth((value) => clampInspectorWidth(value))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   useEffect(() => {
@@ -199,11 +221,15 @@ export function App() {
   }, [active, quickMode, sheet, select, setInspectorOpen, visible])
 
   const selectedRecord =
-    active === null
+    active === null || selectedSeq === null
       ? null
-      : (active.records.find(
-          (record) => record.seq === (useUi.getState().selectedSeq[active.id] ?? null),
-        ) ?? null)
+      : (active.records.find((record) => record.seq === selectedSeq) ?? null)
+
+  function updateInspectorWidth(next: number): void {
+    const value = clampInspectorWidth(next)
+    setInspectorWidth(value)
+    saveInspectorWidth(value)
+  }
 
   function toggleTheme(): void {
     setPrefs((state) => ({
@@ -455,6 +481,11 @@ export function App() {
 
                   <div
                     className={`log-shell${inspectorOpen && selectedRecord !== null ? '' : ' no-inspector'}`}
+                    style={
+                      {
+                        '--inspector-w': `${String(inspectorWidth)}px`,
+                      } as CSSProperties
+                    }
                   >
                     <LogList
                       visible={visible}
@@ -468,12 +499,16 @@ export function App() {
                     <Inspector
                       record={selectedRecord}
                       zone={prefs.zone}
+                      width={inspectorWidth}
+                      onWidth={updateInspectorWidth}
+                      onResetWidth={() => updateInspectorWidth(defaultInspectorWidth())}
                       onCopyRaw={() => {
-                        if (selectedRecord !== null) void copyText(selectedRecord.raw)
+                        if (selectedRecord === null) return Promise.resolve(false)
+                        return copyText(selectedRecord.raw)
                       }}
                       onCopyJson={() => {
-                        if (selectedRecord === null) return
-                        void copyText(
+                        if (selectedRecord === null) return Promise.resolve(false)
+                        return copyText(
                           selectedRecord.json === null
                             ? selectedRecord.raw
                             : JSON.stringify(selectedRecord.json, null, 2),

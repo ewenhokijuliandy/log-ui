@@ -33,7 +33,6 @@ export function LogList({
     overscan: 14,
   })
 
-  const atBottom = useRef(true)
   const lastPinnedSeq = useRef<number | null>(null)
 
   useEffect(() => {
@@ -46,6 +45,28 @@ export function LogList({
     lastPinnedSeq.current = newest
     virtualizer.scrollToIndex(lastIndex, { align: 'end' })
   }, [autoscroll, virtualizer, lastIndex, visible])
+
+  const lastSelection = useRef<{
+    stream: string | null
+    seq: number | null
+    isolate: string | null
+  }>({ stream: null, seq: null, isolate: null })
+
+  useEffect(() => {
+    if (activeSeq === null) return
+    const previous = lastSelection.current
+    if (
+      previous.stream === activeId &&
+      previous.seq === activeSeq &&
+      previous.isolate === isolateTrace
+    ) {
+      return
+    }
+    lastSelection.current = { stream: activeId, seq: activeSeq, isolate: isolateTrace }
+    const index = visible.findIndex((record) => record.seq === activeSeq)
+    if (index < 0) return
+    virtualizer.scrollToIndex(index, { align: 'auto' })
+  }, [virtualizer, visible, activeSeq, activeId, isolateTrace])
 
   const empty = visible.length === 0
 
@@ -76,10 +97,6 @@ export function LogList({
         className={`log-list${wrap ? ' wrap' : ''}`}
         role="log"
         aria-label="Log lines"
-        onScroll={(event) => {
-          const node = event.currentTarget
-          atBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 40
-        }}
       >
         <div style={{ height: `${String(virtualizer.getTotalSize())}px`, position: 'relative' }}>
           {virtualizer.getVirtualItems().map((item) => {
@@ -133,6 +150,7 @@ export function LogList({
                       title={`Isolate trace ${id}`}
                       onClick={(event) => {
                         event.stopPropagation()
+                        select(activeId, record.seq)
                         setIsolate(id)
                       }}
                     >
