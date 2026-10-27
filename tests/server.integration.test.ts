@@ -181,7 +181,7 @@ describe('daemon server', () => {
     const info = JSON.parse(res.text) as Record<string, unknown>
     expect(info.ok).toBe(true)
     expect(info.pid).toBe(process.pid)
-    expect(info.version).toBe('0.1.0')
+    expect(info.version).toBe('1.0.0')
     expect(info.port).toBe(server.port)
   })
 

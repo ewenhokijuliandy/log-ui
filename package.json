@@ -1,6 +1,6 @@
 {
   "name": "log-ui",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Pipe terminal output into a rich, interactive local log viewer",
   "type": "module",
   "license": "MIT",
