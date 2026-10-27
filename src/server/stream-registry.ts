@@ -3,6 +3,7 @@ import type { LevelCounts } from '../shared/levels.ts'
 import { allocateStreamName } from '../shared/name-allocator.ts'
 import { parseLine } from '../shared/parse-line.ts'
 import { LogRing } from '../shared/ring-buffer.ts'
+import { streamNameProblem } from '../shared/stream-name.ts'
 import type { LogRecord, StreamMeta, StreamSnapshot, StreamStatus } from '../shared/types.ts'
 
 export type WsLike = {
@@ -29,6 +30,10 @@ export type StreamUpdatedPayload = {
   dropped: number
   levelCounts: LevelCounts
 }
+
+export type RenameOutcome =
+  | { ok: true; meta: StreamMeta }
+  | { ok: false; status: 400 | 409; error: string }
 
 export type RegistryEvent =
   | { type: 'stream:created'; meta: StreamMeta }
@@ -122,6 +127,26 @@ export class StreamRegistry {
     } catch {
       socket.close()
     }
+  }
+
+  rename(id: string, requestedName: string): RenameOutcome {
+    const entry = this.entries.get(id)
+    if (entry === undefined) return { ok: false, status: 400, error: 'Stream not found.' }
+    const name = requestedName.trim()
+    const taken = [...this.entries.values()]
+      .filter((item) => item.id !== id)
+      .map((item) => item.name)
+    const problem = streamNameProblem(name, taken)
+    if (problem !== null) {
+      return {
+        ok: false,
+        status: problem.kind === 'duplicate' ? 409 : 400,
+        error: problem.message,
+      }
+    }
+    entry.name = name
+    this.emit({ type: 'stream:updated', payload: this.updated(entry) })
+    return { ok: true, meta: this.meta(entry) }
   }
 
   stop(id: string): boolean {

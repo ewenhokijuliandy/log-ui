@@ -49,6 +49,23 @@ export function registerStreamRoutes(
     return c.json({ ok: true })
   })
 
+  app.patch('/api/streams/:id', guard, async (c) => {
+    const id = c.req.param('id')
+    if (registry.entry(id) === null) return c.text('stream not found', 404)
+    let name: string | null = null
+    const raw = await c.req.text()
+    if (raw !== '') {
+      try {
+        const parsed = JSON.parse(raw) as { name?: unknown }
+        if (typeof parsed.name === 'string') name = parsed.name
+      } catch {}
+    }
+    if (name === null) return c.json({ error: 'Name is required.' }, 400)
+    const outcome = registry.rename(id, name)
+    if (!outcome.ok) return c.json({ error: outcome.error }, outcome.status)
+    return c.json(outcome.meta)
+  })
+
   app.delete('/api/streams/:id', guard, (c) => {
     const ok = registry.removeStream(c.req.param('id'))
     if (!ok) return c.text('stream not found', 404)

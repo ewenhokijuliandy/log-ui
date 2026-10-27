@@ -16,7 +16,7 @@ import {
 import { Sprite } from '../components/icons.tsx'
 import { Inspector } from '../components/inspector.tsx'
 import { LogList } from '../components/logs.tsx'
-import { QuickStart } from '../components/quick.tsx'
+import { EmptyState, QuickStart } from '../components/quick.tsx'
 import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
 import { SignalStrip } from '../components/signal.tsx'
 import { StreamTabs } from '../components/tabs.tsx'
@@ -32,6 +32,7 @@ import {
   visibleRecords,
 } from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
+import { frozenRecords, pendingCount } from '../lib/pause.ts'
 import { createPreset, loadPresets, type Preset, savePresets } from '../lib/presets.ts'
 import { buildPrintPages } from '../lib/print-sheet.ts'
 import {
@@ -70,6 +71,7 @@ export function App() {
   const resync = useStreams((state) => state.resync)
   const setSimulatedLost = useStreams((state) => state.setSimulatedLost)
   const addManual = useStreams((state) => state.addManual)
+  const setPaused = useStreams((state) => state.setPaused)
   const closeStream = useStreams((state) => state.closeStream)
   const clearStream = useStreams((state) => state.clearStream)
   const cleared = useStreams((state) => state.cleared)
@@ -129,14 +131,7 @@ export function App() {
   }, [prefs.theme, setResolvedTheme])
 
   const zeroStreams = streams.length === 0
-  const quickMode = screen === 'quick' || zeroStreams
-
-  useEffect(() => {
-    document.body.classList.toggle('quick-mode', quickMode)
-    return () => {
-      document.body.classList.toggle('quick-mode', false)
-    }
-  }, [quickMode])
+  const quickOpen = screen === 'quick'
 
   const prevZeroStreams = useRef(zeroStreams)
   useEffect(() => {
@@ -158,9 +153,13 @@ export function App() {
     select(active.id, newest?.seq ?? null)
   }, [active, select])
 
+  const paused = active !== null && active.pausedAt !== null
+  const pending = active === null ? 0 : pendingCount(active.records, active.pausedAt)
+
   const visible = useMemo<LogRecord[]>(() => {
     if (active === null) return []
-    return orderRecords(visibleRecords(active.records, filter, isolateTrace), sort)
+    const frozen = frozenRecords(active.records, active.pausedAt)
+    return orderRecords(visibleRecords(frozen, filter, isolateTrace), sort)
   }, [active, filter, isolateTrace, sort])
 
   useEffect(() => {
@@ -179,7 +178,7 @@ export function App() {
         box?.focus()
         return
       }
-      if (quickMode) return
+      if (quickOpen) return
       if (event.key === 'j' || event.key === 'k') {
         event.preventDefault()
         if (active === null || visible.length === 0) return
@@ -218,7 +217,7 @@ export function App() {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [active, quickMode, sheet, select, setInspectorOpen, visible])
+  }, [active, quickOpen, sheet, select, setInspectorOpen, visible])
 
   const selectedRecord =
     active === null || selectedSeq === null
@@ -236,6 +235,11 @@ export function App() {
       ...state,
       theme: resolveTheme(state.theme) === 'dark' ? 'light' : 'dark',
     }))
+  }
+
+  function togglePause(): void {
+    if (active === null) return
+    setPaused(active.id, active.pausedAt === null)
   }
 
   async function confirmClear(): Promise<void> {
@@ -344,11 +348,10 @@ export function App() {
             onCloseTab={(id) => setCloseTarget(id)}
           />
           <div className="workspace">
-            {quickMode ? (
-              <QuickStart
-                connected={connection === 'connected' && !simulatedLost}
+            {zeroStreams ? (
+              <EmptyState
                 onManual={() => setSheet('manual')}
-                onHelp={() => setSheet('help')}
+                onQuickStart={() => setScreen('quick')}
               />
             ) : (
               active !== null && (
@@ -431,6 +434,8 @@ export function App() {
                     zone={prefs.zone}
                     autoscroll={prefs.autoscroll}
                     wrap={prefs.wrap}
+                    paused={paused}
+                    pending={pending}
                     onToggleZone={() =>
                       setPrefs((state) => ({
                         ...state,
@@ -441,6 +446,7 @@ export function App() {
                     onToggleAutoscroll={() =>
                       setPrefs((state) => ({ ...state, autoscroll: !state.autoscroll }))
                     }
+                    onTogglePause={togglePause}
                     presets={presets}
                     onApplyPreset={(preset) => {
                       setFilter({
@@ -476,6 +482,9 @@ export function App() {
                       newestFirst={sort === 'newest'}
                       wrap={prefs.wrap}
                       isolateTrace={isolateTrace}
+                      paused={paused}
+                      pending={pending}
+                      onResume={() => setPaused(active.id, false)}
                       emptyText={emptyText}
                       onClearFilters={
                         filtersActive(filter, isolateTrace) ? clearFilters : undefined
@@ -508,7 +517,7 @@ export function App() {
           <Statusbar
             showing={
               zeroStreams
-                ? 'Quick start · waiting for a pipe'
+                ? 'No streams · waiting for a pipe'
                 : `${formatNumber(visible.length)} of ${formatNumber(totalLines)} in view`
             }
             retained={zeroStreams || active === null ? '-' : formatNumber(totalLines)}
@@ -518,6 +527,20 @@ export function App() {
           />
         </div>
       </div>
+
+      <QuickStart
+        open={quickOpen}
+        connected={connection === 'connected' && !simulatedLost}
+        onManual={() => {
+          setScreen('stream')
+          setSheet('manual')
+        }}
+        onHelp={() => {
+          setScreen('stream')
+          setSheet('help')
+        }}
+        onClose={() => setScreen('stream')}
+      />
 
       <ConfirmDialog
         open={clearTarget !== null}

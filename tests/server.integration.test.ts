@@ -337,6 +337,57 @@ describe('daemon server', () => {
     expect(state.status).toBe('stopped')
   })
 
+  test('rename persists, broadcasts and rejects duplicates', async () => {
+    const server = await boot()
+    const browser = await openSocket(new WebSocket(`ws://127.0.0.1:${server.port}/ws`))
+    const events = messageQueue(browser)
+    const first = await createStream(server, 'api')
+    const second = await createStream(server, 'worker')
+
+    const renamed = await fetchJson(server, `/api/streams/${first.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: '  orders  ' }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(renamed.status).toBe(200)
+    expect(JSON.parse(renamed.text)).toMatchObject({ id: first.id, name: 'orders' })
+
+    const event = await waitForMessage(events, 'stream:updated')
+    expect(event.payload).toMatchObject({ id: first.id, name: 'orders' })
+
+    const listing = await fetchJson(server, '/api/streams')
+    const metas = JSON.parse(listing.text) as Array<{ id: string; name: string }>
+    expect(metas.find((meta) => meta.id === first.id)?.name).toBe('orders')
+
+    const duplicate = await fetchJson(server, `/api/streams/${second.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'orders' }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(duplicate.status).toBe(409)
+
+    const empty = await fetchJson(server, `/api/streams/${second.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: '   ' }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(empty.status).toBe(400)
+
+    const long = await fetchJson(server, `/api/streams/${second.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'x'.repeat(65) }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(long.status).toBe(400)
+
+    const missing = await fetchJson(server, '/api/streams/does-not-exist', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'ghost' }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(missing.status).toBe(404)
+  })
+
   test('shutdown endpoint exits with code 0 under a second', async () => {
     const exits: number[] = []
     const server = await startServer({

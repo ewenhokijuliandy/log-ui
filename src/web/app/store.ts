@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { LevelChipKey } from '../../shared/levels.ts'
 import { EMPTY_LEVEL_COUNTS, type LevelCounts } from '../../shared/levels.ts'
 import { allocateStreamName } from '../../shared/name-allocator.ts'
+import { streamNameProblem } from '../../shared/stream-name.ts'
 import type {
   LogLevel,
   LogRecord,
@@ -28,7 +29,10 @@ export type StreamEntry = {
   levelCounts: LevelCounts
   lastSeq: number | null
   firstSeq: number | null
+  pausedAt: number | null
 }
+
+export type RenameResult = { ok: true } | { ok: false; error: string }
 
 type StoreState = {
   streams: StreamEntry[]
@@ -48,6 +52,8 @@ type StoreActions = {
   setSimulatedLost: (value: boolean) => void
   moveTab: (dragId: string, overId: string, before: boolean) => void
   addManual: (records: LogRecord[], totalLines: number) => void
+  setPaused: (id: string, paused: boolean) => void
+  renameStream: (id: string, name: string) => Promise<RenameResult>
   closeStream: (id: string) => Promise<void>
   clearStream: (id: string) => Promise<void>
 }
@@ -79,6 +85,7 @@ function entryFromSnapshot(meta: StreamMeta, snapshot: StreamSnapshot): StreamEn
     levelCounts: countLevels(records),
     lastSeq: snapshot.lastSeq,
     firstSeq: records.length > 0 ? (records[0]?.seq ?? null) : null,
+    pausedAt: null,
   }
 }
 
@@ -147,12 +154,68 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       levelCounts: countLevels(kept),
       lastSeq: kept.length > 0 ? (kept[kept.length - 1]?.seq ?? null) : null,
       firstSeq: kept[0]?.seq ?? null,
+      pausedAt: null,
     }
     set((state) => {
       const next = [...state.streams, entry]
       saveTabOrder(next.map((item) => item.id))
       return { streams: next, activeId: entry.id, manualCounter: state.manualCounter + 1 }
     })
+  },
+
+  setPaused: (id, paused) => {
+    set((state) => ({
+      streams: state.streams.map((item) => {
+        if (item.id !== id) return item
+        if (!paused) return { ...item, pausedAt: null }
+        if (item.pausedAt !== null) return item
+        const newest = item.lastSeq ?? item.records[item.records.length - 1]?.seq ?? 0
+        return { ...item, pausedAt: newest }
+      }),
+    }))
+  },
+
+  renameStream: async (id, requestedName) => {
+    const entry = get().streams.find((item) => item.id === id)
+    if (entry === undefined) return { ok: false, error: 'Stream not found.' }
+    const name = requestedName.trim()
+    const taken = get()
+      .streams.filter((item) => item.id !== id)
+      .map((item) => item.name)
+    const problem = streamNameProblem(name, taken)
+    if (problem !== null) return { ok: false, error: problem.message }
+    if (entry.kind === 'manual') {
+      set((state) => ({
+        streams: state.streams.map((item) => (item.id === id ? { ...item, name } : item)),
+      }))
+      return { ok: true }
+    }
+    try {
+      const response = await fetch(joinPath(`/api/streams/${id}`), {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+        signal: AbortSignal.timeout(4000),
+      })
+      if (!response.ok) {
+        const raw = await response.text()
+        let error = 'Could not rename this stream.'
+        try {
+          const parsed = JSON.parse(raw) as { error?: unknown }
+          if (typeof parsed.error === 'string') error = parsed.error
+        } catch {}
+        return { ok: false, error }
+      }
+      const meta = (await response.json()) as StreamMeta
+      set((state) => ({
+        streams: state.streams.map((item) =>
+          item.id === id ? { ...item, name: meta.name } : item,
+        ),
+      }))
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'Could not rename this stream.' }
+    }
   },
 
   closeStream: async (id) => {
@@ -189,6 +252,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
             dropped: 0,
             lineCount: 0,
             levelCounts: { ...EMPTY_LEVEL_COUNTS },
+            pausedAt: null,
           }
         }),
       }))
@@ -272,6 +336,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
             levelCounts: { ...EMPTY_LEVEL_COUNTS },
             lastSeq: null,
             firstSeq: null,
+            pausedAt: null,
           }
           const next = [...state.streams, entry]
           saveTabOrder(next.map((item) => item.id))
@@ -354,6 +419,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
               levelCounts: { ...EMPTY_LEVEL_COUNTS },
               firstSeq: item.firstSeq,
               lastSeq: item.lastSeq,
+              pausedAt: null,
             }
           }),
         }))

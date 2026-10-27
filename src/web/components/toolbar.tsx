@@ -35,9 +35,12 @@ export function Toolbar(props: ToolbarProps) {
     zone,
     autoscroll,
     wrap,
+    paused,
+    pending,
     onToggleZone,
     onToggleWrap,
     onToggleAutoscroll,
+    onTogglePause,
     presets,
     onApplyPreset,
     onSavePreset,
@@ -302,6 +305,18 @@ export function Toolbar(props: ToolbarProps) {
         <button
           className="tool"
           type="button"
+          aria-pressed={paused}
+          title={paused ? 'Resume the view' : 'Pause the view and keep ingesting'}
+          onClick={onTogglePause}
+        >
+          <Icon name={paused ? 'play' : 'pause'} />
+          <span>{paused ? 'Resume' : 'Pause'}</span>
+          {paused ? <span className="badge">{formatNumber(pending)}</span> : null}
+        </button>
+
+        <button
+          className="tool"
+          type="button"
           ref={presetMenu.bindTrigger}
           aria-haspopup="menu"
           aria-expanded={presetMenu.open}
@@ -418,9 +433,12 @@ export type ToolbarProps = {
   zone: 'utc' | 'local'
   autoscroll: boolean
   wrap: boolean
+  paused: boolean
+  pending: number
   onToggleZone: () => void
   onToggleWrap: () => void
   onToggleAutoscroll: () => void
+  onTogglePause: () => void
   presets: Preset[]
   onApplyPreset: (preset: Preset) => void
   onSavePreset: (name: string) => void

@@ -14,6 +14,9 @@ export function LogList({
   newestFirst,
   wrap,
   isolateTrace,
+  paused,
+  pending,
+  onResume,
   emptyText,
   onClearFilters,
 }: LogListProps) {
@@ -31,6 +34,8 @@ export function LogList({
     count: visible.length,
     getScrollElement: () => listRef.current,
     estimateSize: () => (wrap ? 46 : 30),
+    getItemKey: (index) => visible[index]?.seq ?? index,
+    anchorTo: 'end',
     overscan: 14,
   })
 
@@ -82,6 +87,17 @@ export function LogList({
           <span>{formatNumber(visible.length)} lines</span>
           <button className="link" type="button" onClick={() => setIsolate(null)}>
             Clear isolation
+          </button>
+        </div>
+      ) : null}
+      {paused ? (
+        <div className="pause-banner" role="status">
+          <Icon name="pause" />
+          <span>Paused</span>
+          <span className="badge">{formatNumber(pending)}</span>
+          <span>new lines buffered</span>
+          <button className="link" type="button" onClick={onResume}>
+            Resume
           </button>
         </div>
       ) : null}
@@ -185,6 +201,9 @@ export type LogListProps = {
   newestFirst: boolean
   wrap: boolean
   isolateTrace: string | null
+  paused: boolean
+  pending: number
+  onResume: () => void
   emptyText: string
   onClearFilters?: () => void
 }

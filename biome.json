@@ -71,7 +71,8 @@
           "a11y": {
             "useSemanticElements": "off",
             "useAriaPropsSupportedByRole": "off",
-            "noStaticElementInteractions": "off"
+            "noStaticElementInteractions": "off",
+            "useKeyWithClickEvents": "off"
           },
           "suspicious": {
             "noArrayIndexKey": "off"

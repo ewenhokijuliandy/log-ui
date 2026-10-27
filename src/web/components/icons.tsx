@@ -27,6 +27,8 @@ const SPRITE_SYMBOLS: readonly string[] = [
   'check',
   'save',
   'pencil',
+  'pause',
+  'play',
 ]
 
 export function Sprite() {
@@ -250,14 +252,16 @@ export function Sprite() {
         <path d="M9.5 3v10" stroke="currentColor" strokeWidth="1.5" fill="none" />
       </symbol>
       <symbol id="i-settings" viewBox="0 0 16 16">
-        <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.5" fill="none" />
         <path
-          d="M8 2.2v1.4M8 12.4v1.4M2.2 8h1.4M12.4 8h1.4M3.9 3.9l1 1M11.1 11.1l1 1M12.1 3.9l-1 1M4.9 11.1l-1 1"
+          d="M2.5 4.5h2.2M8.3 4.5h5.2M2.5 8h5.2M11.7 8h1.8M2.5 11.5h2.2M8.3 11.5h5.2"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
           fill="none"
         />
+        <circle cx="6.2" cy="4.5" r="1.4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <circle cx="9.5" cy="8" r="1.4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <circle cx="6.2" cy="11.5" r="1.4" stroke="currentColor" strokeWidth="1.5" fill="none" />
       </symbol>
       <symbol id="i-help" viewBox="0 0 16 16">
         <circle cx="8" cy="8" r="5.3" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -352,6 +356,24 @@ export function Sprite() {
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
+          fill="none"
+        />
+      </symbol>
+      <symbol id="i-pause" viewBox="0 0 16 16">
+        <path
+          d="M6 3.5v9M10 3.5v9"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          fill="none"
+        />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 16 16">
+        <path
+          d="M5.5 3.5 12 8l-6.5 4.5v-9Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
           fill="none"
         />
       </symbol>

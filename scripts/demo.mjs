@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { connect } from 'node:net'
 import { dirname, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
@@ -8,7 +9,8 @@ import open from 'open'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const cli = resolve(root, 'dist/cli.js')
 const generator = resolve(root, 'scripts/generate-logs.mjs')
-const port = Number(process.env.PORT ?? 3334)
+const port = Number(process.env.PORT ?? 3333)
+const altPort = port >= 65535 ? 3333 : port + 1
 const base = `http://127.0.0.1:${String(port)}`
 const shouldOpen = !process.argv.includes('--no-open')
 
@@ -19,15 +21,37 @@ if (!existsSync(cli) || !existsSync(resolve(root, 'dist/web/index.html'))) {
 
 const children = new Set()
 let daemon = null
+let ownsDaemon = false
 let stopping = false
 
-async function healthy() {
+async function healthInfo() {
   try {
     const response = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1000) })
-    return response.ok
+    if (!response.ok) return null
+    const info = await response.json()
+    if (info === null || typeof info !== 'object') return null
+    if (info.ok !== true) return null
+    return info
   } catch {
-    return false
+    return null
   }
+}
+
+function portInUse(targetPort) {
+  return new Promise((resolvePort) => {
+    const socket = connect({ host: '127.0.0.1', port: targetPort })
+    let settled = false
+    const finish = (busy) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolvePort(busy)
+    }
+    socket.setTimeout(600)
+    socket.once('connect', () => finish(true))
+    socket.once('timeout', () => finish(true))
+    socket.once('error', () => finish(false))
+  })
 }
 
 function launch(name, interval) {
@@ -55,7 +79,7 @@ function launch(name, interval) {
 async function stop() {
   if (stopping) return
   stopping = true
-  console.log('\n[demo] stopping streams and daemon...')
+  console.log('\n[demo] stopping streams...')
   for (const child of children) {
     if (!child.killed) child.kill('SIGTERM')
   }
@@ -63,42 +87,57 @@ async function stop() {
   for (const child of children) {
     if (!child.killed) child.kill('SIGKILL')
   }
-  if (daemon !== null && !daemon.killed) daemon.kill('SIGTERM')
-  try {
-    await fetch(`${base}/api/shutdown`, { method: 'POST', signal: AbortSignal.timeout(1000) })
-  } catch {}
+  if (ownsDaemon && daemon !== null && !daemon.killed) {
+    daemon.kill('SIGTERM')
+    try {
+      await fetch(`${base}/api/shutdown`, { method: 'POST', signal: AbortSignal.timeout(1000) })
+    } catch {}
+  }
+  if (!ownsDaemon) console.log('[demo] the daemon that was already running was left untouched.')
   process.exit(0)
 }
 
 process.on('SIGINT', () => void stop())
 process.on('SIGTERM', () => void stop())
 
-if (await healthy()) {
-  console.error(`[demo] Something already answers on ${base}. Set PORT to a free port.`)
-  process.exit(1)
-}
+const existing = await healthInfo()
 
-daemon = spawn(process.execPath, [cli, '__daemon', '--port', String(port)], {
-  cwd: root,
-  stdio: 'ignore',
-})
-
-for (let attempt = 0; attempt < 50; attempt += 1) {
-  if (await healthy()) break
-  if (attempt === 49) {
-    console.error(`[demo] log-ui did not become ready on ${base}.`)
-    daemon.kill('SIGTERM')
+if (existing !== null) {
+  console.log(`[demo] reusing the log-ui daemon already running on ${base}`)
+} else {
+  const busy = await portInUse(port)
+  if (busy) {
+    console.error(`[demo] Port ${String(port)} is in use by something that is not log-ui.`)
+    console.error(
+      `[demo] Stop it, or run with a free port: PORT=${String(altPort)} node scripts/demo.mjs`,
+    )
     process.exit(1)
   }
-  await delay(100)
+
+  daemon = spawn(process.execPath, [cli, '__daemon', '--port', String(port)], {
+    cwd: root,
+    stdio: 'ignore',
+  })
+  ownsDaemon = true
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if ((await healthInfo()) !== null) break
+    if (attempt === 49) {
+      console.error(`[demo] log-ui did not become ready on ${base}.`)
+      daemon.kill('SIGTERM')
+      process.exit(1)
+    }
+    await delay(100)
+  }
 }
 
 console.log(`
 log-ui demo
   URL      ${base}
+  daemon   ${ownsDaemon ? 'started by the demo (stopped on exit)' : 'reused (left running on exit)'}
   streams  api (500 ms), worker (900 ms)
   try      Error/Warn chips, search "payment", click a { } row, isolate a trace,
-           Export, Manual mode, custom range, and closing a tab
+           Export, Manual mode, custom range, pause, rename a tab, and closing a tab
   stop     Ctrl+C
 `)
 

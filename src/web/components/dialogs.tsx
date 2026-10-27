@@ -10,25 +10,33 @@ export function DialogFrame({
   open,
   wide = false,
   className,
+  label,
   onClose,
   children,
 }: {
   open: boolean
   wide?: boolean
   className?: string
+  label?: string
   onClose: () => void
   children: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement | null>(null)
+  const returnFocus = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!open) return
     const node = ref.current
     if (node === null) return
+    const previous = document.activeElement
+    returnFocus.current = previous instanceof HTMLElement ? previous : null
     node.showModal()
     node.focus()
     return () => {
       node.close()
+      const target = returnFocus.current
+      returnFocus.current = null
+      if (target?.isConnected) target.focus()
     }
   }, [open])
 
@@ -38,8 +46,20 @@ export function DialogFrame({
     <dialog
       ref={ref}
       className={[wide ? 'wide' : '', className ?? ''].join(' ').trim()}
+      aria-label={label}
       onCancel={(event) => {
         event.preventDefault()
+        onClose()
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return
+        const rect = event.currentTarget.getBoundingClientRect()
+        const inside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        if (inside) return
         onClose()
       }}
     >
