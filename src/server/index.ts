@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { type ServerType, serve } from '@hono/node-server'
 import { createNodeWebSocket } from '@hono/node-ws'
@@ -153,5 +155,12 @@ export async function startServer(options: ServerOptions): Promise<StartedServer
 
 function resolveWebRoot(override?: string): string {
   if (override !== undefined) return override
-  return fileURLToPath(new URL('../../dist/web', import.meta.url))
+  const candidates = [
+    fileURLToPath(new URL('./web', import.meta.url)),
+    fileURLToPath(new URL('../../dist/web', import.meta.url)),
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, 'index.html'))) return candidate
+  }
+  return candidates[0]
 }

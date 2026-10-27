@@ -11,6 +11,7 @@ export function LogList({
   visible,
   zone,
   autoscroll,
+  newestFirst,
   wrap,
   isolateTrace,
   emptyText,
@@ -34,17 +35,18 @@ export function LogList({
   })
 
   const lastPinnedSeq = useRef<number | null>(null)
+  const newestIndex = newestFirst ? 0 : lastIndex
 
   useEffect(() => {
     if (!autoscroll) {
       lastPinnedSeq.current = null
       return
     }
-    const newest = visible[lastIndex]?.seq ?? null
+    const newest = visible[newestIndex]?.seq ?? null
     if (newest === null || newest === lastPinnedSeq.current) return
     lastPinnedSeq.current = newest
-    virtualizer.scrollToIndex(lastIndex, { align: 'end' })
-  }, [autoscroll, virtualizer, lastIndex, visible])
+    virtualizer.scrollToIndex(newestIndex, { align: newestFirst ? 'start' : 'end' })
+  }, [autoscroll, virtualizer, newestIndex, newestFirst, visible])
 
   const lastSelection = useRef<{
     stream: string | null
@@ -180,6 +182,7 @@ export type LogListProps = {
   visible: readonly LogRecord[]
   zone: Zone
   autoscroll: boolean
+  newestFirst: boolean
   wrap: boolean
   isolateTrace: string | null
   emptyText: string

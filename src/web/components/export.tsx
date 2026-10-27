@@ -1,14 +1,17 @@
 import type { LogRecord } from '../../shared/types.ts'
-import type { FilterState, RangeKey, SortKey } from '../lib/filters.ts'
-import { RANGE_LABELS, visibleRecords } from '../lib/filters.ts'
+import type { FilterState, SortKey } from '../lib/filters.ts'
+import { orderRecords, visibleRecords } from '../lib/filters.ts'
+import { formatNumber } from '../lib/format-time.ts'
 import { MenuItem } from './toolbar.tsx'
 
 export function ExportMenuContent({
   count,
+  cap,
   onTxt,
   onPdf,
 }: {
   count: number
+  cap: number
   onTxt: () => void
   onPdf: () => void
 }) {
@@ -16,7 +19,9 @@ export function ExportMenuContent({
     <>
       <MenuItem label="Raw .txt" note={`${count} lines`} onPress={onTxt} />
       <MenuItem label="Formatted .pdf" onPress={onPdf} />
-      <p className="menu-note">Exports respect the active filters and stop at the buffer cap.</p>
+      <p className="menu-note">
+        Exports respect the active filters and stop at the {formatNumber(cap)} line buffer cap.
+      </p>
     </>
   )
 }
@@ -27,9 +32,7 @@ export function exportRecords(
   isolateTrace: string | null,
   sort: SortKey,
 ): LogRecord[] {
-  const visible = visibleRecords(records, filter, isolateTrace)
-  if (sort === 'newest') return visible
-  return visible.slice().reverse()
+  return orderRecords(visibleRecords(records, filter, isolateTrace), sort)
 }
 
 export function exportText(records: readonly LogRecord[]): string {
@@ -45,29 +48,5 @@ export function downloadText(name: string, text: string): void {
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
-  URL.revokeObjectURL(url)
-}
-
-const LINES_PER_PAGE = 58
-
-export function buildPrintPages(
-  streamName: string,
-  records: readonly LogRecord[],
-  range: RangeKey,
-  zone: 'utc' | 'local',
-): { title: string; meta: string; pages: string[] } {
-  const pages: string[] = []
-  for (let index = 0; index < records.length; index += LINES_PER_PAGE) {
-    const slice = records.slice(index, index + LINES_PER_PAGE)
-    pages.push(slice.map((record) => `${formatSeq(record)}  ${record.raw}`).join('\n'))
-  }
-  return {
-    title: `log-ui · ${streamName}`,
-    meta: `${String(new Date().toISOString())} · ${RANGE_LABELS[range]} · ${zone.toUpperCase()} · ${String(records.length)} lines`,
-    pages,
-  }
-}
-
-function formatSeq(record: LogRecord): string {
-  return String(record.seq).padStart(6, ' ')
+  window.setTimeout(() => URL.revokeObjectURL(url), 2_000)
 }

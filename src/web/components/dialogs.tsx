@@ -1,9 +1,9 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { parseLine } from '../../shared/parse-line.ts'
 import type { LogRecord } from '../../shared/types.ts'
 import { MANUAL_SAMPLE, PIPE_EXAMPLES, SHORTCUTS } from '../app/legacy-data.ts'
 import { copyText } from '../lib/clipboard.ts'
 import { formatNumber } from '../lib/format-time.ts'
+import { MANUAL_FILE_LIMIT, parseManual } from '../lib/manual.ts'
 import { Icon } from './icons.tsx'
 
 export function DialogFrame({
@@ -289,25 +289,32 @@ export function HelpSheet({
 
 export function ManualDialog({
   open,
+  cap,
   onClose,
   onParse,
 }: {
   open: boolean
+  cap: number
   onClose: () => void
-  onParse: (records: LogRecord[]) => void
+  onParse: (records: LogRecord[], totalLines: number) => void
 }) {
   const [text, setText] = useState('')
   const [guard, setGuard] = useState('')
   const [over, setOver] = useState(false)
+  const [fileLabel, setFileLabel] = useState('Drop a .txt or .log file here')
   const fileInput = useRef<HTMLInputElement | null>(null)
 
   const readFile = async (file: File): Promise<void> => {
-    if (file.size > 25 * 1024 * 1024) {
-      setGuard(`"${file.name}" is ${formatNumber(file.size)} bytes — files over 25 MB are refused.`)
+    if (file.size > MANUAL_FILE_LIMIT) {
+      setFileLabel('Drop a .txt or .log file here')
+      setGuard(
+        `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Manual mode accepts up to 25 MB.`,
+      )
       return
     }
     const raw = await file.text()
     setText(raw)
+    setFileLabel(`${file.name} · ${(file.size / 1024).toFixed(1)} kB`)
     setGuard('')
   }
 
@@ -342,7 +349,7 @@ export function ManualDialog({
           }}
         >
           <Icon name="file" />
-          <span className="grow">Drop a .txt or .log file here</span>
+          <span className="grow">{fileLabel}</span>
           <button className="btn" type="button" onClick={() => fileInput.current?.click()}>
             Choose file
           </button>
@@ -360,7 +367,15 @@ export function ManualDialog({
       </div>
       <p className="guard">{guard}</p>
       <div className="dialog-actions">
-        <button className="btn ghost" type="button" onClick={() => setText(MANUAL_SAMPLE)}>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={() => {
+            setText(MANUAL_SAMPLE)
+            setFileLabel('Sample lines loaded')
+            setGuard('')
+          }}
+        >
           Try a sample
         </button>
         <button className="btn" type="button" onClick={onClose}>
@@ -370,13 +385,14 @@ export function ManualDialog({
           className="btn primary"
           type="button"
           onClick={() => {
-            const records = parseManual(text)
-            if (records.length === 0) {
-              setGuard('No lines to parse yet.')
+            const result = parseManual(text, cap)
+            if (result.totalLines === 0) {
+              setGuard('Paste some log lines, drop a file, or try the sample.')
               return
             }
-            onParse(records)
+            onParse(result.records, result.totalLines)
             setText('')
+            setFileLabel('Drop a .txt or .log file here')
             setGuard('')
             onClose()
           }}
@@ -386,26 +402,6 @@ export function ManualDialog({
       </div>
     </DialogFrame>
   )
-}
-
-export function parseManual(text: string): LogRecord[] {
-  const records: LogRecord[] = []
-  let seq = 0
-  for (const line of text.split(/\r?\n/)) {
-    seq += 1
-    const parsed = parseLine(line)
-    records.push({
-      seq,
-      raw: parsed.raw,
-      truncated: parsed.truncated,
-      ts: parsed.ts,
-      level: parsed.level,
-      message: parsed.message,
-      json: parsed.json,
-      ids: parsed.ids,
-    })
-  }
-  return records
 }
 
 export function PrintSheet({
@@ -431,7 +427,9 @@ export function PrintSheet({
         {pages.map((content, index) => (
           <div className="print-page" key={index}>
             <pre>{content}</pre>
-            <p className="page-no">Page {String(index + 1)}</p>
+            <p className="page-no">
+              Page {String(index + 1)} of {String(pages.length)}
+            </p>
           </div>
         ))}
       </div>

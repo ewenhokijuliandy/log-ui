@@ -5,6 +5,7 @@ import {
   filterError,
   filtersActive,
   MAX_PATTERN_LENGTH,
+  orderRecords,
   parseDateTimeInput,
   rangeError,
   rangeWindow,
@@ -160,6 +161,13 @@ describe('filter state', () => {
     expect(filtersActive({ ...DEFAULT_FILTER, query: 'x' }, null)).toBe(true)
     expect(filtersActive({ ...DEFAULT_FILTER, range: 'custom' }, null)).toBe(true)
     expect(filtersActive(DEFAULT_FILTER, 'trace-id')).toBe(true)
+  })
+
+  test('orders newest first by reversing ingestion order', () => {
+    const records = [record(1), record(2), record(3)]
+    expect(orderRecords(records, 'newest').map((item) => item.seq)).toEqual([3, 2, 1])
+    expect(orderRecords(records, 'oldest').map((item) => item.seq)).toEqual([1, 2, 3])
+    expect(records.map((item) => item.seq)).toEqual([1, 2, 3])
   })
 })
 

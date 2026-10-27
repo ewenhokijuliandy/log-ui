@@ -2551,6 +2551,11 @@ textarea.paste::placeholder {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
   :root {
     --ground: #ffffff;
     --surface: #ffffff;
@@ -2578,12 +2583,27 @@ textarea.paste::placeholder {
 
   .print-sheet {
     position: static;
+    inset: auto;
     width: auto;
+    max-width: none;
+    height: auto;
     max-height: none;
+    margin: 0;
+    overflow: visible;
     border: 0;
   }
 
   .print-actions {
     display: none;
+  }
+
+  .print-page {
+    break-after: page;
+    break-inside: avoid;
+    border-bottom: 0;
+  }
+
+  .print-page:last-child {
+    break-after: auto;
   }
 }

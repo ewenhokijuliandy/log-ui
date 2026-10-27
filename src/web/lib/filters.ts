@@ -27,6 +27,11 @@ export const SORT_LABELS: Record<SortKey, string> = {
   oldest: 'Oldest first',
 }
 
+export function orderRecords(records: readonly LogRecord[], sort: SortKey): LogRecord[] {
+  if (sort === 'oldest') return [...records]
+  return records.slice().reverse()
+}
+
 export const MAX_PATTERN_LENGTH = 1_000
 
 export type FilterState = {

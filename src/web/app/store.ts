@@ -14,9 +14,12 @@ import { type ConnectionPhase, createStreamSocket, type ServerEvent } from './ws
 
 export const BUFFER_CAP = 10_000
 
+export type StreamKind = 'pipe' | 'manual'
+
 export type StreamEntry = {
   id: string
   name: string
+  kind: StreamKind
   status: StreamStatus
   createdAt: number
   records: LogRecord[]
@@ -44,8 +47,9 @@ type StoreActions = {
   setActive: (id: string | null) => void
   setSimulatedLost: (value: boolean) => void
   moveTab: (dragId: string, overId: string, before: boolean) => void
-  addManual: (records: LogRecord[]) => void
-  removeLocal: (id: string) => void
+  addManual: (records: LogRecord[], totalLines: number) => void
+  closeStream: (id: string) => Promise<void>
+  clearStream: (id: string) => Promise<void>
 }
 
 const joinPath = (path: string): string => `${window.location.origin}${path}`
@@ -66,6 +70,7 @@ function entryFromSnapshot(meta: StreamMeta, snapshot: StreamSnapshot): StreamEn
   return {
     id: meta.id,
     name: meta.name,
+    kind: 'pipe',
     status: snapshot.status,
     createdAt: meta.createdAt,
     records,
@@ -124,15 +129,16 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     applyOrder(ordered)
   },
 
-  addManual: (records) => {
+  addManual: (records, totalLines) => {
     const existing = get().streams.map((entry) => entry.name)
     const name = allocateStreamName(existing, 'manual')
-    const dropped = Math.max(0, records.length - BUFFER_CAP)
     const kept =
       records.length > BUFFER_CAP ? records.slice(records.length - BUFFER_CAP) : [...records]
+    const dropped = Math.max(0, Math.max(totalLines, records.length) - kept.length)
     const entry: StreamEntry = {
       id: crypto.randomUUID(),
       name,
+      kind: 'manual',
       status: 'stopped',
       createdAt: Date.now(),
       records: kept,
@@ -149,15 +155,48 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     })
   },
 
-  removeLocal: (id) => {
-    set((state) => {
-      const next = state.streams.filter((item) => item.id !== id)
-      saveTabOrder(next.map((item) => item.id))
-      return {
-        streams: next,
-        activeId: state.activeId === id ? (next[0]?.id ?? null) : state.activeId,
-      }
-    })
+  closeStream: async (id) => {
+    const entry = get().streams.find((item) => item.id === id)
+    if (entry === undefined) return
+    if (entry.kind === 'manual') {
+      set((state) => {
+        const next = state.streams.filter((item) => item.id !== id)
+        saveTabOrder(next.map((item) => item.id))
+        return {
+          streams: next,
+          activeId: state.activeId === id ? (next[0]?.id ?? null) : state.activeId,
+          cleared: state.cleared.filter((item) => item !== id),
+        }
+      })
+      return
+    }
+    try {
+      await fetch(joinPath(`/api/streams/${id}`), { method: 'DELETE' })
+    } catch {}
+  },
+
+  clearStream: async (id) => {
+    const entry = get().streams.find((item) => item.id === id)
+    if (entry === undefined) return
+    if (entry.kind === 'manual') {
+      set((state) => ({
+        cleared: [...state.cleared.filter((item) => item !== id), id],
+        streams: state.streams.map((item) => {
+          if (item.id !== id) return item
+          return {
+            ...item,
+            records: [],
+            dropped: 0,
+            lineCount: 0,
+            levelCounts: { ...EMPTY_LEVEL_COUNTS },
+          }
+        }),
+      }))
+      return
+    }
+    try {
+      await fetch(joinPath(`/api/streams/${id}/clear`), { method: 'POST' })
+    } catch {}
   },
 
   boot: async () => {
@@ -224,6 +263,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
           const entry: StreamEntry = {
             id: meta.id,
             name: meta.name,
+            kind: 'pipe',
             status: meta.status,
             createdAt: meta.createdAt,
             records: [],

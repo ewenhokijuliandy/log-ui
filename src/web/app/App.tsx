@@ -8,7 +8,6 @@ import {
   SettingsSheet,
 } from '../components/dialogs.tsx'
 import {
-  buildPrintPages,
   downloadText,
   ExportMenuContent,
   exportRecords,
@@ -28,11 +27,13 @@ import {
   type FilterState,
   filterError,
   filtersActive,
+  orderRecords,
   type SortKey,
   visibleRecords,
 } from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { createPreset, loadPresets, type Preset, savePresets } from '../lib/presets.ts'
+import { buildPrintPages } from '../lib/print-sheet.ts'
 import {
   applyTheme,
   clampInspectorWidth,
@@ -69,7 +70,8 @@ export function App() {
   const resync = useStreams((state) => state.resync)
   const setSimulatedLost = useStreams((state) => state.setSimulatedLost)
   const addManual = useStreams((state) => state.addManual)
-  const removeLocal = useStreams((state) => state.removeLocal)
+  const closeStream = useStreams((state) => state.closeStream)
+  const clearStream = useStreams((state) => state.clearStream)
   const cleared = useStreams((state) => state.cleared)
 
   const screen = useUi((state) => state.screen)
@@ -158,9 +160,7 @@ export function App() {
 
   const visible = useMemo<LogRecord[]>(() => {
     if (active === null) return []
-    const ordered = visibleRecords(active.records, filter, isolateTrace)
-    if (sort === 'newest') return ordered
-    return ordered.slice().reverse()
+    return orderRecords(visibleRecords(active.records, filter, isolateTrace), sort)
   }, [active, filter, isolateTrace, sort])
 
   useEffect(() => {
@@ -242,49 +242,14 @@ export function App() {
     const id = clearTarget
     setClearTarget(null)
     if (id === null) return
-    const manual =
-      useStreams
-        .getState()
-        .streams.find((entry) => entry.id === id)
-        ?.name.startsWith('manual') ?? false
-    if (manual) {
-      useStreams.setState((state) => ({
-        cleared: [...state.cleared.filter((item) => item !== id), id],
-        streams: state.streams.map((entry) =>
-          entry.id === id
-            ? {
-                ...entry,
-                records: [],
-                dropped: 0,
-                lineCount: 0,
-                levelCounts: { ...entry.levelCounts },
-              }
-            : entry,
-        ),
-      }))
-      return
-    }
-    try {
-      await fetch(`/api/streams/${id}/clear`, { method: 'POST' })
-    } catch {}
+    await clearStream(id)
   }
 
   async function confirmClose(): Promise<void> {
     const id = closeTarget
     setCloseTarget(null)
     if (id === null) return
-    const manual =
-      useStreams
-        .getState()
-        .streams.find((entry) => entry.id === id)
-        ?.name.startsWith('manual') ?? false
-    if (manual) {
-      removeLocal(id)
-      return
-    }
-    try {
-      await fetch(`/api/streams/${id}`, { method: 'DELETE' })
-    } catch {}
+    await closeStream(id)
   }
 
   function savePreset(name: string): void {
@@ -325,8 +290,12 @@ export function App() {
   const totalLines = active?.lineCount ?? 0
   const droppedLines = active?.dropped ?? 0
   const clearedActive = active !== null && cleared.includes(active.id)
+  const clearEntry = streams.find((entry) => entry.id === clearTarget) ?? null
+  const closeEntry = streams.find((entry) => entry.id === closeTarget) ?? null
   const emptyText = clearedActive
-    ? 'Buffer cleared. New lines will appear here.'
+    ? active?.kind === 'manual'
+      ? 'Parsed lines cleared.'
+      : 'Buffer cleared. New lines will appear here.'
     : filtersActive(filter, isolateTrace)
       ? 'No lines match this view.'
       : (bootError ?? 'No lines in this buffer yet.')
@@ -347,6 +316,7 @@ export function App() {
             onExport={
               <ExportMenuContent
                 count={visible.length}
+                cap={BUFFER_CAP}
                 onTxt={() => {
                   if (active === null) return
                   downloadText(
@@ -360,8 +330,8 @@ export function App() {
                     buildPrintPages(
                       active.name,
                       exportRecords(active.records, filter, isolateTrace, sort),
-                      filter.range,
                       prefs.zone,
+                      BUFFER_CAP,
                     ),
                   )
                 }}
@@ -388,13 +358,25 @@ export function App() {
                       <div className="title-line">
                         <h1>{active.name}</h1>
                         <span
-                          className={`status-pill${active.status === 'stopped' ? ' stopped' : ''}`}
+                          className={`status-pill${
+                            active.kind === 'manual' || active.status === 'stopped'
+                              ? ' stopped'
+                              : ''
+                          }`}
                         >
                           <span className="dot" />
-                          {active.status === 'stopped' ? 'STOPPED' : 'ACTIVE'}
+                          {active.kind === 'manual'
+                            ? 'MANUAL'
+                            : active.status === 'stopped'
+                              ? 'STOPPED'
+                              : 'ACTIVE'}
                         </span>
                       </div>
-                      <p className="finding">{bootError ?? ''}</p>
+                      <p className="finding">
+                        {active.kind === 'manual'
+                          ? 'Parsed in this browser. Filters, inspection and export work on these lines.'
+                          : (bootError ?? '')}
+                      </p>
                     </div>
                     <div className="title-meta">
                       <span className="retained">
@@ -431,7 +413,7 @@ export function App() {
                     </div>
                   ) : null}
 
-                  {active.status === 'stopped' && !clearedActive ? (
+                  {active.kind !== 'manual' && active.status === 'stopped' && !clearedActive ? (
                     <div className="banner">
                       <span>
                         The pipe for {active.name} ended. Restart the stream to see new lines.
@@ -491,10 +473,13 @@ export function App() {
                       visible={visible}
                       zone={prefs.zone}
                       autoscroll={prefs.autoscroll}
+                      newestFirst={sort === 'newest'}
                       wrap={prefs.wrap}
                       isolateTrace={isolateTrace}
                       emptyText={emptyText}
-                      onClearFilters={clearFilters}
+                      onClearFilters={
+                        filtersActive(filter, isolateTrace) ? clearFilters : undefined
+                      }
                     />
                     <Inspector
                       record={selectedRecord}
@@ -536,11 +521,11 @@ export function App() {
 
       <ConfirmDialog
         open={clearTarget !== null}
-        title={`Clear the ${active?.name ?? 'stream'} buffer?`}
+        title={clearEntry === null ? 'Clear this buffer?' : `Clear the ${clearEntry.name} buffer?`}
         body={
-          active === null
-            ? 'This removes the retained lines for the stream. The buffer keeps filling as new lines arrive.'
-            : `This removes the retained lines for ${active.name}. The tab stays open and the buffer keeps filling as new lines arrive.`
+          clearEntry === null
+            ? 'This removes the retained lines for the stream. This cannot be undone.'
+            : clearBody(clearEntry)
         }
         confirmLabel="Clear buffer"
         cancelLabel="Keep lines"
@@ -550,8 +535,12 @@ export function App() {
 
       <ConfirmDialog
         open={closeTarget !== null}
-        title="Close this tab?"
-        body={`The ${closeName(closeTarget, streams)} tab and its retained buffer are removed. If a pipe is still streaming into it, the CLI exits with code 0.`}
+        title={closeEntry === null ? 'Close this tab?' : `Close ${closeEntry.name}?`}
+        body={
+          closeEntry === null
+            ? 'This removes the tab and its buffer. This cannot be undone.'
+            : closeBody(closeEntry)
+        }
         confirmLabel="Close tab"
         cancelLabel="Keep open"
         onConfirm={() => void confirmClose()}
@@ -581,9 +570,10 @@ export function App() {
 
       <ManualDialog
         open={sheet === 'manual'}
+        cap={BUFFER_CAP}
         onClose={() => setSheet(null)}
-        onParse={(records) => {
-          addManual(records)
+        onParse={(records, totalLines) => {
+          addManual(records, totalLines)
           setInspectorOpen(false)
           setScreen('stream')
         }}
@@ -600,6 +590,20 @@ export function App() {
   )
 }
 
-function closeName(id: string | null, streams: readonly StreamEntry[]): string {
-  return streams.find((entry) => entry.id === id)?.name ?? 'this stream'
+function clearBody(entry: StreamEntry): string {
+  const noun = entry.kind === 'manual' ? 'parsed' : 'retained'
+  const tail =
+    entry.kind === 'manual'
+      ? 'This parsed copy exists only in this browser.'
+      : entry.status === 'stopped'
+        ? 'The source process has ended, so the buffer cannot be refilled.'
+        : 'The stream stays connected and new lines keep arriving.'
+  return `This removes ${formatNumber(entry.lineCount)} ${noun} lines from this tab. ${tail} This cannot be undone.`
+}
+
+function closeBody(entry: StreamEntry): string {
+  if (entry.kind === 'manual') {
+    return `This removes its ${formatNumber(entry.lineCount)} parsed lines from this browser. This cannot be undone.`
+  }
+  return `This clears its ${formatNumber(entry.lineCount)} retained lines and ends that stream. If a pipe is still streaming into it, the CLI exits with code 0. This cannot be undone.`
 }
