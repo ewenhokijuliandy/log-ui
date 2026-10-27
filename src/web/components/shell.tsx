@@ -7,7 +7,7 @@ import { PopoverPanel, usePopover } from './popover.tsx'
 
 export type SheetName = 'settings' | 'help' | 'manual' | null
 
-export function Rail({ openSheet, toggleTheme, onStreams }: RailProps) {
+export function Rail({ openSheet, toggleTheme, onStreams, onDetail, detailOpen }: RailProps) {
   const streamsOpen = useUi((state) => state.screen === 'stream')
   return (
     <aside className="rail" aria-label="Workspace">
@@ -30,7 +30,8 @@ export function Rail({ openSheet, toggleTheme, onStreams }: RailProps) {
         type="button"
         title="Line detail"
         aria-label="Line detail"
-        onClick={onStreams}
+        aria-pressed={detailOpen}
+        onClick={onDetail}
       >
         <Icon name="panel" />
         <span className="rail-label">Detail</span>
@@ -87,6 +88,8 @@ export type RailProps = {
   openSheet: (sheet: Exclude<SheetName, null> | null) => void
   toggleTheme: () => void
   onStreams: () => void
+  onDetail: () => void
+  detailOpen: boolean
 }
 
 function ThemeGlyph() {
@@ -119,7 +122,7 @@ export function TopBar({ openSheet, toggleTheme, onExport, onSimulateLoss }: Top
           className="live-dot"
           style={phase === 'connected' ? undefined : { background: 'var(--warning)' }}
         />
-        <span>{phaseLabel(phase)}</span>
+        <span aria-live="polite">{phaseLabel(phase)}</span>
       </button>
       <PopoverPanel control={connection} label="Connection">
         <div className="popover-title">Daemon on {host}</div>
@@ -191,7 +194,7 @@ function phaseLabel(phase: string): string {
   }
 }
 
-export function Statusbar({ showing, retained, dropped, zone, error }: StatusbarProps) {
+export function Statusbar({ showing, retained, dropped, zone }: StatusbarProps) {
   return (
     <footer className="statusbar">
       <span className="live">
@@ -207,9 +210,6 @@ export function Statusbar({ showing, retained, dropped, zone, error }: Statusbar
       </span>
       <span className="hide-sm">·</span>
       <span className="hide-sm">Times {zone === 'utc' ? 'UTC' : 'Local'}</span>
-      <span className="status-error" id="search-error" role="status">
-        {error ?? ''}
-      </span>
     </footer>
   )
 }
@@ -219,5 +219,4 @@ export type StatusbarProps = {
   retained: string
   dropped: string
   zone: Zone
-  error: string | null
 }

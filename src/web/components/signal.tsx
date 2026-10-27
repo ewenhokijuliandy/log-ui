@@ -8,9 +8,9 @@ const TICK_KINDS = new Set(['warn', 'error', 'fatal', 'trace'])
 export function SignalStrip({ records, zone }: { records: readonly LogRecord[]; zone: Zone }) {
   const signal = buildSignal(records)
   return (
-    <div className="signal" aria-label="Log density over the last 60 seconds">
+    <div className="signal">
       <span className="signal-label">Last 60 s</span>
-      <div className="signal-ticks">
+      <div className="signal-ticks" role="img" aria-label="Log density over the last 60 seconds">
         {signal.bins.map((level, index) => (
           <span key={index} className={`signal-tick${TICK_KINDS.has(level) ? ` ${level}` : ''}`} />
         ))}

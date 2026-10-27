@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, test } from 'vitest'
 import { DEFAULT_STATE_DIR } from '../src/cli/daemon'
+import { readVersion } from '../src/server/version.ts'
 
 const CLI_PATH = fileURLToPath(new URL('../src/cli/index.ts', import.meta.url))
 const PID_DIR = DEFAULT_STATE_DIR
@@ -152,6 +153,13 @@ function pidFileFor(port: number): string {
 }
 
 describe('log-ui cli', () => {
+  test('--version prints the package version', async () => {
+    const child = spawnCli(['--version'])
+    const exit = await collect(child)
+    expect(exit.code).toBe(0)
+    expect(exit.stdout.trim()).toBe(readVersion())
+  })
+
   test('piped stdin streams into the daemon and exits 0 on EOF', async () => {
     const port = await pickFreePort()
     const cli = spawnCli([`--port=${String(port)}`, '--name=api'])

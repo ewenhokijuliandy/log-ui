@@ -30,7 +30,7 @@ export function QuickStart({
         <span className="quick-mark">
           <Icon name="mark" />
         </span>
-        <h1>log-ui</h1>
+        <h2>log-ui</h2>
       </div>
       <p className="quick-note">
         Pipe any command into log-ui and it opens this workspace with the stream in a tab.
@@ -58,9 +58,13 @@ export function QuickStart({
 }
 
 export function EmptyState({
+  error,
+  onRetry,
   onManual,
   onQuickStart,
 }: {
+  error: string | null
+  onRetry: () => void
   onManual: () => void
   onQuickStart: () => void
 }) {
@@ -76,6 +80,14 @@ export function EmptyState({
         <p className="quick-note">
           Pipe a command into log-ui or open quick start. New streams appear in their own tabs.
         </p>
+        {error === null ? null : (
+          <div className="empty-error" role="alert">
+            <span>{error}</span>
+            <button className="link" type="button" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        )}
         <div className="pipe-list">
           {PIPE_EXAMPLES.map((command) => (
             <PipeRow key={command} command={command} />

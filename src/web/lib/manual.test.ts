@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseManual } from './manual.ts'
+import { MANUAL_FILE_LIMIT, manualFileProblem, parseManual } from './manual.ts'
 
 describe('manual parsing', () => {
   test('skips blank lines and numbers the remaining lines', () => {
@@ -56,5 +56,25 @@ describe('manual parsing', () => {
     expect(result.records).toHaveLength(10_000)
     expect(result.records[9999]?.seq).toBe(count)
     expect(elapsed).toBeLessThan(2_000)
+  })
+})
+
+describe('manual file guards', () => {
+  test('accepts .txt, .log and text/plain files within the size limit', () => {
+    expect(manualFileProblem({ name: 'app.log', size: 1024, type: '' })).toBeNull()
+    expect(manualFileProblem({ name: 'APP.TXT', size: 1024, type: '' })).toBeNull()
+    expect(manualFileProblem({ name: 'capture', size: 1024, type: 'text/plain' })).toBeNull()
+  })
+
+  test('rejects unsupported file types', () => {
+    expect(manualFileProblem({ name: 'photo.png', size: 10, type: 'image/png' })).toBe(
+      'Manual mode accepts .txt and .log files.',
+    )
+  })
+
+  test('rejects files over the 25 MB limit with the real size', () => {
+    expect(
+      manualFileProblem({ name: 'huge.log', size: MANUAL_FILE_LIMIT + 1, type: 'text/plain' }),
+    ).toBe('This file is 25.0 MB. Manual mode accepts up to 25 MB.')
   })
 })

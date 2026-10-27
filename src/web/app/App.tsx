@@ -14,7 +14,7 @@ import {
   exportText,
 } from '../components/export.tsx'
 import { Sprite } from '../components/icons.tsx'
-import { Inspector } from '../components/inspector.tsx'
+import { DetailSheet, Inspector } from '../components/inspector.tsx'
 import { LogList } from '../components/logs.tsx'
 import { EmptyState, QuickStart } from '../components/quick.tsx'
 import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
@@ -32,6 +32,7 @@ import {
   visibleRecords,
 } from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
+import { useMediaQuery } from '../lib/media.ts'
 import { frozenRecords, pendingCount } from '../lib/pause.ts'
 import { createPreset, loadPresets, type Preset, savePresets } from '../lib/presets.ts'
 import { buildPrintPages } from '../lib/print-sheet.ts'
@@ -51,6 +52,7 @@ import {
   chipCount,
   levelCountTotal,
   openSocket,
+  reconnectNow,
   type StreamEntry,
   useStreams,
 } from './store.ts'
@@ -101,6 +103,7 @@ export function App() {
   )
 
   const active = streams.find((entry) => entry.id === activeId) ?? null
+  const narrow = useMediaQuery('(max-width: 960px)')
 
   useEffect(() => {
     openSocket()
@@ -171,6 +174,7 @@ export function App() {
         setSheet(null)
         return
       }
+      if (document.querySelector('dialog[open]') !== null) return
       if (typing) return
       if (event.key === '/') {
         event.preventDefault()
@@ -223,6 +227,40 @@ export function App() {
     active === null || selectedSeq === null
       ? null
       : (active.records.find((record) => record.seq === selectedSeq) ?? null)
+  const showDetailSheet = narrow && inspectorOpen && selectedRecord !== null
+
+  function copySelectedRaw(): Promise<boolean> {
+    if (selectedRecord === null) return Promise.resolve(false)
+    return copyText(selectedRecord.raw)
+  }
+
+  function copySelectedJson(): Promise<boolean> {
+    if (selectedRecord === null) return Promise.resolve(false)
+    return copyText(
+      selectedRecord.json === null
+        ? selectedRecord.raw
+        : JSON.stringify(selectedRecord.json, null, 2),
+    )
+  }
+
+  function openDetail(): void {
+    if (active === null) return
+    const current = useUi.getState().selectedSeq[active.id] ?? null
+    const valid = current !== null && active.records.some((record) => record.seq === current)
+    if (!valid) {
+      const newest = active.records[active.records.length - 1]
+      if (newest !== undefined) select(active.id, newest.seq)
+    }
+    setInspectorOpen(true)
+  }
+
+  function toggleDetail(): void {
+    if (inspectorOpen) {
+      setInspectorOpen(false)
+      return
+    }
+    openDetail()
+  }
 
   function updateInspectorWidth(next: number): void {
     const value = clampInspectorWidth(next)
@@ -296,13 +334,16 @@ export function App() {
   const clearedActive = active !== null && cleared.includes(active.id)
   const clearEntry = streams.find((entry) => entry.id === clearTarget) ?? null
   const closeEntry = streams.find((entry) => entry.id === closeTarget) ?? null
+  const filterProblem = filterError(filter)
   const emptyText = clearedActive
     ? active?.kind === 'manual'
       ? 'Parsed lines cleared.'
       : 'Buffer cleared. New lines will appear here.'
-    : filtersActive(filter, isolateTrace)
-      ? 'No lines match this view.'
-      : (bootError ?? 'No lines in this buffer yet.')
+    : filterProblem !== null
+      ? 'This pattern is not a valid regular expression.'
+      : filtersActive(filter, isolateTrace)
+        ? 'No lines match this view.'
+        : (bootError ?? 'No lines in this buffer yet.')
 
   return (
     <>
@@ -312,6 +353,8 @@ export function App() {
           openSheet={(target) => setSheet(target)}
           toggleTheme={toggleTheme}
           onStreams={() => setScreen('stream')}
+          onDetail={toggleDetail}
+          detailOpen={inspectorOpen && selectedRecord !== null}
         />
         <div className="main">
           <TopBar
@@ -350,12 +393,19 @@ export function App() {
           <div className="workspace">
             {zeroStreams ? (
               <EmptyState
+                error={bootError}
+                onRetry={() => void useStreams.getState().boot()}
                 onManual={() => setSheet('manual')}
                 onQuickStart={() => setScreen('quick')}
               />
             ) : (
               active !== null && (
-                <section className="view" aria-label="Stream workspace">
+                <section
+                  className="view"
+                  id="stream-view"
+                  role="tabpanel"
+                  aria-labelledby={`tab-${active.id}`}
+                >
                   <div className="title-row">
                     <div className="title-block">
                       <div className="title-line">
@@ -401,14 +451,18 @@ export function App() {
                   </div>
 
                   {connection !== 'connected' || simulatedLost ? (
-                    <div className="banner">
+                    <div className="banner" role="status">
                       <span>Connection to the daemon lost. Reconnecting…</span>
                       <button
                         className="link"
                         type="button"
                         onClick={() => {
                           setSimulatedLost(false)
-                          void resync(active.id)
+                          if (connection === 'connected') {
+                            if (active !== null) void resync(active.id)
+                            return
+                          }
+                          reconnectNow()
                         }}
                       >
                         Retry now
@@ -417,7 +471,7 @@ export function App() {
                   ) : null}
 
                   {active.kind !== 'manual' && active.status === 'stopped' && !clearedActive ? (
-                    <div className="banner">
+                    <div className="banner" role="status">
                       <span>
                         The pipe for {active.name} ended. Restart the stream to see new lines.
                       </span>
@@ -487,7 +541,9 @@ export function App() {
                       onResume={() => setPaused(active.id, false)}
                       emptyText={emptyText}
                       onClearFilters={
-                        filtersActive(filter, isolateTrace) ? clearFilters : undefined
+                        filterProblem === null && filtersActive(filter, isolateTrace)
+                          ? clearFilters
+                          : undefined
                       }
                     />
                     <Inspector
@@ -496,18 +552,8 @@ export function App() {
                       width={inspectorWidth}
                       onWidth={updateInspectorWidth}
                       onResetWidth={() => updateInspectorWidth(defaultInspectorWidth())}
-                      onCopyRaw={() => {
-                        if (selectedRecord === null) return Promise.resolve(false)
-                        return copyText(selectedRecord.raw)
-                      }}
-                      onCopyJson={() => {
-                        if (selectedRecord === null) return Promise.resolve(false)
-                        return copyText(
-                          selectedRecord.json === null
-                            ? selectedRecord.raw
-                            : JSON.stringify(selectedRecord.json, null, 2),
-                        )
-                      }}
+                      onCopyRaw={copySelectedRaw}
+                      onCopyJson={copySelectedJson}
                     />
                   </div>
                 </section>
@@ -523,10 +569,19 @@ export function App() {
             retained={zeroStreams || active === null ? '-' : formatNumber(totalLines)}
             dropped={zeroStreams || active === null ? '-' : formatNumber(droppedLines)}
             zone={prefs.zone}
-            error={filterError(filter)}
           />
         </div>
       </div>
+
+      {showDetailSheet && selectedRecord !== null ? (
+        <DetailSheet
+          record={selectedRecord}
+          zone={prefs.zone}
+          onClose={() => setInspectorOpen(false)}
+          onCopyRaw={copySelectedRaw}
+          onCopyJson={copySelectedJson}
+        />
+      ) : null}
 
       <QuickStart
         open={quickOpen}

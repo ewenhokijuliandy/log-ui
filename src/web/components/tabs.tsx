@@ -54,118 +54,164 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
     cancelRename()
   }
 
+  function activate(entry: StreamEntry): void {
+    setActive(entry.id)
+    select(entry.id, entry.records[entry.records.length - 1]?.seq ?? null)
+    setIsolate(null)
+    setScreen('stream')
+  }
+
+  function moveFocus(entry: StreamEntry, direction: 'left' | 'right' | 'first' | 'last'): void {
+    const index = streams.findIndex((item) => item.id === entry.id)
+    if (index < 0) return
+    const next =
+      direction === 'first'
+        ? 0
+        : direction === 'last'
+          ? streams.length - 1
+          : direction === 'right'
+            ? (index + 1) % streams.length
+            : (index - 1 + streams.length) % streams.length
+    const target = streams[next]
+    if (target === undefined) return
+    activate(target)
+    document.getElementById(`tab-${target.id}`)?.focus()
+  }
+
   return (
-    <div className="tabs" role="tablist" aria-label="Log streams">
-      {streams.map((entry) => {
-        const selected = entry.id === activeId
-        const editing = editingId === entry.id
-        return (
-          <div
-            key={entry.id}
-            className={`stream-tab${editing ? ' editing' : ''}`}
-            role="tab"
-            tabIndex={0}
-            aria-selected={selected}
-            draggable={!editing}
-            title={editing ? undefined : entry.name}
-            onDragStart={(event) => {
-              dragId.current = entry.id
-              event.dataTransfer.effectAllowed = 'move'
-            }}
-            onDragEnd={() => {
-              dragId.current = null
-            }}
-            onDragOver={(event) => {
-              if (dragId.current === null) return
-              event.preventDefault()
-              const rect = event.currentTarget.getBoundingClientRect()
-              moveTab(dragId.current, entry.id, event.clientX < rect.left + rect.width / 2)
-            }}
-            onClick={(event) => {
-              if (editing) return
-              const target = event.target as HTMLElement
-              if (target.closest('.close') !== null) return
-              setActive(entry.id)
-              select(entry.id, entry.records[entry.records.length - 1]?.seq ?? null)
-              setIsolate(null)
-              setScreen('stream')
-            }}
-            onKeyDown={(event) => {
-              if (editing) return
-              if (event.key === 'F2') {
+    <div className="tabs">
+      <div className="tab-scroll" role="tablist" aria-label="Log streams">
+        {streams.map((entry) => {
+          const selected = entry.id === activeId
+          const editing = editingId === entry.id
+          return (
+            <div
+              key={entry.id}
+              className={`stream-tab${selected ? ' selected' : ''}${editing ? ' editing' : ''}`}
+              role="presentation"
+              draggable={!editing}
+              title={editing ? undefined : entry.name}
+              onDragStart={(event) => {
+                dragId.current = entry.id
+                event.dataTransfer.effectAllowed = 'move'
+              }}
+              onDragEnd={() => {
+                dragId.current = null
+              }}
+              onDragOver={(event) => {
+                if (dragId.current === null) return
                 event.preventDefault()
-                beginRename(entry)
-                return
-              }
-              if (event.key !== 'Enter' && event.key !== ' ') return
-              event.preventDefault()
-              setActive(entry.id)
-              setScreen('stream')
-            }}
-          >
-            <span
-              className="dot"
-              style={entry.status === 'stopped' ? { background: 'var(--faint)' } : undefined}
-            />
-            {editing ? (
-              <input
-                ref={renameRef}
-                className="tab-rename"
-                type="text"
-                aria-label={`Rename ${entry.name}`}
-                aria-invalid={error !== null}
-                maxLength={MAX_STREAM_NAME}
-                value={draft}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => {
-                  setDraft(event.target.value)
-                  setError(null)
+                const rect = event.currentTarget.getBoundingClientRect()
+                moveTab(dragId.current, entry.id, event.clientX < rect.left + rect.width / 2)
+              }}
+            >
+              <div
+                role={editing ? undefined : 'tab'}
+                id={editing ? undefined : `tab-${entry.id}`}
+                aria-controls={editing ? undefined : 'stream-view'}
+                aria-selected={editing ? undefined : selected}
+                tabIndex={editing ? undefined : selected ? 0 : -1}
+                className="tab-target"
+                title={editing ? undefined : `${entry.name} — double-click or F2 to rename`}
+                onClick={() => {
+                  if (editing) return
+                  activate(entry)
+                }}
+                onDoubleClick={() => {
+                  if (editing) return
+                  beginRename(entry)
                 }}
                 onKeyDown={(event) => {
-                  event.stopPropagation()
-                  if (event.key === 'Enter') {
+                  if (editing) return
+                  if (event.key === 'F2') {
                     event.preventDefault()
-                    void commitRename(entry)
-                  }
-                  if (event.key === 'Escape') {
-                    event.preventDefault()
-                    cancelRename()
-                  }
-                }}
-                onBlur={cancelRename}
-              />
-            ) : (
-              <>
-                <span
-                  className="tab-label"
-                  title={`${entry.name} — double-click or F2 to rename`}
-                  onDoubleClick={(event) => {
-                    event.stopPropagation()
                     beginRename(entry)
-                  }}
-                >
-                  {entry.name}
-                </span>
-                <span className="tab-count">{formatNumber(entry.lineCount)}</span>
-              </>
-            )}
-            {editing ? null : (
-              <button
-                className="close"
-                type="button"
-                aria-label={`Close ${entry.name}`}
-                title={`Close ${entry.name}`}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onCloseTab(entry.id)
+                    return
+                  }
+                  if (event.key === 'ArrowRight') {
+                    event.preventDefault()
+                    moveFocus(entry, 'right')
+                    return
+                  }
+                  if (event.key === 'ArrowLeft') {
+                    event.preventDefault()
+                    moveFocus(entry, 'left')
+                    return
+                  }
+                  if (event.key === 'Home') {
+                    event.preventDefault()
+                    moveFocus(entry, 'first')
+                    return
+                  }
+                  if (event.key === 'End') {
+                    event.preventDefault()
+                    moveFocus(entry, 'last')
+                    return
+                  }
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  event.preventDefault()
+                  activate(entry)
                 }}
               >
-                <Icon name="x" />
-              </button>
-            )}
-          </div>
-        )
-      })}
+                <span
+                  className="dot"
+                  style={entry.status === 'stopped' ? { background: 'var(--faint)' } : undefined}
+                />
+                {editing ? (
+                  <input
+                    ref={renameRef}
+                    className="tab-rename"
+                    type="text"
+                    aria-label={`Rename ${entry.name}`}
+                    aria-invalid={error !== null}
+                    maxLength={MAX_STREAM_NAME}
+                    value={draft}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => {
+                      setDraft(event.target.value)
+                      setError(null)
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation()
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        void commitRename(entry)
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        cancelRename()
+                      }
+                    }}
+                    onBlur={cancelRename}
+                  />
+                ) : (
+                  <>
+                    <span className="tab-label" title={entry.name}>
+                      {entry.name}
+                    </span>
+                    <span className="tab-count">{formatNumber(entry.lineCount)}</span>
+                  </>
+                )}
+              </div>
+              {editing ? null : (
+                <button
+                  className="close"
+                  type="button"
+                  tabIndex={selected ? 0 : -1}
+                  aria-label={`Close ${entry.name}`}
+                  title={`Close ${entry.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onCloseTab(entry.id)
+                  }}
+                >
+                  <Icon name="x" />
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
       {error === null ? null : (
         <span ref={errorRef} className="tab-error" role="alert">
           {error}

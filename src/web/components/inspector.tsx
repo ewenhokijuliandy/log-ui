@@ -6,6 +6,7 @@ import { copyText } from '../lib/clipboard.ts'
 import type { Zone } from '../lib/format-time.ts'
 import { formatNumber, formatTime } from '../lib/format-time.ts'
 import { copyValueText, jsonEntries, jsonLeafText } from '../lib/json-value.ts'
+import { DialogFrame } from './dialogs.tsx'
 import { Icon } from './icons.tsx'
 
 const COPIED_MS = 1_200
@@ -18,6 +19,7 @@ export function Inspector({
   onResetWidth,
   onCopyRaw,
   onCopyJson,
+  sheet = false,
 }: InspectorProps) {
   const close = useUi((state) => state.setInspectorOpen)
   const setIsolate = useUi((state) => state.setIsolate)
@@ -67,7 +69,7 @@ export function Inspector({
 
   return (
     <aside className="inspector" aria-label="Line detail">
-      <InspectorResizer width={width} onWidth={onWidth} onReset={onResetWidth} />
+      {sheet ? null : <InspectorResizer width={width} onWidth={onWidth} onReset={onResetWidth} />}
       <header className="inspector-head">
         <div>
           <h2>{`Line ${formatNumber(record.seq)}`}</h2>
@@ -169,6 +171,42 @@ export type InspectorProps = {
   onResetWidth: () => void
   onCopyRaw: () => Promise<boolean>
   onCopyJson: () => Promise<boolean>
+  sheet?: boolean
+}
+
+export function DetailSheet({
+  record,
+  zone,
+  onClose,
+  onCopyRaw,
+  onCopyJson,
+}: {
+  record: LogRecord
+  zone: Zone
+  onClose: () => void
+  onCopyRaw: () => Promise<boolean>
+  onCopyJson: () => Promise<boolean>
+}) {
+  return (
+    <DialogFrame
+      open
+      wide
+      className="detail-sheet"
+      label={`Line ${formatNumber(record.seq)}`}
+      onClose={onClose}
+    >
+      <Inspector
+        record={record}
+        zone={zone}
+        width={0}
+        onWidth={() => {}}
+        onResetWidth={() => {}}
+        onCopyRaw={onCopyRaw}
+        onCopyJson={onCopyJson}
+        sheet
+      />
+    </DialogFrame>
+  )
 }
 
 function InspectorField({ label, value }: { label: string; value: string }) {

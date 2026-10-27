@@ -37,7 +37,10 @@ export function usePopover(): PopoverControl {
   return {
     open,
     setOpen,
-    close: () => setOpen(false),
+    close: () => {
+      setOpen(false)
+      nodeRef.current?.focus()
+    },
     bindTrigger: (node) => {
       nodeRef.current = node
     },
@@ -59,6 +62,7 @@ export function PopoverPanel({
   children: ReactNode
 }) {
   const [box, setBox] = useState<{ left: number; top: number } | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   useLayoutEffect(() => {
     if (!control.open) {
@@ -77,14 +81,58 @@ export function PopoverPanel({
     })
   }, [control.open, align, width, control])
 
+  useEffect(() => {
+    if (!control.open) return
+    const first = panelRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')
+    first?.focus()
+  }, [control.open])
+
   if (!control.open) return null
+
+  function moveFocus(event: React.KeyboardEvent<HTMLDivElement>): void {
+    const target = event.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      control.close()
+      return
+    }
+    if (event.key === 'Tab') {
+      control.close()
+      return
+    }
+    if (
+      event.key !== 'ArrowDown' &&
+      event.key !== 'ArrowUp' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    ) {
+      return
+    }
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]'),
+    )
+    if (items.length === 0) return
+    event.preventDefault()
+    const current = items.indexOf(document.activeElement as HTMLElement)
+    let next = 0
+    if (event.key === 'End') next = items.length - 1
+    if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length
+    if (event.key === 'ArrowUp') {
+      next = current < 0 ? items.length - 1 : (current - 1 + items.length) % items.length
+    }
+    items[next]?.focus()
+  }
 
   return createPortal(
     <div
+      ref={panelRef}
       className="popover"
       role="menu"
       aria-label={label}
       style={{ left: box?.left ?? 0, top: box?.top ?? 0, minWidth: width }}
+      onKeyDown={moveFocus}
     >
       {children}
     </div>,

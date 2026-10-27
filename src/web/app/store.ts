@@ -269,16 +269,25 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       set({ bootError: 'The log-ui daemon is unreachable on this port.' })
       return
     }
+    const previous = new Map(get().streams.map((entry) => [entry.id, entry]))
     const entries: StreamEntry[] = []
     for (const item of meta) {
       const snapshot = await fetchJson<StreamSnapshot>(`/api/streams/${item.id}/logs`)
       if (snapshot === null) continue
-      entries.push(entryFromSnapshot(item, snapshot))
+      const existing = previous.get(item.id)
+      entries.push({
+        ...entryFromSnapshot(item, snapshot),
+        pausedAt: existing?.pausedAt ?? null,
+      })
+    }
+    for (const entry of previous.values()) {
+      if (entry.kind === 'manual') entries.push(entry)
     }
     const ordered = orderEntries(entries)
+    const current = get().activeId
     set({
       streams: ordered,
-      activeId: ordered[0]?.id ?? null,
+      activeId: ordered.some((entry) => entry.id === current) ? current : (ordered[0]?.id ?? null),
       bootError: null,
     })
   },
@@ -365,7 +374,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
               lineCount: payload.lineCount ?? item.lineCount,
               dropped: payload.dropped ?? item.dropped,
               levelCounts: payload.levelCounts ?? item.levelCounts,
-              lastSeq: payload.status === 'stopped' ? item.lastSeq : item.lastSeq,
+              lastSeq: item.lastSeq,
             }
           }),
         }))
@@ -461,11 +470,15 @@ function mergeRecords(existing: readonly LogRecord[], incoming: readonly LogReco
 type SocketHolder = { socket: ReturnType<typeof createStreamSocket> | null }
 
 const holder: SocketHolder = { socket: null }
+let hasConnected = false
 
 function ensureSocket(): void {
   if (holder.socket !== null) return
   holder.socket = createStreamSocket(handleSocketEvent, (phase) => {
     useStreams.setState({ connection: phase })
+    if (phase !== 'connected') return
+    if (hasConnected || useStreams.getState().bootError !== null) void useStreams.getState().boot()
+    hasConnected = true
   })
 }
 
@@ -475,6 +488,10 @@ function handleSocketEvent(event: ServerEvent): void {
 
 export function openSocket(): void {
   ensureSocket()
+}
+
+export function reconnectNow(): void {
+  holder.socket?.reconnect()
 }
 
 export function levelCountTotal(counts: LevelCounts): number {

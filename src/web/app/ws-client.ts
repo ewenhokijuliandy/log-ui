@@ -16,7 +16,7 @@ export function socketUrl(): string {
 export function createStreamSocket(
   onEvent: (event: ServerEvent) => void,
   onPhase: (phase: ConnectionPhase) => void,
-): { close: () => void } {
+): { close: () => void; reconnect: () => void } {
   let socket: WebSocket | null = null
   let stopped = false
   let attempt = 0
@@ -66,7 +66,24 @@ export function createStreamSocket(
     close: () => {
       stopped = true
       if (timer !== null) clearTimeout(timer)
+      timer = null
       if (socket !== null) socket.close()
+    },
+    reconnect: () => {
+      if (stopped) return
+      if (timer !== null) clearTimeout(timer)
+      timer = null
+      attempt = 0
+      const current = socket
+      socket = null
+      if (current !== null) {
+        current.onclose = null
+        current.onerror = null
+        try {
+          current.close()
+        } catch {}
+      }
+      connect()
     },
   }
 }

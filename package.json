@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsup && vite build",
     "test": "vitest run",
-    "e2e": "playwright test",
+    "e2e": "npm run build && node scripts/e2e-clean.mjs && playwright test",
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "tsc --noEmit",

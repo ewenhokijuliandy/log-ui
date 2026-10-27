@@ -143,7 +143,7 @@ export function Toolbar(props: ToolbarProps) {
         <input
           data-search
           type="text"
-          placeholder="Search logs or /regex/"
+          placeholder="Search logs"
           aria-label="Search logs"
           aria-invalid={error !== null}
           aria-describedby={error === null ? undefined : 'search-error'}
@@ -162,12 +162,18 @@ export function Toolbar(props: ToolbarProps) {
         <button
           className="regex"
           type="button"
+          aria-label="Regular expression"
           aria-pressed={regexMode}
           title="Treat the search as a regular expression"
           onClick={() => setRegexMode(!regexMode)}
         >
           .*
         </button>
+        {error === null ? null : (
+          <p className="search-error" id="search-error" role="alert">
+            {error}
+          </p>
+        )}
       </div>
 
       <div className="level-filters" role="group" aria-label="Filter by level" id="level-filters">

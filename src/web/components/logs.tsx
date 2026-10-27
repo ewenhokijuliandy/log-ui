@@ -93,9 +93,8 @@ export function LogList({
       {paused ? (
         <div className="pause-banner" role="status">
           <Icon name="pause" />
-          <span>Paused</span>
-          <span className="badge">{formatNumber(pending)}</span>
-          <span>new lines buffered</span>
+          <span>Paused</span> <span className="badge">{formatNumber(pending)}</span>{' '}
+          <span>new {pending === 1 ? 'line' : 'lines'} buffered</span>{' '}
           <button className="link" type="button" onClick={onResume}>
             Resume
           </button>
@@ -113,10 +112,13 @@ export function LogList({
       <div
         ref={listRef}
         className={`log-list${wrap ? ' wrap' : ''}`}
-        role="log"
+        role="list"
         aria-label="Log lines"
       >
-        <div style={{ height: `${String(virtualizer.getTotalSize())}px`, position: 'relative' }}>
+        <div
+          role="presentation"
+          style={{ height: `${String(virtualizer.getTotalSize())}px`, position: 'relative' }}
+        >
           {virtualizer.getVirtualItems().map((item) => {
             const record = visible[item.index]
             if (record === undefined) return null
@@ -126,13 +128,15 @@ export function LogList({
               <div
                 key={record.seq}
                 className="log-row"
-                role="button"
-                tabIndex={0}
+                role="listitem"
+                tabIndex={selected ? 0 : -1}
                 data-index={item.index}
                 ref={virtualizer.measureElement}
                 style={{ position: 'absolute', top: item.start, left: 0, width: '100%' }}
                 data-thread={thread}
-                aria-selected={selected}
+                aria-current={selected ? 'true' : undefined}
+                aria-posinset={item.index + 1}
+                aria-setsize={visible.length}
                 onClick={() => {
                   select(activeId, record.seq)
                   setInspectorOpen(true)
@@ -165,6 +169,8 @@ export function LogList({
                       key={id}
                       className="trace-chip"
                       type="button"
+                      tabIndex={selected ? 0 : -1}
+                      aria-label={`Isolate trace ${id}`}
                       title={`Isolate trace ${id}`}
                       onClick={(event) => {
                         event.stopPropagation()

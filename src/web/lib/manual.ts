@@ -3,6 +3,20 @@ import type { LogRecord } from '../../shared/types.ts'
 
 export const MANUAL_FILE_LIMIT = 25 * 1024 * 1024
 
+export type ManualFile = {
+  name: string
+  size: number
+  type: string
+}
+
+export function manualFileProblem(file: ManualFile, limit = MANUAL_FILE_LIMIT): string | null {
+  const lower = file.name.toLowerCase()
+  const supported = lower.endsWith('.txt') || lower.endsWith('.log') || file.type === 'text/plain'
+  if (!supported) return 'Manual mode accepts .txt and .log files.'
+  if (file.size <= limit) return null
+  return `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Manual mode accepts up to 25 MB.`
+}
+
 export type ManualParseResult = {
   records: LogRecord[]
   totalLines: number

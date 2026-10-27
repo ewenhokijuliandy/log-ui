@@ -3,7 +3,7 @@ import type { LogRecord } from '../../shared/types.ts'
 import { MANUAL_SAMPLE, PIPE_EXAMPLES, SHORTCUTS } from '../app/legacy-data.ts'
 import { copyText } from '../lib/clipboard.ts'
 import { formatNumber } from '../lib/format-time.ts'
-import { MANUAL_FILE_LIMIT, parseManual } from '../lib/manual.ts'
+import { manualFileProblem, parseManual } from '../lib/manual.ts'
 import { Icon } from './icons.tsx'
 
 export function DialogFrame({
@@ -103,7 +103,7 @@ export function ConfirmDialog({
   onCancel: () => void
 }) {
   return (
-    <DialogFrame open={open} onClose={onCancel}>
+    <DialogFrame open={open} label={title} onClose={onCancel}>
       <h2>{title}</h2>
       <p>{body}</p>
       <div className="dialog-actions">
@@ -179,9 +179,9 @@ export function SettingsSheet({
   }, [open, prefs])
 
   return (
-    <DialogFrame open={open} wide onClose={onClose}>
+    <DialogFrame open={open} wide label="Settings" onClose={onClose}>
       <h2>Settings</h2>
-      <p>One save applies every setting on this sheet.</p>
+      <p>One save applies every setting to the current view.</p>
       <div className="setting-row">
         <div className="setting-copy">
           <div className="name">Theme</div>
@@ -200,7 +200,7 @@ export function SettingsSheet({
       </div>
       <div className="setting-row">
         <div className="setting-copy">
-          <div className="name">Default timestamp zone</div>
+          <div className="name">Timestamp zone</div>
           <div className="desc">Applies to rows, the inspector and exports.</div>
         </div>
         <Segment
@@ -215,7 +215,7 @@ export function SettingsSheet({
       </div>
       <div className="setting-row">
         <div className="setting-copy">
-          <div className="name">Default auto-scroll</div>
+          <div className="name">Auto-scroll</div>
           <div className="desc">Keeps the newest line in view while a stream is live.</div>
         </div>
         <Segment
@@ -230,7 +230,7 @@ export function SettingsSheet({
       </div>
       <div className="setting-row">
         <div className="setting-copy">
-          <div className="name">Default word wrap</div>
+          <div className="name">Word wrap</div>
           <div className="desc">Off keeps long lines on one row, truncated at the panel edge.</div>
         </div>
         <Segment
@@ -279,7 +279,7 @@ export function HelpSheet({
   onQuickStart: () => void
 }) {
   return (
-    <DialogFrame open={open} wide onClose={onClose}>
+    <DialogFrame open={open} wide label="Help and shortcuts" onClose={onClose}>
       <h2>Help and shortcuts</h2>
       <p>Pipe a command into log-ui, or load a file in manual mode.</p>
       <div className="pipe-list">
@@ -325,21 +325,25 @@ export function ManualDialog({
   const fileInput = useRef<HTMLInputElement | null>(null)
 
   const readFile = async (file: File): Promise<void> => {
-    if (file.size > MANUAL_FILE_LIMIT) {
+    const problem = manualFileProblem(file)
+    if (problem !== null) {
       setFileLabel('Drop a .txt or .log file here')
-      setGuard(
-        `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Manual mode accepts up to 25 MB.`,
-      )
+      setGuard(problem)
       return
     }
-    const raw = await file.text()
-    setText(raw)
-    setFileLabel(`${file.name} · ${(file.size / 1024).toFixed(1)} kB`)
-    setGuard('')
+    try {
+      const raw = await file.text()
+      setText(raw)
+      setFileLabel(`${file.name} · ${(file.size / 1024).toFixed(1)} kB`)
+      setGuard('')
+    } catch {
+      setFileLabel('Drop a .txt or .log file here')
+      setGuard('That file could not be read. Try a .txt or .log file.')
+    }
   }
 
   return (
-    <DialogFrame open={open} wide onClose={onClose}>
+    <DialogFrame open={open} wide label="Manual mode" onClose={onClose}>
       <h2>Manual mode</h2>
       <p>Paste log text or drop a .txt / .log file. Files over 25 MB are refused before parsing.</p>
       <div className="field">
@@ -385,7 +389,9 @@ export function ManualDialog({
           />
         </div>
       </div>
-      <p className="guard">{guard}</p>
+      <p className="guard" role={guard === '' ? undefined : 'alert'}>
+        {guard}
+      </p>
       <div className="dialog-actions">
         <button
           className="btn ghost"
@@ -438,7 +444,12 @@ export function PrintSheet({
   onClose: () => void
 }) {
   return (
-    <DialogFrame open={open} className="print-sheet" onClose={onClose}>
+    <DialogFrame
+      open={open}
+      className="print-sheet"
+      label={title === '' ? 'Print preview' : title}
+      onClose={onClose}
+    >
       <div className="print-head">
         <h2>{title}</h2>
         <p>{meta}</p>
