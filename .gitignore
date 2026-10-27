@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+design
+mockups
+.codegraph
+.playwright-mcp
+test-results
+playwright-report
+.taste-skill
+.commandcode
+*.log
+.DS_Store

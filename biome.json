@@ -1,0 +1,84 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!*.md",
+      "!**/dist",
+      "!**/design",
+      "!**/mockups",
+      "!**/.commandcode",
+      "!**/.codegraph",
+      "!**/.playwright-mcp",
+      "!**/.taste-skill",
+      "!**/coverage",
+      "!**/test-results",
+      "!**/playwright-report"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded"
+    }
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/shared/ansi.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noControlCharactersInRegex": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/web/theme.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          },
+          "style": {
+            "noDescendingSpecificity": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/web/components/logs.tsx",
+        "src/web/components/signal.tsx",
+        "src/web/components/dialogs.tsx",
+        "src/web/components/tabs.tsx",
+        "src/web/components/toolbar.tsx",
+        "src/web/components/shell.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "useAriaPropsSupportedByRole": "off",
+            "noStaticElementInteractions": "off",
+            "useKeyWithClickEvents": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    }
+  ]
+}
