@@ -7,7 +7,7 @@ import { type PidFilePayload, readPidFile, removePidFile, writePidFile } from '.
 import { readVersion } from '../server/version.ts'
 
 export const DEFAULT_PORT = 3333
-export const DEFAULT_STATE_DIR = join(homedir(), '.log-ui')
+export const DEFAULT_STATE_DIR = join(homedir(), '.logdeck')
 const READY_WAIT_MS = 3000
 const PROBE_TIMEOUT_MS = 600
 
@@ -47,7 +47,7 @@ export async function ensureDaemon(port: number): Promise<HealthPayload> {
     const ours = readVersion()
     if (existing.version !== ours) {
       process.stderr.write(
-        `log-ui: daemon on port ${port} is v${existing.version} while the CLI is v${ours} — run "log-ui stop" to refresh\n`,
+        `logdeck: daemon on port ${port} is v${existing.version} while the CLI is v${ours} — run "logdeck stop" to refresh\n`,
       )
     }
     return existing
@@ -79,7 +79,7 @@ export async function stopDaemon(port: number, stateDir: string): Promise<void> 
       await removePidFile(stateDir, port)
       throw new Error(`no daemon is listening on port ${port} — stale state file removed`)
     }
-    throw new Error(`no log-ui daemon on port ${port}`)
+    throw new Error(`no logdeck daemon on port ${port}`)
   }
 
   const response = await fetch(`http://127.0.0.1:${port}/api/shutdown`, { method: 'POST' })
@@ -129,7 +129,7 @@ export async function runDaemon(
     process.on('SIGTERM', requestShutdown)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    process.stderr.write(`log-ui: ${message}\n`)
+    process.stderr.write(`logdeck: ${message}\n`)
     exit(1)
   }
 }

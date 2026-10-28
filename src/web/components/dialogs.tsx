@@ -253,7 +253,7 @@ export function SettingsSheet({
       <div className="setting-row">
         <div className="setting-copy">
           <div className="name">Daemon port</div>
-          <div className="desc">Set with log-ui --port when the daemon starts.</div>
+          <div className="desc">Set with logdeck --port when the daemon starts.</div>
         </div>
         <span className="readout">{port}</span>
       </div>
@@ -281,7 +281,7 @@ export function HelpSheet({
   return (
     <DialogFrame open={open} wide label="Help and shortcuts" onClose={onClose}>
       <h2>Help and shortcuts</h2>
-      <p>Pipe a command into log-ui, or load a file in manual mode.</p>
+      <p>Pipe a command into logdeck, or load a file in manual mode.</p>
       <div className="pipe-list">
         {PIPE_EXAMPLES.map((command) => (
           <PipeRow key={command} command={command} />

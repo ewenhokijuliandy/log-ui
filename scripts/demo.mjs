@@ -103,11 +103,11 @@ process.on('SIGTERM', () => void stop())
 const existing = await healthInfo()
 
 if (existing !== null) {
-  console.log(`[demo] reusing the log-ui daemon already running on ${base}`)
+  console.log(`[demo] reusing the logdeck daemon already running on ${base}`)
 } else {
   const busy = await portInUse(port)
   if (busy) {
-    console.error(`[demo] Port ${String(port)} is in use by something that is not log-ui.`)
+    console.error(`[demo] Port ${String(port)} is in use by something that is not logdeck.`)
     console.error(
       `[demo] Stop it, or run with a free port: PORT=${String(altPort)} node scripts/demo.mjs`,
     )
@@ -123,7 +123,7 @@ if (existing !== null) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if ((await healthInfo()) !== null) break
     if (attempt === 49) {
-      console.error(`[demo] log-ui did not become ready on ${base}.`)
+      console.error(`[demo] logdeck did not become ready on ${base}.`)
       daemon.kill('SIGTERM')
       process.exit(1)
     }
@@ -132,7 +132,7 @@ if (existing !== null) {
 }
 
 console.log(`
-log-ui demo
+logdeck demo
   URL      ${base}
   daemon   ${ownsDaemon ? 'started by the demo (stopped on exit)' : 'reused (left running on exit)'}
   streams  api (500 ms), worker (900 ms)

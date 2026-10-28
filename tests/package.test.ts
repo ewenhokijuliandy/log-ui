@@ -32,7 +32,7 @@ describe.skipIf(!built)('npm package allowlist', () => {
       expect(paths.some((path) => path.startsWith(forbidden))).toBe(false)
     }
 
-    expect(paths).toContain('bin/log-ui.mjs')
+    expect(paths).toContain('bin/logdeck.mjs')
     expect(paths).toContain('dist/cli.js')
     expect(paths).toContain('dist/web/index.html')
     expect(paths.some((path) => path.startsWith('dist/web/assets/'))).toBe(true)

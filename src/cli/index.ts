@@ -5,7 +5,7 @@ import { DEFAULT_PORT, DEFAULT_STATE_DIR, ensureDaemon, runDaemon, stopDaemon } 
 import { type PipeOptions, runPipe } from './pipe.ts'
 
 function fail(message: string, exitCode = 1): never {
-  process.stderr.write(`log-ui: ${message}\n`)
+  process.stderr.write(`logdeck: ${message}\n`)
   process.exit(exitCode)
 }
 
@@ -18,7 +18,7 @@ function toNumber(raw: unknown): number {
 const program = new Command()
 
 program
-  .name('log-ui')
+  .name('logdeck')
   .description('Pipe terminal output into a rich local log viewer')
   .version(readVersion(), '-V, --version')
   .option('--port <number>', 'local server port', String(DEFAULT_PORT))
@@ -28,12 +28,12 @@ program
 
 program
   .command('stop')
-  .description('stop the local log-ui daemon')
+  .description('stop the local logdeck daemon')
   .action(async (_flags, command) => {
     const opts = command.optsWithGlobals()
     try {
       await stopDaemon(toNumber(opts.port), DEFAULT_STATE_DIR)
-      process.stdout.write(`log-ui: daemon stopped on port ${String(opts.port)}\n`)
+      process.stdout.write(`logdeck: daemon stopped on port ${String(opts.port)}\n`)
     } catch (error) {
       fail(error instanceof Error ? error.message : String(error))
     }
@@ -62,7 +62,7 @@ program.action(async (flags) => {
 
   if (process.stdin.isTTY) {
     const url = `http://127.0.0.1:${String(port)}`
-    process.stdout.write(`log-ui: no streams yet — quick start at ${url}\n`)
+    process.stdout.write(`logdeck: no streams yet — quick start at ${url}\n`)
     if (openInBrowser) await openBrowser(url)
     return
   }

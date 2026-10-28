@@ -152,7 +152,7 @@ function pidFileFor(port: number): string {
   return join(PID_DIR, `daemon-${port}.json`)
 }
 
-describe('log-ui cli', () => {
+describe('logdeck cli', () => {
   test('--version prints the package version', async () => {
     const child = spawnCli(['--version'])
     const exit = await collect(child)

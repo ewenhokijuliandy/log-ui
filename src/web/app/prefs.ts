@@ -8,9 +8,9 @@ export type Prefs = {
   wrap: boolean
 }
 
-const PREFS_KEY = 'log-ui.prefs'
-const TAB_ORDER_KEY = 'log-ui.tabOrder'
-const INSPECTOR_WIDTH_KEY = 'log-ui.inspectorWidth'
+const PREFS_KEY = 'logdeck.prefs'
+const TAB_ORDER_KEY = 'logdeck.tabOrder'
+const INSPECTOR_WIDTH_KEY = 'logdeck.inspectorWidth'
 
 export const INSPECTOR_MIN_WIDTH = 280
 export const INSPECTOR_MAX_WIDTH = 720

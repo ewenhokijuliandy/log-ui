@@ -2,7 +2,7 @@ import { type ChildProcess, type ChildProcessWithoutNullStreams, spawn } from 'n
 import { once } from 'node:events'
 import type { Page } from '@playwright/test'
 
-export const E2E_PORT = Number(process.env.LOG_UI_E2E_PORT ?? 4173)
+export const E2E_PORT = Number(process.env.LOGDECK_E2E_PORT ?? 4173)
 export const E2E_URL = `http://127.0.0.1:${String(E2E_PORT)}`
 
 export type Pipe = {
@@ -72,7 +72,7 @@ export async function waitForHealth(timeoutMs = 10_000): Promise<void> {
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  throw new Error('log-ui daemon did not become healthy')
+  throw new Error('logdeck daemon did not become healthy')
 }
 
 export async function shutdownDaemon(): Promise<void> {

@@ -1,8 +1,8 @@
 export const PIPE_EXAMPLES: readonly string[] = [
-  'tail -f file.log | log-ui',
-  'docker logs -f api | log-ui',
-  'oc logs pod-name -f --tail=100 | log-ui',
-  'npm run start | log-ui',
+  'tail -f file.log | logdeck',
+  'docker logs -f api | logdeck',
+  'oc logs pod-name -f --tail=100 | logdeck',
+  'npm run start | logdeck',
 ]
 
 export const MANUAL_SAMPLE: string = [

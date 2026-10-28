@@ -106,7 +106,7 @@ export function TopBar({ openSheet, toggleTheme, onExport, onSimulateLoss }: Top
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="wordmark">log-ui</span>
+        <span className="wordmark">logdeck</span>
         <span className="scope">{host}</span>
       </div>
       <div className="spacer" />

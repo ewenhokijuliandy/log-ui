@@ -1,34 +1,34 @@
-# log-ui
+# logdeck
 
 Pipe terminal output into a rich, interactive local log viewer.
 
-`log-ui` reads stdin, streams it to a local daemon, and renders the result in a browser workspace with tabs, search, level filters, a JSON inspector, trace isolation, manual parsing, and TXT/PDF export. Everything stays on `127.0.0.1`; there is no cloud service and no log persistence.
+`logdeck` reads stdin, streams it to a local daemon, and renders the result in a browser workspace with tabs, search, level filters, a JSON inspector, trace isolation, manual parsing, and TXT/PDF export. Everything stays on `127.0.0.1`; there is no cloud service and no log persistence.
 
 ## Install
 
 ```bash
-npm install --global log-ui
+npm install --global logdeck
 ```
 
-Requires Node.js 22.12 or newer.
+The CLI command is `logdeck` (also available as `logdeck`). Requires Node.js 22.12 or newer.
 
 ## Quick start
 
 ```bash
-tail -f app.log | log-ui
-docker logs -f api | log-ui --name=api
-npm run start | log-ui --name=web
+tail -f app.log | logdeck
+docker logs -f api | logdeck --name=api
+npm run start | logdeck --name=web
 ```
 
 The first pipe starts the daemon, opens the browser, and creates a tab. Additional pipes add tabs to the same daemon.
 
-Running `log-ui` with no piped input starts the daemon and opens the Quick Start guide instead.
+Running `logdeck` with no piped input starts the daemon and opens the Quick Start guide instead.
 
 ## CLI
 
 ```text
-log-ui [options]
-log-ui stop [--port <number>]
+logdeck [options]
+logdeck stop [--port <number>]
 
 --port <number>        local server port (default: 3333)
 --name <name>          tab name for the piped stream
@@ -41,8 +41,8 @@ log-ui stop [--port <number>]
 Stop the daemon with:
 
 ```bash
-log-ui stop
-log-ui stop --port 3333
+logdeck stop
+logdeck stop --port 3333
 ```
 
 Closing a tab removes its retained buffer and ends that stream. If a pipe is still writing, the CLI exits with code 0 and the upstream command sees a closed pipe (SIGPIPE on Unix).
@@ -81,6 +81,6 @@ npm run lint
 npm run e2e
 ```
 
-`npm run e2e` builds the app, starts a test daemon on port 4173, and runs the Playwright suite. Use `LOG_UI_E2E_PORT` to move it.
+`npm run e2e` builds the app, starts a test daemon on port 4173, and runs the Playwright suite. Use `LOGDECK_E2E_PORT` to move it.
 
 The approved visual direction and tokens live in `design/`; `DESIGN.md` documents the port. The daemon, CLI, shared parser, and web app are all in `src/`.

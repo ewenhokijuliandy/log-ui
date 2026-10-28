@@ -89,7 +89,7 @@ export async function runPipe(options: PipeOptions): Promise<void> {
         return
       }
       clearTimeout(guard)
-      reject(new Error('could not connect to the log-ui daemon'))
+      reject(new Error('could not connect to the logdeck daemon'))
     })
     rest.addEventListener('close', () => {
       if (opened) exitQuietly()

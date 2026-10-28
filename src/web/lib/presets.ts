@@ -19,7 +19,7 @@ export type PresetStorage = {
   setItem: (key: string, value: string) => void
 }
 
-export const PRESETS_KEY = 'log-ui.presets'
+export const PRESETS_KEY = 'logdeck.presets'
 
 const DESIGN_TRACE_ID = '5b8e1f0c9a2d4e7f8b1c3d5e7a9f0b2d'
 

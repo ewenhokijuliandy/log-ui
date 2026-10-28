@@ -30,10 +30,10 @@ export function QuickStart({
         <span className="quick-mark">
           <Icon name="mark" />
         </span>
-        <h2>log-ui</h2>
+        <h2>logdeck</h2>
       </div>
       <p className="quick-note">
-        Pipe any command into log-ui and it opens this workspace with the stream in a tab.
+        Pipe any command into logdeck and it opens this workspace with the stream in a tab.
       </p>
       <div className="quick-status">
         <span className="live-dot" />
@@ -78,7 +78,7 @@ export function EmptyState({
           <h1>No streams yet</h1>
         </div>
         <p className="quick-note">
-          Pipe a command into log-ui or open quick start. New streams appear in their own tabs.
+          Pipe a command into logdeck or open quick start. New streams appear in their own tabs.
         </p>
         {error === null ? null : (
           <div className="empty-error" role="alert">

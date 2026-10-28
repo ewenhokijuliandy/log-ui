@@ -266,7 +266,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   boot: async () => {
     const meta = await fetchJson<StreamMeta[]>('/api/streams')
     if (meta === null) {
-      set({ bootError: 'The log-ui daemon is unreachable on this port.' })
+      set({ bootError: 'The logdeck daemon is unreachable on this port.' })
       return
     }
     const previous = new Map(get().streams.map((entry) => [entry.id, entry]))

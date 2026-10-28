@@ -258,7 +258,7 @@ test('log rows expose list semantics and one roving tab stop', async ({ page }) 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
-test('the tab favicon is the log-ui mark', async ({ page, request }) => {
+test('the tab favicon is the logdeck mark', async ({ page, request }) => {
   const response = await request.get('/favicon.svg')
   expect(response.status()).toBe(200)
   expect(response.headers()['content-type']).toContain('image/svg+xml')

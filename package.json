@@ -1,5 +1,5 @@
 {
-  "name": "log-ui",
+  "name": "logdeck",
   "version": "1.0.0",
   "description": "Pipe terminal output into a rich, interactive local log viewer",
   "type": "module",
@@ -8,7 +8,7 @@
     "node": ">=22.12.0"
   },
   "bin": {
-    "log-ui": "bin/log-ui.mjs"
+    "logdeck": "bin/logdeck.mjs"
   },
   "files": [
     "bin",
