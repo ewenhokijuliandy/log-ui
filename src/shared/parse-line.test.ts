@@ -71,6 +71,50 @@ describe('timestamps', () => {
     expect(parsed.ts).toBeNull()
     expect(parsed.message).toBe('2026-10-25 maintenance window planned')
   })
+
+  test('json time field fills a missing head timestamp', () => {
+    const parsed = parseLine('{"name":"svc","time":1761134138742,"level":30,"msg":"ok"}')
+    expect(parsed.ts).toBe(1_761_134_138_742)
+    expect(parsed.level).toBe('info')
+    expect(parsed.message).toBe('ok')
+  })
+
+  test('json time without a message keeps the raw text', () => {
+    const parsed = parseLine('{"name":"svc","time":1761134138742}')
+    expect(parsed.ts).toBe(1_761_134_138_742)
+    expect(parsed.level).toBe('unknown')
+    expect(parsed.message).toBe('{"name":"svc","time":1761134138742}')
+  })
+
+  test('json ISO time field is parsed', () => {
+    const parsed = parseLine('{"name":"svc","time":"2026-10-25T11:47:03.123Z","level":"info"}')
+    expect(parsed.ts).toBe(Date.parse('2026-10-25T11:47:03.123Z'))
+  })
+
+  test('json numeric strings scale seconds, microseconds and nanoseconds', () => {
+    expect(parseLine('{"time":"1761134138"}').ts).toBe(1_761_134_138_000)
+    expect(parseLine('{"time":"1761134138742000"}').ts).toBe(1_761_134_138_742)
+    expect(parseLine('{"time":"1761134138742000000"}').ts).toBe(1_761_134_138_742)
+  })
+
+  test('alternate json time keys are read', () => {
+    expect(parseLine('{"timestamp":1761134138742}').ts).toBe(1_761_134_138_742)
+    expect(parseLine('{"ts":1761134138742}').ts).toBe(1_761_134_138_742)
+    expect(parseLine('{"@timestamp":"2026-10-22T14:35:38.742Z"}').ts).toBe(
+      Date.parse('2026-10-22T14:35:38.742Z'),
+    )
+  })
+
+  test('head timestamp wins over json time', () => {
+    const parsed = parseLine('2026-10-22T14:36:12.004Z INFO {"time":1761134138742}')
+    expect(parsed.ts).toBe(Date.parse('2026-10-22T14:36:12.004Z'))
+  })
+
+  test('invalid json time stays null', () => {
+    expect(parseLine('{"time":"not-a-date","level":"info"}').ts).toBeNull()
+    expect(parseLine('{"time":0,"level":"info"}').ts).toBeNull()
+    expect(parseLine('{"time":200,"level":"info"}').ts).toBeNull()
+  })
 })
 
 describe('levels', () => {
@@ -105,6 +149,50 @@ describe('levels', () => {
   test('severity json key accepted', () => {
     const parsed = parseLine(`{"severity":"CRITICAL","message":"sync halted"}`)
     expect(parsed.level).toBe('fatal')
+  })
+
+  test('numeric json levels map the pino bands', () => {
+    const cases: ReadonlyArray<readonly [number, string]> = [
+      [10, 'trace'],
+      [20, 'debug'],
+      [30, 'info'],
+      [40, 'warn'],
+      [50, 'error'],
+      [60, 'fatal'],
+    ]
+    for (const [value, expected] of cases) {
+      expect(parseLine(`{"level":${String(value)},"msg":"x"}`).level).toBe(expected)
+    }
+  })
+
+  test('numeric string levels map and trim', () => {
+    expect(parseLine('{"level":"30","msg":"x"}').level).toBe('info')
+    expect(parseLine('{"level":" 40 ","msg":"x"}').level).toBe('warn')
+  })
+
+  test('syslog severities map', () => {
+    for (const value of [0, 1, 2]) {
+      expect(parseLine(`{"severity":${String(value)},"msg":"x"}`).level).toBe('fatal')
+    }
+    expect(parseLine('{"severity":3,"msg":"x"}').level).toBe('error')
+    expect(parseLine('{"severity":4,"msg":"x"}').level).toBe('warn')
+    expect(parseLine('{"severity":5,"msg":"x"}').level).toBe('info')
+    expect(parseLine('{"severity":6,"msg":"x"}').level).toBe('info')
+    expect(parseLine('{"severity":7,"msg":"x"}').level).toBe('debug')
+  })
+
+  test('out-of-band numbers stay unknown', () => {
+    expect(parseLine('{"level":200,"msg":"x"}').level).toBe('unknown')
+    expect(parseLine('{"level":404,"msg":"x"}').level).toBe('unknown')
+    expect(parseLine('{"level":30.5,"msg":"x"}').level).toBe('unknown')
+    expect(parseLine('{"level":-1,"msg":"x"}').level).toBe('unknown')
+    expect(parseLine('{"level":"200","msg":"x"}').level).toBe('unknown')
+    expect(parseLine('{"level":"30.5","msg":"x"}').level).toBe('unknown')
+    expect(parseLine('{"level":true,"msg":"x"}').level).toBe('unknown')
+  })
+
+  test('named json levels keep precedence over numeric siblings', () => {
+    expect(parseLine('{"level":"error","severity":30,"msg":"x"}').level).toBe('error')
   })
 
   test('bracketed level followed by non-level brackets', () => {

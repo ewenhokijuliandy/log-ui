@@ -4,6 +4,7 @@ import {
   countForChip,
   emptyLevelCounts,
   type LevelCounts,
+  levelFromNumeric,
   sumCounts,
 } from './levels.ts'
 import type { LogLevel } from './types.ts'
@@ -11,6 +12,41 @@ import type { LogLevel } from './types.ts'
 function counts(values: Partial<Record<LogLevel, number>>): LevelCounts {
   return { ...emptyLevelCounts(), ...values }
 }
+
+describe('numeric level bands', () => {
+  test('maps pino and bunyan bands', () => {
+    expect(levelFromNumeric(10)).toBe('trace')
+    expect(levelFromNumeric(20)).toBe('debug')
+    expect(levelFromNumeric(30)).toBe('info')
+    expect(levelFromNumeric(40)).toBe('warn')
+    expect(levelFromNumeric(50)).toBe('error')
+    expect(levelFromNumeric(60)).toBe('fatal')
+  })
+
+  test('maps syslog severities', () => {
+    expect(levelFromNumeric(0)).toBe('fatal')
+    expect(levelFromNumeric(1)).toBe('fatal')
+    expect(levelFromNumeric(2)).toBe('fatal')
+    expect(levelFromNumeric(3)).toBe('error')
+    expect(levelFromNumeric(4)).toBe('warn')
+    expect(levelFromNumeric(5)).toBe('info')
+    expect(levelFromNumeric(6)).toBe('info')
+    expect(levelFromNumeric(7)).toBe('debug')
+  })
+
+  test('accepts numeric strings', () => {
+    expect(levelFromNumeric('30')).toBe('info')
+    expect(levelFromNumeric(' 40 ')).toBe('warn')
+  })
+
+  test('rejects out-of-band, fractional and named values', () => {
+    expect(levelFromNumeric(200)).toBeNull()
+    expect(levelFromNumeric(30.5)).toBeNull()
+    expect(levelFromNumeric(-1)).toBeNull()
+    expect(levelFromNumeric('info')).toBeNull()
+    expect(levelFromNumeric('30.5')).toBeNull()
+  })
+})
 
 describe('level chips', () => {
   test('all chip shows every level', () => {

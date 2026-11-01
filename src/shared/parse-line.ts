@@ -1,5 +1,6 @@
 import { stripAnsi } from './ansi.ts'
-import { extractJson, jsonLevelValue, jsonMessageValue } from './json-extract.ts'
+import { extractJson, jsonLevelValue, jsonMessageValue, jsonTimeValue } from './json-extract.ts'
+import { levelFromNumeric } from './levels.ts'
 import type { LogLevel, ParsedLine } from './types.ts'
 
 const LINE_CAP = 100 * 1024
@@ -138,11 +139,50 @@ function findTimestamp(text: string): TimestampHit | null {
   return parseEpochTimestamp(text)
 }
 
-function detectLevelInJson(json: unknown): LevelHit | null {
-  const value = jsonLevelValue(json)
+function numericEpochToMillis(value: number): number {
+  const magnitude = Math.abs(value)
+  if (magnitude >= 1e17) return Math.round(value / 1e6)
+  if (magnitude >= 1e14) return Math.round(value / 1e3)
+  if (magnitude >= 1e11) return Math.round(value)
+  if (magnitude >= 1e8) return Math.round(value * 1000)
+  return Number.NaN
+}
+
+function parseJsonTimestampValue(value: string | number): number | null {
+  if (typeof value === 'number') {
+    const ts = numericEpochToMillis(value)
+    return inPlausibleRange(ts) ? ts : null
+  }
+  const text = value.trim()
+  if (/^-?\d+(?:\.\d+)?$/.test(text)) {
+    const ts = numericEpochToMillis(Number(text))
+    return inPlausibleRange(ts) ? ts : null
+  }
+  const iso = parseIsoTimestamp(text)
+  if (iso !== null) return iso.ts
+  const parsed = Date.parse(text)
+  return inPlausibleRange(parsed) ? parsed : null
+}
+
+function parseJsonTimestamp(json: unknown): number | null {
+  if (json === null) return null
+  const value = jsonTimeValue(json)
   if (value === null) return null
-  const level = LEVEL_ALIASES[value]
-  if (level === undefined) return null
+  return parseJsonTimestampValue(value)
+}
+
+function detectLevelInJson(json: unknown): LevelHit | null {
+  const token = jsonLevelValue(json)
+  if (token === null) return null
+  if (typeof token === 'number') {
+    const level = levelFromNumeric(token)
+    if (level === null) return null
+    return { level, consumed: 0 }
+  }
+  const named = LEVEL_ALIASES[token.toUpperCase()]
+  if (named !== undefined) return { level: named, consumed: 0 }
+  const level = levelFromNumeric(token)
+  if (level === null) return null
   return { level, consumed: 0 }
 }
 
@@ -268,7 +308,7 @@ export function parseLine(line: string): ParsedLine {
   return {
     raw: stripped,
     truncated,
-    ts: timestamp?.ts ?? null,
+    ts: timestamp?.ts ?? parseJsonTimestamp(json),
     level: levelName,
     message,
     json,

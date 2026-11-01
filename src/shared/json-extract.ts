@@ -78,17 +78,37 @@ export function extractJson(text: string): JsonSpan | null {
   return null
 }
 
-export function jsonLevelValue(json: unknown): string | null {
+const LEVEL_KEYS: readonly string[] = ['level', 'severity', 'lvl', 'loglevel', 'levelname']
+const TIME_KEYS: readonly string[] = [
+  'time',
+  'timestamp',
+  'ts',
+  '@timestamp',
+  'datetime',
+  'date',
+  'event_time',
+  'eventTime',
+]
+
+function scalarField(json: unknown, keys: readonly string[]): string | number | null {
   if (typeof json !== 'object' || json === null) return null
   const record = json as Record<string, unknown>
-  const keys: readonly string[] = ['level', 'severity', 'lvl', 'loglevel', 'levelname']
   for (const key of keys) {
     const raw = record[key]
-    if (typeof raw !== 'string' && typeof raw !== 'number') continue
-    const text = String(raw).trim().toUpperCase()
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+    if (typeof raw !== 'string') continue
+    const text = raw.trim()
     if (text.length > 0) return text
   }
   return null
+}
+
+export function jsonLevelValue(json: unknown): string | number | null {
+  return scalarField(json, LEVEL_KEYS)
+}
+
+export function jsonTimeValue(json: unknown): string | number | null {
+  return scalarField(json, TIME_KEYS)
 }
 
 export function jsonMessageValue(json: unknown): string | null {
