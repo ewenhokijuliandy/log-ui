@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { parseLine } from './parse-line.ts'
+import { normalizeParseRules } from './parse-rules.ts'
 import { oversizedLine, REQUEST_UUID, SHORT_REQ_ID, TRACE_ID_HEX32 } from './tests/fixtures.ts'
 
 const DECLINED_REQUEST_ID = 'd3e4f5a6'
@@ -328,6 +329,42 @@ describe('ids', () => {
     const parsed = parseLine(`INFO ${uuids.join(' ')}`)
     expect(parsed.ids).toHaveLength(8)
     expect(parsed.ids[0]).toBe(uuids[0]?.toLowerCase())
+  })
+})
+
+describe('parse rules', () => {
+  const custom = normalizeParseRules({
+    json: { levelKeys: ['sev'], timeKeys: ['when'], messageKeys: ['text'] },
+    numeric: { preset: 'custom', map: { '70': 'fatal' } },
+    time: { numericUnit: 's' },
+  })
+
+  test('custom keys and numeric map drive the parse', () => {
+    const parsed = parseLine('{"sev":70,"when":"1761134138","text":"boom"}', custom)
+    expect(parsed.level).toBe('fatal')
+    expect(parsed.ts).toBe(1_761_134_138_000)
+    expect(parsed.message).toBe('boom')
+  })
+
+  test('custom numeric map does not fall back to the built-in bands', () => {
+    const parsed = parseLine('{"level":30,"msg":"x"}', custom)
+    expect(parsed.level).toBe('unknown')
+  })
+
+  test('forced units override auto detection', () => {
+    const milliseconds = normalizeParseRules({ ...custom, time: { numericUnit: 'ms' } })
+    expect(parseLine('{"when":1761134138742}', milliseconds).ts).toBe(1_761_134_138_742)
+    expect(parseLine('{"when":1761134138}', custom).ts).toBe(1_761_134_138_000)
+  })
+
+  test('empty key lists fall back to the defaults', () => {
+    const empty = normalizeParseRules({
+      json: { levelKeys: [], timeKeys: [], messageKeys: [] },
+    })
+    const parsed = parseLine('{"level":"warn","time":1761134138742,"msg":"ok"}', empty)
+    expect(parsed.level).toBe('warn')
+    expect(parsed.ts).toBe(1_761_134_138_742)
+    expect(parsed.message).toBe('ok')
   })
 })
 

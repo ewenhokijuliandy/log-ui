@@ -3,28 +3,38 @@ import type { LogLevel } from './types.ts'
 const LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'unknown'] as const
 export const LEVEL_ORDER = LEVELS as readonly LogLevel[]
 
-const NUMERIC_LEVEL_BANDS: Readonly<Record<number, LogLevel | undefined>> = {
-  0: 'fatal',
-  1: 'fatal',
-  2: 'fatal',
-  3: 'error',
-  4: 'warn',
-  5: 'info',
-  6: 'info',
-  7: 'debug',
-  10: 'trace',
-  20: 'debug',
-  30: 'info',
-  40: 'warn',
-  50: 'error',
-  60: 'fatal',
+export const PINO_LEVEL_BANDS: Readonly<Record<string, LogLevel | undefined>> = {
+  '10': 'trace',
+  '20': 'debug',
+  '30': 'info',
+  '40': 'warn',
+  '50': 'error',
+  '60': 'fatal',
 }
 
-export function levelFromNumeric(value: number | string): LogLevel | null {
-  if (typeof value === 'string' && !/^\d+$/.test(value.trim())) return null
-  const numeric = typeof value === 'number' ? value : Number(value.trim())
-  if (!Number.isInteger(numeric)) return null
-  return NUMERIC_LEVEL_BANDS[numeric] ?? null
+export const SYSLOG_LEVEL_BANDS: Readonly<Record<string, LogLevel | undefined>> = {
+  '0': 'fatal',
+  '1': 'fatal',
+  '2': 'fatal',
+  '3': 'error',
+  '4': 'warn',
+  '5': 'info',
+  '6': 'info',
+  '7': 'debug',
+}
+
+export const AUTO_LEVEL_BANDS: Readonly<Record<string, LogLevel | undefined>> = {
+  ...SYSLOG_LEVEL_BANDS,
+  ...PINO_LEVEL_BANDS,
+}
+
+export function levelFromNumeric(
+  value: number | string,
+  bands: Readonly<Record<string, LogLevel | undefined>> = AUTO_LEVEL_BANDS,
+): LogLevel | null {
+  const text = typeof value === 'number' ? String(value) : value.trim()
+  if (!/^\d+$/.test(text)) return null
+  return bands[text] ?? null
 }
 
 export type LevelCounts = Record<LogLevel, number>
@@ -43,6 +53,12 @@ export const EMPTY_LEVEL_COUNTS: LevelCounts = {
 
 export function emptyLevelCounts(): LevelCounts {
   return { ...EMPTY_LEVEL_COUNTS }
+}
+
+export function countLevels(records: readonly { level: LogLevel }[]): LevelCounts {
+  const counts = emptyLevelCounts()
+  for (const record of records) counts[record.level] += 1
+  return counts
 }
 
 const CHIP_GROUPS: Record<Exclude<LevelChipKey, 'all'>, readonly LogLevel[]> = {

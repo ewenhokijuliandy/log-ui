@@ -1,3 +1,5 @@
+import { DEFAULT_LEVEL_KEYS, DEFAULT_MESSAGE_KEYS, DEFAULT_TIME_KEYS } from './parse-rules.ts'
+
 const JSON_SKIP_LIMIT = 256 * 1024
 const MAX_SCAN_CHARS = 2 * 1024 * 1024
 const OPENS = new Set(['{', '['])
@@ -78,22 +80,15 @@ export function extractJson(text: string): JsonSpan | null {
   return null
 }
 
-const LEVEL_KEYS: readonly string[] = ['level', 'severity', 'lvl', 'loglevel', 'levelname']
-const TIME_KEYS: readonly string[] = [
-  'time',
-  'timestamp',
-  'ts',
-  '@timestamp',
-  'datetime',
-  'date',
-  'event_time',
-  'eventTime',
-]
-
-function scalarField(json: unknown, keys: readonly string[]): string | number | null {
+function scalarField(
+  json: unknown,
+  keys: readonly string[],
+  fallback: readonly string[],
+): string | number | null {
   if (typeof json !== 'object' || json === null) return null
   const record = json as Record<string, unknown>
-  for (const key of keys) {
+  const candidates = keys.length > 0 ? keys : fallback
+  for (const key of candidates) {
     const raw = record[key]
     if (typeof raw === 'number' && Number.isFinite(raw)) return raw
     if (typeof raw !== 'string') continue
@@ -103,18 +98,28 @@ function scalarField(json: unknown, keys: readonly string[]): string | number | 
   return null
 }
 
-export function jsonLevelValue(json: unknown): string | number | null {
-  return scalarField(json, LEVEL_KEYS)
+export function jsonLevelValue(
+  json: unknown,
+  keys: readonly string[] = DEFAULT_LEVEL_KEYS,
+): string | number | null {
+  return scalarField(json, keys, DEFAULT_LEVEL_KEYS)
 }
 
-export function jsonTimeValue(json: unknown): string | number | null {
-  return scalarField(json, TIME_KEYS)
+export function jsonTimeValue(
+  json: unknown,
+  keys: readonly string[] = DEFAULT_TIME_KEYS,
+): string | number | null {
+  return scalarField(json, keys, DEFAULT_TIME_KEYS)
 }
 
-export function jsonMessageValue(json: unknown): string | null {
+export function jsonMessageValue(
+  json: unknown,
+  keys: readonly string[] = DEFAULT_MESSAGE_KEYS,
+): string | null {
   if (typeof json !== 'object' || json === null) return null
   const record = json as Record<string, unknown>
-  for (const key of ['msg', 'message']) {
+  const candidates = keys.length > 0 ? keys : DEFAULT_MESSAGE_KEYS
+  for (const key of candidates) {
     const raw = record[key]
     if (typeof raw === 'string' && raw.length > 0) return raw
   }

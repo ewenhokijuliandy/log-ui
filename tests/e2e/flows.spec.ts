@@ -145,6 +145,37 @@ test('level chips hide unknown rows and combine levels', async ({ page }) => {
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
+test('parsing rules reparse retained lines and persist', async ({ page }) => {
+  await seed(page, 'rules', [
+    line(1, 'INFO', 'normal line'),
+    '{"sev":"error","when":"2026-10-27T12:00:00.000Z","text":"custom rules apply"}',
+  ])
+  const consoleWatch = watchConsole(page)
+
+  const target = page.locator('.log-row').filter({ hasText: 'custom rules apply' })
+  await expect(target.locator('.level')).toContainText('UNKNOWN')
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Edit rules' }).click()
+  await page.getByLabel('JSON level keys').fill('sev')
+  await page.getByLabel('JSON time keys').fill('when')
+  await page.getByLabel('JSON message keys').fill('text')
+  await page
+    .getByLabel('Test a line')
+    .fill('{"sev":"error","when":"2026-10-27T12:00:00.000Z","text":"custom rules apply"}')
+  await expect(page.locator('.rules-preview')).toContainText('ERROR')
+  await page.getByRole('button', { name: 'Save rules' }).click()
+
+  await expect(target.locator('.level')).toContainText('ERROR')
+  await expect(target.locator('.time')).toContainText('12:00:00.000')
+
+  await page.reload()
+  await expect(
+    page.locator('.log-row').filter({ hasText: 'custom rules apply' }).locator('.level'),
+  ).toContainText('ERROR')
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
 test('pause freezes the rows while counts and buffers keep moving', async ({ page }) => {
   const pipe = await seed(
     page,
