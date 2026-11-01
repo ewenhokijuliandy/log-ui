@@ -176,6 +176,36 @@ test('parsing rules reparse retained lines and persist', async ({ page }) => {
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
+test('inspector switches JSON views, wraps and expands the tree', async ({ page }) => {
+  await seed(page, 'inspect', [jsonLine(1)])
+  const consoleWatch = watchConsole(page)
+
+  await page.locator('.log-row').first().click()
+  const inspector = page.locator('.inspector')
+  await expect(inspector).toBeVisible()
+  await expect(inspector).toContainText('JSON body')
+  await expect(inspector.locator('.json-tree')).toBeVisible()
+  await expect(inspector.locator('.raw')).toBeHidden()
+
+  await inspector.getByRole('button', { name: 'Pretty', exact: true }).click()
+  await expect(inspector.locator('.json-pretty')).toBeVisible()
+  await expect(inspector.locator('.json-pretty')).toContainText('"order"')
+  await inspector.getByRole('button', { name: 'Wrap', exact: true }).click()
+  await expect(inspector.locator('.json-pretty')).toHaveClass(/wrap/)
+
+  await inspector.getByRole('button', { name: 'Tree', exact: true }).click()
+  await expect(inspector.locator('.json-tree details[open]')).toHaveCount(1)
+  await inspector.getByRole('button', { name: 'Collapse', exact: true }).click()
+  await expect(inspector.locator('.json-tree details[open]')).toHaveCount(0)
+  await inspector.getByRole('button', { name: 'Expand', exact: true }).click()
+  await expect(inspector.locator('.json-tree details[open]')).toHaveCount(1)
+
+  await inspector.locator('.raw-block summary').click()
+  await expect(inspector.locator('.raw')).toBeVisible()
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
 test('pause freezes the rows while counts and buffers keep moving', async ({ page }) => {
   const pipe = await seed(
     page,

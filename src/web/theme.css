@@ -1585,7 +1585,7 @@ body.is-resizing {
 }
 
 .raw {
-  max-height: 44px;
+  max-height: 132px;
   overflow: auto;
   padding: 7px 9px;
   border: 1px solid var(--border);
@@ -1619,7 +1619,7 @@ body.is-resizing {
 }
 
 .json-tree {
-  max-height: 150px;
+  min-height: 200px;
   overflow: auto;
   padding: 7px 9px;
   border: 1px solid var(--border);
@@ -1757,6 +1757,123 @@ body.is-resizing {
 }
 
 .json-empty {
+  color: var(--faint);
+  font-size: var(--fs-meta);
+}
+
+.insp-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 5px;
+}
+
+.insp-section-head .insp-label {
+  margin-bottom: 0;
+}
+
+.json-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.json-actions .tool {
+  height: 22px;
+  padding: 0 6px;
+  font-size: var(--fs-meta);
+}
+
+.segment.small {
+  padding: 1px;
+}
+
+.segment.small button {
+  height: 22px;
+  padding: 0 8px;
+  font-size: var(--fs-meta);
+}
+
+.json-section {
+  flex: 1 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.json-section .json-tree,
+.json-section .json-pretty {
+  flex: 1;
+  min-height: 200px;
+}
+
+.json-pretty {
+  margin: 0;
+  overflow: auto;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--raised);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.json-pretty.wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.json-tree.wrap .val-string,
+.json-tree.wrap .val-number,
+.json-tree.wrap .val-bool,
+.json-tree.wrap .val-null {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.raw-block {
+  min-width: 0;
+}
+
+.raw-block summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+  list-style: none;
+  color: var(--faint);
+  font-size: var(--fs-meta);
+  cursor: pointer;
+}
+
+.raw-block summary::-webkit-details-marker {
+  display: none;
+}
+
+.raw-block summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  flex: none;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-left: 4px solid var(--muted);
+  transform: translateY(-1px);
+  transition: transform 120ms var(--ease-out);
+}
+
+.raw-block[open] summary::before {
+  transform: rotate(90deg) translateX(1px);
+}
+
+.json-note {
+  margin-top: 6px;
   color: var(--faint);
   font-size: var(--fs-meta);
 }
@@ -2326,6 +2443,8 @@ textarea.paste::placeholder {
 .segment {
   display: inline-flex;
   gap: 2px;
+  margin: 0;
+  min-inline-size: 0;
   padding: 2px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
@@ -2456,7 +2575,7 @@ textarea.paste::placeholder {
 }
 
 .detail-sheet {
-  max-height: min(82svh, 720px);
+  max-height: min(92svh, 820px);
   overflow-y: auto;
 }
 
@@ -2481,6 +2600,7 @@ textarea.paste::placeholder {
 }
 
 .detail-sheet .json-tree,
+.detail-sheet .json-pretty,
 .detail-sheet .raw {
   max-height: none;
 }
