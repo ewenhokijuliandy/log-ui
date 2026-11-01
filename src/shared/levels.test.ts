@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  chipShowsRecord,
   copyCounts,
   countForChip,
   emptyLevelCounts,
@@ -72,12 +73,26 @@ describe('level chips', () => {
     expect(countForChip(all, 'debug')).toBe(103)
   })
 
-  test('unknown rows are always visible on every chip', () => {
+  test('unknown rows only count on the unknown chip', () => {
     const all: LevelCounts = counts({ error: 4, unknown: 7 })
-    expect(countForChip(all, 'error')).toBe(11)
-    expect(countForChip(all, 'info')).toBe(7)
-    expect(countForChip(all, 'warn')).toBe(7)
-    expect(countForChip(all, 'debug')).toBe(7)
+    expect(countForChip(all, 'error')).toBe(4)
+    expect(countForChip(all, 'info')).toBe(0)
+    expect(countForChip(all, 'warn')).toBe(0)
+    expect(countForChip(all, 'debug')).toBe(0)
+    expect(countForChip(all, 'unknown')).toBe(7)
+    expect(countForChip(all, 'all')).toBe(11)
+  })
+
+  test('multi-select unions groups and an empty selection shows everything', () => {
+    expect(chipShowsRecord([], 'unknown')).toBe(true)
+    expect(chipShowsRecord(['info'], 'info')).toBe(true)
+    expect(chipShowsRecord(['info'], 'unknown')).toBe(false)
+    expect(chipShowsRecord(['error'], 'fatal')).toBe(true)
+    expect(chipShowsRecord(['error'], 'warn')).toBe(false)
+    expect(chipShowsRecord(['error', 'warn'], 'warn')).toBe(true)
+    expect(chipShowsRecord(['error', 'warn'], 'info')).toBe(false)
+    expect(chipShowsRecord(['unknown'], 'unknown')).toBe(true)
+    expect(chipShowsRecord(['unknown'], 'info')).toBe(false)
   })
 })
 

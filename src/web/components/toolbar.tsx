@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LevelChipKey } from '../../shared/levels.ts'
+import { LEVEL_CHIPS, type LevelChipKey } from '../../shared/levels.ts'
 import type { FilterState, SortKey } from '../lib/filters.ts'
 import {
   customRangeError,
@@ -15,14 +15,13 @@ import type { Preset } from '../lib/presets.ts'
 import { Icon } from './icons.tsx'
 import { PopoverPanel, usePopover } from './popover.tsx'
 
-const LEVEL_CHIPS: readonly LevelChipKey[] = ['all', 'error', 'warn', 'info', 'debug']
-
 const CHIP_LABELS: Record<LevelChipKey, string> = {
   all: 'All',
   error: 'Error',
   warn: 'Warn',
   info: 'Info',
   debug: 'Debug',
+  unknown: 'Unknown',
 }
 
 export function Toolbar(props: ToolbarProps) {
@@ -136,6 +135,18 @@ export function Toolbar(props: ToolbarProps) {
     setRenameValue('')
   }
 
+  function toggleLevel(chip: LevelChipKey): void {
+    if (chip === 'all') {
+      onFilter({ ...filter, chips: [] })
+      return
+    }
+    if (filter.chips.includes(chip)) {
+      onFilter({ ...filter, chips: filter.chips.filter((item) => item !== chip) })
+      return
+    }
+    onFilter({ ...filter, chips: [...filter.chips, chip] })
+  }
+
   return (
     <div className="toolbar">
       <div className={`search${error !== null ? ' invalid' : ''}`}>
@@ -181,15 +192,9 @@ export function Toolbar(props: ToolbarProps) {
           <LevelChip
             key={chip}
             chip={chip}
-            pressed={filter.chip === chip}
+            pressed={chip === 'all' ? filter.chips.length === 0 : filter.chips.includes(chip)}
             count={chip === 'all' ? totalCount : props.chipCounts[chip]}
-            onPress={() =>
-              onFilter(
-                filter.chip === chip && chip !== 'all'
-                  ? { ...filter, chip: 'all' }
-                  : { ...filter, chip },
-              )
-            }
+            onPress={() => toggleLevel(chip)}
           />
         ))}
       </div>
@@ -421,7 +426,7 @@ export function Toolbar(props: ToolbarProps) {
             </div>
           ) : null}
           <p className="menu-note">
-            Presets keep the search, regex mode, level, time range and trace in this browser.
+            Presets keep the search, regex mode, levels, time range and trace in this browser.
           </p>
         </PopoverPanel>
       </div>
@@ -453,20 +458,13 @@ export type ToolbarProps = {
 }
 
 function LevelChip({ chip, pressed, count, onPress }: LevelChipProps) {
-  const dotColor = DOT_COLORS[chip]
   return (
     <button className="level-chip" type="button" aria-pressed={pressed} onClick={onPress}>
-      <span className="dot" style={dotColor === undefined ? undefined : { background: dotColor }} />
+      <span className={chip === 'all' ? 'dot' : `dot ${chip}`} />
       {CHIP_LABELS[chip]}
       <span className="count">{formatNumber(count)}</span>
     </button>
   )
-}
-
-const DOT_COLORS: Partial<Record<LevelChipKey, string>> = {
-  error: 'var(--negative)',
-  warn: 'var(--warning)',
-  info: 'var(--info)',
 }
 
 type LevelChipProps = {

@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
+import { countForChip } from '../../shared/levels.ts'
 import type { LogRecord } from '../../shared/types.ts'
 import {
   ConfirmDialog,
@@ -49,7 +50,6 @@ import {
 } from './prefs.ts'
 import {
   BUFFER_CAP,
-  chipCount,
   levelCountTotal,
   openSocket,
   reconnectNow,
@@ -322,10 +322,11 @@ export function App() {
   }
 
   const chipCounts = {
-    error: active === null ? 0 : chipCount(active.levelCounts, 'error'),
-    warn: active === null ? 0 : chipCount(active.levelCounts, 'warn'),
-    info: active === null ? 0 : chipCount(active.levelCounts, 'info'),
-    debug: active === null ? 0 : chipCount(active.levelCounts, 'debug'),
+    error: active === null ? 0 : countForChip(active.levelCounts, 'error'),
+    warn: active === null ? 0 : countForChip(active.levelCounts, 'warn'),
+    info: active === null ? 0 : countForChip(active.levelCounts, 'info'),
+    debug: active === null ? 0 : countForChip(active.levelCounts, 'debug'),
+    unknown: active === null ? 0 : countForChip(active.levelCounts, 'unknown'),
   }
 
   const totalCount = active === null ? 0 : levelCountTotal(active.levelCounts)
@@ -506,7 +507,7 @@ export function App() {
                       setFilter({
                         query: preset.query,
                         regexMode: preset.regex,
-                        chip: preset.level,
+                        chips: [...preset.levels],
                         range: preset.range,
                         from: preset.from,
                         to: preset.to,

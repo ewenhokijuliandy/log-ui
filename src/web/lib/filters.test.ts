@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import type { LogRecord } from '../../shared/types.ts'
 import {
   DEFAULT_FILTER,
+  type FilterState,
   filterError,
   filtersActive,
   MAX_PATTERN_LENGTH,
@@ -97,7 +98,7 @@ describe('search', () => {
 })
 
 describe('level chips', () => {
-  test('error merges fatal, debug merges trace, unknown stays visible', () => {
+  test('chips merge groups and unknown shows only when selected', () => {
     const records = [
       record(1, { level: 'fatal' }),
       record(2, { level: 'error' }),
@@ -107,11 +108,28 @@ describe('level chips', () => {
       record(6, { level: 'unknown' }),
     ]
     expect(
-      visibleRecords(records, { ...DEFAULT_FILTER, chip: 'error' }, null).map((item) => item.seq),
-    ).toEqual([1, 2, 6])
+      visibleRecords(records, { ...DEFAULT_FILTER, chips: ['error'] }, null).map(
+        (item) => item.seq,
+      ),
+    ).toEqual([1, 2])
     expect(
-      visibleRecords(records, { ...DEFAULT_FILTER, chip: 'debug' }, null).map((item) => item.seq),
-    ).toEqual([4, 5, 6])
+      visibleRecords(records, { ...DEFAULT_FILTER, chips: ['debug'] }, null).map(
+        (item) => item.seq,
+      ),
+    ).toEqual([4, 5])
+    expect(
+      visibleRecords(records, { ...DEFAULT_FILTER, chips: ['unknown'] }, null).map(
+        (item) => item.seq,
+      ),
+    ).toEqual([6])
+    expect(
+      visibleRecords(records, { ...DEFAULT_FILTER, chips: ['error', 'warn'] }, null).map(
+        (item) => item.seq,
+      ),
+    ).toEqual([1, 2, 3])
+    expect(visibleRecords(records, DEFAULT_FILTER, null).map((item) => item.seq)).toEqual([
+      1, 2, 3, 4, 5, 6,
+    ])
   })
 })
 
@@ -174,11 +192,12 @@ describe('filter state', () => {
 describe('performance', () => {
   test('filters a 10k buffer in under 16 ms after the search index warms', () => {
     const records = bulk(10_000)
-    const filter = {
+    const filter: FilterState = {
       ...DEFAULT_FILTER,
       query: 'checkout|latency',
       regexMode: true,
-      range: '15m' as const,
+      chips: ['error', 'warn'],
+      range: '15m',
     }
     visibleRecords(records, filter, null)
     const samples: number[] = []

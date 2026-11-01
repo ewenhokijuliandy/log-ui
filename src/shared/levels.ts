@@ -29,7 +29,7 @@ export function levelFromNumeric(value: number | string): LogLevel | null {
 
 export type LevelCounts = Record<LogLevel, number>
 
-export type LevelChipKey = 'all' | 'error' | 'warn' | 'info' | 'debug'
+export type LevelChipKey = 'all' | 'error' | 'warn' | 'info' | 'debug' | 'unknown'
 
 export const EMPTY_LEVEL_COUNTS: LevelCounts = {
   fatal: 0,
@@ -50,14 +50,26 @@ const CHIP_GROUPS: Record<Exclude<LevelChipKey, 'all'>, readonly LogLevel[]> = {
   warn: ['warn'],
   info: ['info'],
   debug: ['debug', 'trace'],
+  unknown: ['unknown'],
 }
 
-export const LEVEL_CHIPS: readonly LevelChipKey[] = ['all', 'error', 'warn', 'info', 'debug']
+export const LEVEL_CHIPS: readonly LevelChipKey[] = [
+  'all',
+  'error',
+  'warn',
+  'info',
+  'debug',
+  'unknown',
+]
 
 export function chipShowsLevel(chip: LevelChipKey, level: LogLevel): boolean {
   if (chip === 'all') return true
-  if (level === 'unknown') return true
   return CHIP_GROUPS[chip].includes(level)
+}
+
+export function chipShowsRecord(chips: readonly LevelChipKey[], level: LogLevel): boolean {
+  if (chips.length === 0) return true
+  return chips.some((chip) => chipShowsLevel(chip, level))
 }
 
 export function sumCounts(target: LevelCounts, source: LevelCounts): void {

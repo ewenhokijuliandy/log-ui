@@ -116,6 +116,35 @@ test('pipe flows through search, level filter, inspector, export, and close', as
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
+test('level chips hide unknown rows and combine levels', async ({ page }) => {
+  await seed(page, 'levels', [
+    line(1, 'INFO', 'ready'),
+    line(2, 'WARN', 'slow'),
+    line(3, 'ERROR', 'failed'),
+    'plain continuation line',
+  ])
+  const consoleWatch = watchConsole(page)
+
+  const unknownChip = page.locator('.level-chip').filter({ hasText: 'Unknown' })
+  await expect(unknownChip.locator('.count')).toHaveText('1')
+
+  await page.locator('.level-chip').filter({ hasText: 'Info' }).click()
+  await expect(page.locator('.log-row')).toHaveCount(1)
+  await expect(page.locator('.log-row').filter({ hasText: 'plain continuation' })).toHaveCount(0)
+
+  await page.locator('.level-chip').filter({ hasText: 'Warn' }).click()
+  await expect(page.locator('.log-row')).toHaveCount(2)
+
+  await unknownChip.click()
+  await expect(page.locator('.log-row')).toHaveCount(3)
+  await expect(page.locator('.log-row').filter({ hasText: 'plain continuation' })).toHaveCount(1)
+
+  await page.locator('.level-chip').filter({ hasText: 'All' }).click()
+  await expect(page.locator('.log-row')).toHaveCount(4)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
 test('pause freezes the rows while counts and buffers keep moving', async ({ page }) => {
   const pipe = await seed(
     page,

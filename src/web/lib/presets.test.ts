@@ -31,8 +31,9 @@ describe('filter presets', () => {
       'checkout slow',
       'trace 5b8e',
     ])
-    expect(presets[0]).toMatchObject({ query: 'payments', level: 'error', range: '15m' })
-    expect(presets[1]).toMatchObject({ query: 'checkout|latency', regex: true, level: 'warn' })
+    expect(presets[0]).toMatchObject({ query: 'payments', levels: ['error'], range: '15m' })
+    expect(presets[1]).toMatchObject({ query: 'checkout|latency', regex: true, levels: ['warn'] })
+    expect(presets[2]).toMatchObject({ levels: [], range: 'all' })
     expect(presets[2]?.trace).toBe('5b8e1f0c9a2d4e7f8b1c3d5e7a9f0b2d')
     expect(storage.data.has(PRESETS_KEY)).toBe(true)
     expect(loadPresets(storage)).toHaveLength(SEED_PRESETS.length)
@@ -53,7 +54,7 @@ describe('filter presets', () => {
         ...DEFAULT_FILTER,
         query: '  timeout ',
         regexMode: true,
-        chip: 'error',
+        chips: ['error', 'warn'],
         range: 'custom',
         from: 1_700_000_000_000,
         to: 1_700_000_600_000,
@@ -68,7 +69,7 @@ describe('filter presets', () => {
       name: 'checkout window',
       query: 'timeout',
       regex: true,
-      level: 'error',
+      levels: ['error', 'warn'],
       range: 'custom',
       sort: 'oldest',
       trace: 'trace-1',
@@ -77,25 +78,29 @@ describe('filter presets', () => {
     })
   })
 
-  test('normalizes legacy presets and ignores corrupt storage', () => {
+  test('normalizes legacy and current levels, ignoring corrupt storage', () => {
     const legacy = fakeStorage({
       [PRESETS_KEY]: JSON.stringify([
         { id: 'legacy', name: 'legacy', query: 'api', regex: false, level: 'warn', range: '15m' },
+        { id: 'all-level', name: 'legacy all', level: 'all' },
+        { id: 'current', name: 'current', levels: ['error', 'bogus', 'all', 'error'] },
         { name: 'missing id' },
       ]),
     })
-    const [preset, ...rest] = loadPresets(legacy)
+    const [preset, allLevel, current, ...rest] = loadPresets(legacy)
     expect(rest).toEqual([])
     expect(preset).toMatchObject({
       id: 'legacy',
       name: 'legacy',
-      level: 'warn',
+      levels: ['warn'],
       range: '15m',
       sort: 'newest',
       trace: null,
       from: null,
       to: null,
     })
+    expect(allLevel?.levels).toEqual([])
+    expect(current?.levels).toEqual(['error'])
     expect(loadPresets(fakeStorage({ [PRESETS_KEY]: '{not json' }))).toEqual([])
   })
 })

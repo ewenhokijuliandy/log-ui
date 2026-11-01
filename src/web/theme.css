@@ -975,6 +975,11 @@ h1 {
   background: var(--faint);
 }
 
+.dot.unknown {
+  border: 1px solid var(--faint);
+  background: transparent;
+}
+
 .tools {
   display: flex;
   align-items: center;

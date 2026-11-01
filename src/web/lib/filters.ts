@@ -1,4 +1,4 @@
-import { chipShowsLevel, type LevelChipKey } from '../../shared/levels.ts'
+import { chipShowsRecord, type LevelChipKey } from '../../shared/levels.ts'
 import type { LogLevel, LogRecord } from '../../shared/types.ts'
 import { pad2 } from './format-time.ts'
 
@@ -37,7 +37,7 @@ export const MAX_PATTERN_LENGTH = 1_000
 export type FilterState = {
   query: string
   regexMode: boolean
-  chip: LevelChipKey
+  chips: LevelChipKey[]
   range: RangeKey
   from: number | null
   to: number | null
@@ -46,7 +46,7 @@ export type FilterState = {
 export const DEFAULT_FILTER: FilterState = {
   query: '',
   regexMode: false,
-  chip: 'all',
+  chips: [],
   range: 'all',
   from: null,
   to: null,
@@ -178,7 +178,7 @@ export function visibleRecords(
   const result: LogRecord[] = []
   for (const record of records) {
     if (isolateTrace !== null && !record.ids.includes(isolateTrace)) continue
-    if (!chipShowsLevel(state.chip, record.level)) continue
+    if (!chipShowsRecord(state.chips, record.level)) continue
     if (state.range !== 'all') {
       if (record.ts === null) continue
       if (window !== null && record.ts < window.floor) continue
@@ -191,12 +191,12 @@ export function visibleRecords(
 }
 
 export function filtersActive(
-  state: Pick<FilterState, 'query' | 'chip' | 'range'>,
+  state: Pick<FilterState, 'query' | 'chips' | 'range'>,
   isolateTrace: string | null,
 ): boolean {
   return (
     state.query.trim().length > 0 ||
-    state.chip !== 'all' ||
+    state.chips.length > 0 ||
     state.range !== 'all' ||
     isolateTrace !== null
   )
