@@ -22,7 +22,7 @@ npm run start | logdeck --name=web
 
 The first pipe starts the daemon, opens the browser, and creates a tab. Additional pipes add tabs to the same daemon.
 
-Running `logdeck` with no piped input starts the daemon and opens the Quick Start guide instead.
+Running `logdeck` with no piped input starts the daemon, prints the URL and stop hint (in a terminal), and opens the Quick Start guide instead.
 
 ## CLI
 
@@ -34,6 +34,7 @@ logdeck stop [--port <number>]
 --name <name>          tab name for the piped stream
 --no-open              do not open the browser
 --idle-timeout <min>   idle shutdown in minutes; 0 disables (default: 5)
+--quiet                suppress CLI status messages
 -V, --version          print the version
 -h, --help             print usage
 ```
@@ -43,6 +44,13 @@ Stop the daemon with:
 ```bash
 logdeck stop
 logdeck stop --port 3333
+```
+
+Status lines go to **stderr** and are shown only when stderr is a terminal: the startup banner, the stream-end summary and the `logdeck stop` confirmation. `--quiet` suppresses them. stdout is never used for status, so `cmd | logdeck | tee out.log` stays clean.
+
+```text
+logdeck: streaming "api" on http://127.0.0.1:3333 — Ctrl+C to stop
+logdeck: "api" ended — 1,234 lines sent in 18.4s
 ```
 
 Closing a tab removes its retained buffer and ends that stream. If a pipe is still writing, the CLI exits with code 0 and the upstream command sees a closed pipe (SIGPIPE on Unix).

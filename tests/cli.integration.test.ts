@@ -43,13 +43,20 @@ type Exit = { code: number | null; stdout: string; stderr: string }
 
 const exitRecords = new WeakMap<ChildProcessWithoutNullStreams, Promise<Exit>>()
 
-function spawnCli(args: string[], stderrTo?: string): ChildProcessWithoutNullStreams {
+type SpawnOptions = {
+  stderrTo?: string
+  status?: boolean
+}
+
+function spawnCli(args: string[], options: SpawnOptions = {}): ChildProcessWithoutNullStreams {
   const stdio: Array<'pipe' | number> = ['pipe', 'pipe', 'pipe']
-  if (stderrTo !== undefined) {
-    stdio[2] = openSync(stderrTo, 'w')
+  if (options.stderrTo !== undefined) {
+    stdio[2] = openSync(options.stderrTo, 'w')
   }
+  const env = options.status === true ? { ...process.env, LOGDECK_STATUS: '1' } : process.env
   const child = spawn(process.execPath, [CLI_PATH, '--no-open', ...args], {
     stdio,
+    env,
   }) as ChildProcessWithoutNullStreams
   children.push(child)
 
@@ -187,6 +194,37 @@ describe('logdeck cli', () => {
     expect(pidFileFor(port) ? existsSync(pidFileFor(port)) : true).toBe(true)
   })
 
+  test('writes the stream banner and summary to stderr', async () => {
+    const port = await pickFreePort()
+    const cli = spawnCli([`--port=${String(port)}`, '--name=feedback'], { status: true })
+
+    const [entry] = await streamMeta(port, 1)
+    cli.stdin.write(makeLines(12))
+    await waitForDepth(port, entry.id, 12)
+    cli.stdin.end()
+
+    const exit = await collect(cli)
+    expect(exit.code).toBe(0)
+    expect(exit.stdout).toBe('')
+    expect(exit.stderr).toContain(`streaming "feedback" on http://127.0.0.1:${String(port)}`)
+    expect(exit.stderr).toContain('"feedback" ended — 12 lines sent')
+  })
+
+  test('--quiet suppresses status output', async () => {
+    const port = await pickFreePort()
+    const cli = spawnCli([`--port=${String(port)}`, '--name=quiet', '--quiet'], { status: true })
+
+    const [entry] = await streamMeta(port, 1)
+    cli.stdin.write(makeLines(3))
+    await waitForDepth(port, entry.id, 3)
+    cli.stdin.end()
+
+    const exit = await collect(cli)
+    expect(exit.code).toBe(0)
+    expect(exit.stdout).toBe('')
+    expect(exit.stderr).toBe('')
+  })
+
   test('two concurrent pipes get unique default names', async () => {
     const port = await pickFreePort()
     const first = spawnCli([`--port=${String(port)}`])
@@ -208,11 +246,11 @@ describe('logdeck cli', () => {
     const cli = spawnCli([`--port=${String(port)}`])
     await streamMeta(port, 1)
 
-    const stopper = spawnCli(['stop', `--port=${String(port)}`])
+    const stopper = spawnCli(['stop', `--port=${String(port)}`], { status: true })
     const stopExit = await collect(stopper)
-    console.log('stage: stopper exit', stopExit.code, JSON.stringify(stopExit.stdout))
     expect(stopExit.code).toBe(0)
-    expect(stopExit.stdout.includes('daemon stopped')).toBe(true)
+    expect(stopExit.stdout).toBe('')
+    expect(stopExit.stderr.includes('daemon stopped')).toBe(true)
 
     let failed = false
     try {
