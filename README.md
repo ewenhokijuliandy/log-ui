@@ -10,7 +10,7 @@ Pipe terminal output into a rich, interactive local log viewer.
 npm install --global logdeck
 ```
 
-The CLI command is `logdeck` (also available as `logdeck`). Requires Node.js 22.12 or newer.
+The CLI binary is `logdeck`. Requires Node.js 22.12 or newer.
 
 ## Quick start
 
