@@ -206,6 +206,77 @@ test('inspector switches JSON views, wraps and expands the tree', async ({ page 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
+test('toolbar stays on one row or a compact two-row layout without overflow', async ({ page }) => {
+  await seed(page, 'toolbar', [line(1, 'INFO', 'ready'), line(2, 'ERROR', 'failed')])
+  const consoleWatch = watchConsole(page)
+
+  const widths = [1440, 1280, 1181, 1024, 900, 768, 390]
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.waitForTimeout(80)
+    const metrics = await page.evaluate(() => {
+      const bar = document.querySelector('.toolbar') as HTMLElement
+      const chips = document.querySelector('.level-filters') as HTMLElement
+      const levels = document.querySelector('#levels-trigger') as HTMLElement
+      const more = document.querySelector('#more-trigger') as HTMLElement
+      const visible = (node: HTMLElement) => getComputedStyle(node).display !== 'none'
+      return {
+        overflow: bar.scrollWidth > bar.clientWidth,
+        pageOverflow: document.documentElement.scrollWidth > window.innerWidth,
+        height: Math.round(bar.getBoundingClientRect().height),
+        chips: visible(chips),
+        levels: visible(levels),
+        more: visible(more),
+        unnamed: Array.from(bar.querySelectorAll('button')).filter((button) => {
+          const text = (button.textContent ?? '').trim()
+          const label = button.getAttribute('aria-label') ?? ''
+          return text.length === 0 && label.length === 0
+        }).length,
+      }
+    })
+    expect(metrics.overflow, `toolbar overflow at ${String(width)}`).toBe(false)
+    expect(metrics.pageOverflow, `page overflow at ${String(width)}`).toBe(false)
+    expect(metrics.unnamed, `unnamed toolbar buttons at ${String(width)}`).toBe(0)
+    if (width === 1440 || width === 1280 || width === 1181) {
+      expect(metrics.chips).toBe(true)
+      expect(metrics.levels).toBe(false)
+      expect(metrics.more).toBe(false)
+      expect(metrics.height).toBeLessThan(50)
+    }
+    if (width === 1024) {
+      expect(metrics.chips).toBe(false)
+      expect(metrics.levels).toBe(true)
+      expect(metrics.more).toBe(true)
+      expect(metrics.height).toBeLessThan(50)
+    }
+    if (width === 768 || width === 390) {
+      expect(metrics.chips).toBe(true)
+      expect(metrics.levels).toBe(false)
+      expect(metrics.more).toBe(true)
+      expect(metrics.height).toBeGreaterThan(50)
+    }
+  }
+
+  await page.setViewportSize({ width: 1024, height: 900 })
+  await page.waitForTimeout(80)
+  await page.locator('#levels-trigger').click()
+  const levelsMenu = page.getByRole('menu', { name: 'Filter by level' })
+  await expect(levelsMenu).toBeVisible()
+  await levelsMenu.getByRole('menuitemcheckbox', { name: /Info/ }).click()
+  await expect(page.locator('.log-row')).toHaveCount(1)
+  await page.keyboard.press('Escape')
+
+  await page.setViewportSize({ width: 768, height: 900 })
+  await page.waitForTimeout(80)
+  await page.locator('#more-trigger').click()
+  const moreMenu = page.getByRole('menu', { name: 'More tools' })
+  await expect(moreMenu).toBeVisible()
+  await moreMenu.getByRole('menuitem', { name: /Word wrap/ }).click()
+  await expect(page.locator('.log-list')).toHaveClass(/wrap/)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
 test('pause freezes the rows while counts and buffers keep moving', async ({ page }) => {
   const pipe = await seed(
     page,
