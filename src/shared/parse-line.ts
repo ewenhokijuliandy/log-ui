@@ -1,5 +1,12 @@
 import { stripAnsi } from './ansi.ts'
-import { extractJson, jsonLevelValue, jsonMessageValue } from './json-extract.ts'
+import { extractJson, jsonLevelValue, jsonMessageValue, jsonTimeValue } from './json-extract.ts'
+import { levelFromNumeric } from './levels.ts'
+import {
+  DEFAULT_PARSE_RULES,
+  type NumericUnit,
+  numericLevelMap,
+  type ParseRules,
+} from './parse-rules.ts'
 import type { LogLevel, ParsedLine } from './types.ts'
 
 const LINE_CAP = 100 * 1024
@@ -138,11 +145,54 @@ function findTimestamp(text: string): TimestampHit | null {
   return parseEpochTimestamp(text)
 }
 
-function detectLevelInJson(json: unknown): LevelHit | null {
-  const value = jsonLevelValue(json)
+function numericEpochToMillis(value: number, unit: NumericUnit): number {
+  if (unit === 's') return Math.round(value * 1000)
+  if (unit === 'ms') return Math.round(value)
+  if (unit === 'us') return Math.round(value / 1e3)
+  if (unit === 'ns') return Math.round(value / 1e6)
+  const magnitude = Math.abs(value)
+  if (magnitude >= 1e17) return Math.round(value / 1e6)
+  if (magnitude >= 1e14) return Math.round(value / 1e3)
+  if (magnitude >= 1e11) return Math.round(value)
+  if (magnitude >= 1e8) return Math.round(value * 1000)
+  return Number.NaN
+}
+
+function parseJsonTimestampValue(value: string | number, unit: NumericUnit): number | null {
+  if (typeof value === 'number') {
+    const ts = numericEpochToMillis(value, unit)
+    return inPlausibleRange(ts) ? ts : null
+  }
+  const text = value.trim()
+  if (/^-?\d+(?:\.\d+)?$/.test(text)) {
+    const ts = numericEpochToMillis(Number(text), unit)
+    return inPlausibleRange(ts) ? ts : null
+  }
+  const iso = parseIsoTimestamp(text)
+  if (iso !== null) return iso.ts
+  const parsed = Date.parse(text)
+  return inPlausibleRange(parsed) ? parsed : null
+}
+
+function parseJsonTimestamp(json: unknown, rules: ParseRules): number | null {
+  if (json === null) return null
+  const value = jsonTimeValue(json, rules.json.timeKeys)
   if (value === null) return null
-  const level = LEVEL_ALIASES[value]
-  if (level === undefined) return null
+  return parseJsonTimestampValue(value, rules.time.numericUnit)
+}
+
+function detectLevelInJson(json: unknown, rules: ParseRules): LevelHit | null {
+  const token = jsonLevelValue(json, rules.json.levelKeys)
+  if (token === null) return null
+  if (typeof token === 'number') {
+    const level = levelFromNumeric(token, numericLevelMap(rules))
+    if (level === null) return null
+    return { level, consumed: 0 }
+  }
+  const named = LEVEL_ALIASES[token.toUpperCase()]
+  if (named !== undefined) return { level: named, consumed: 0 }
+  const level = levelFromNumeric(token, numericLevelMap(rules))
+  if (level === null) return null
   return { level, consumed: 0 }
 }
 
@@ -178,8 +228,8 @@ function detectLevelInWords(text: string): LevelHit | null {
   return null
 }
 
-function detectLevel(json: unknown, text: string): LevelHit | null {
-  const fromJson = detectLevelInJson(json)
+function detectLevel(json: unknown, text: string, rules: ParseRules): LevelHit | null {
+  const fromJson = detectLevelInJson(json, rules)
   if (fromJson !== null) return fromJson
   const fromBrackets = detectLevelInBrackets(text)
   if (fromBrackets !== null) return fromBrackets
@@ -227,7 +277,7 @@ function limitIds(collected: Map<string, string>): string[] {
   return ids
 }
 
-export function parseLine(line: string): ParsedLine {
+export function parseLine(line: string, rules: ParseRules = DEFAULT_PARSE_RULES): ParsedLine {
   const truncated = line.length > LINE_CAP
   const capped = truncated ? line.slice(0, LINE_CAP) : line
   const stripped = stripAnsi(capped)
@@ -243,7 +293,7 @@ export function parseLine(line: string): ParsedLine {
   let jsonHit = extractJson(remainder)
   let text = remainder
 
-  const level = detectLevel(jsonHit === null ? null : jsonHit.value, remainder)
+  const level = detectLevel(jsonHit === null ? null : jsonHit.value, remainder, rules)
   const levelName: LogLevel = level?.level ?? 'unknown'
 
   if (level !== null && level.consumed > 0) {
@@ -256,7 +306,7 @@ export function parseLine(line: string): ParsedLine {
 
   if (jsonHit !== null) {
     json = jsonHit.value
-    message = jsonMessageValue(json) ?? text.trim()
+    message = jsonMessageValue(json, rules.json.messageKeys) ?? text.trim()
   } else {
     message = text.trim()
   }
@@ -268,7 +318,7 @@ export function parseLine(line: string): ParsedLine {
   return {
     raw: stripped,
     truncated,
-    ts: timestamp?.ts ?? null,
+    ts: timestamp?.ts ?? parseJsonTimestamp(json, rules),
     level: levelName,
     message,
     json,

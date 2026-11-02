@@ -8,7 +8,7 @@ import {
 
 describe('inspector width', () => {
   test('defaults to the design width at desktop and 320 below 1180', () => {
-    expect(defaultInspectorWidth(1440)).toBe(356)
+    expect(defaultInspectorWidth(1440)).toBe(440)
     expect(defaultInspectorWidth(1180)).toBe(320)
     expect(defaultInspectorWidth(1024)).toBe(320)
   })
@@ -17,7 +17,7 @@ describe('inspector width', () => {
     expect(clampInspectorWidth(100, 1440)).toBe(INSPECTOR_MIN_WIDTH)
     expect(clampInspectorWidth(1000, 1440)).toBe(INSPECTOR_MAX_WIDTH)
     expect(clampInspectorWidth(600, 1000)).toBe(520)
-    expect(clampInspectorWidth(Number.NaN, 1440)).toBe(356)
+    expect(clampInspectorWidth(Number.NaN, 1440)).toBe(440)
   })
 
   test('rounds fractional widths', () => {

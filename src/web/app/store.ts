@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import type { LevelChipKey } from '../../shared/levels.ts'
-import { EMPTY_LEVEL_COUNTS, type LevelCounts } from '../../shared/levels.ts'
+import { countLevels, EMPTY_LEVEL_COUNTS, type LevelCounts } from '../../shared/levels.ts'
 import { allocateStreamName } from '../../shared/name-allocator.ts'
 import { streamNameProblem } from '../../shared/stream-name.ts'
 import type {
@@ -87,12 +86,6 @@ function entryFromSnapshot(meta: StreamMeta, snapshot: StreamSnapshot): StreamEn
     firstSeq: records.length > 0 ? (records[0]?.seq ?? null) : null,
     pausedAt: null,
   }
-}
-
-function countLevels(records: readonly LogRecord[]): LevelCounts {
-  const counts: LevelCounts = { ...EMPTY_LEVEL_COUNTS }
-  for (const record of records) counts[record.level] += 1
-  return counts
 }
 
 function orderEntries(entries: readonly StreamEntry[]): StreamEntry[] {
@@ -497,17 +490,5 @@ export function reconnectNow(): void {
 export function levelCountTotal(counts: LevelCounts): number {
   let total = 0
   for (const key of Object.keys(counts) as LogLevel[]) total += counts[key]
-  return total
-}
-
-export function chipCount(counts: LevelCounts, chip: Exclude<LevelChipKey, 'all'>): number {
-  const PER_CHIP: Record<Exclude<LevelChipKey, 'all'>, readonly LogLevel[]> = {
-    error: ['fatal', 'error'],
-    warn: ['warn'],
-    info: ['info'],
-    debug: ['debug', 'trace'],
-  }
-  let total = 0
-  for (const level of PER_CHIP[chip]) total += counts[level]
   return total
 }

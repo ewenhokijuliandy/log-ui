@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LevelChipKey } from '../../shared/levels.ts'
+import { LEVEL_CHIPS, type LevelChipKey } from '../../shared/levels.ts'
 import type { FilterState, SortKey } from '../lib/filters.ts'
 import {
   customRangeError,
@@ -15,14 +15,13 @@ import type { Preset } from '../lib/presets.ts'
 import { Icon } from './icons.tsx'
 import { PopoverPanel, usePopover } from './popover.tsx'
 
-const LEVEL_CHIPS: readonly LevelChipKey[] = ['all', 'error', 'warn', 'info', 'debug']
-
 const CHIP_LABELS: Record<LevelChipKey, string> = {
   all: 'All',
   error: 'Error',
   warn: 'Warn',
   info: 'Info',
   debug: 'Debug',
+  unknown: 'Unknown',
 }
 
 export function Toolbar(props: ToolbarProps) {
@@ -51,6 +50,8 @@ export function Toolbar(props: ToolbarProps) {
   const rangeMenu = usePopover()
   const sortMenu = usePopover()
   const presetMenu = usePopover()
+  const levelsMenu = usePopover()
+  const moreMenu = usePopover()
   const [query, setQuery] = useState(filter.query)
   const [regexMode, setRegexMode] = useState(filter.regexMode)
   const [customOpen, setCustomOpen] = useState(filter.range === 'custom')
@@ -136,6 +137,23 @@ export function Toolbar(props: ToolbarProps) {
     setRenameValue('')
   }
 
+  function toggleLevel(chip: LevelChipKey): void {
+    if (chip === 'all') {
+      onFilter({ ...filter, chips: [] })
+      return
+    }
+    if (filter.chips.includes(chip)) {
+      onFilter({ ...filter, chips: filter.chips.filter((item) => item !== chip) })
+      return
+    }
+    onFilter({ ...filter, chips: [...filter.chips, chip] })
+  }
+
+  const chipPressed = (chip: LevelChipKey): boolean =>
+    chip === 'all' ? filter.chips.length === 0 : filter.chips.includes(chip)
+  const chipCount = (chip: LevelChipKey): number =>
+    chip === 'all' ? totalCount : props.chipCounts[chip]
+
   return (
     <div className="toolbar">
       <div className={`search${error !== null ? ' invalid' : ''}`}>
@@ -181,30 +199,60 @@ export function Toolbar(props: ToolbarProps) {
           <LevelChip
             key={chip}
             chip={chip}
-            pressed={filter.chip === chip}
-            count={chip === 'all' ? totalCount : props.chipCounts[chip]}
-            onPress={() =>
-              onFilter(
-                filter.chip === chip && chip !== 'all'
-                  ? { ...filter, chip: 'all' }
-                  : { ...filter, chip },
-              )
-            }
+            pressed={chipPressed(chip)}
+            count={chipCount(chip)}
+            onPress={() => toggleLevel(chip)}
           />
         ))}
       </div>
+
+      <button
+        className="tool levels-trigger"
+        type="button"
+        id="levels-trigger"
+        ref={levelsMenu.bindTrigger}
+        aria-haspopup="menu"
+        aria-expanded={levelsMenu.open}
+        aria-label={`Filter by level${filter.chips.length > 0 ? ` (${String(filter.chips.length)} selected)` : ''}`}
+        title="Filter by level"
+        onClick={() => levelsMenu.setOpen(!levelsMenu.open)}
+      >
+        <Icon name="list" />
+        <span className="label">Levels</span>
+        <span className="badge">{filter.chips.length === 0 ? 'All' : filter.chips.length}</span>
+        <Icon name="chevron" />
+      </button>
+      <PopoverPanel control={levelsMenu} label="Filter by level" width={220} align="start">
+        <div className="popover-title">Levels</div>
+        <div className="level-popover-list">
+          {LEVEL_CHIPS.map((chip) => (
+            <LevelChip
+              key={chip}
+              chip={chip}
+              menu
+              pressed={chipPressed(chip)}
+              count={chipCount(chip)}
+              onPress={() => toggleLevel(chip)}
+            />
+          ))}
+        </div>
+        <p className="menu-note">Combine levels. All clears the selection.</p>
+      </PopoverPanel>
 
       <div className="tools">
         <button
           className="tool"
           type="button"
+          data-tool="range"
           ref={rangeMenu.bindTrigger}
           aria-haspopup="menu"
           aria-expanded={rangeMenu.open}
+          aria-label={`Time range: ${RANGE_LABELS[filter.range]}`}
+          title={`Time range: ${RANGE_LABELS[filter.range]}`}
           onClick={() => rangeMenu.setOpen(!rangeMenu.open)}
         >
           <Icon name="calendar" />
-          <span>{RANGE_LABELS[filter.range]}</span>
+          <span className="label">{RANGE_LABELS[filter.range]}</span>
           <Icon name="chevron" />
         </button>
         <PopoverPanel control={rangeMenu} label="Time range" width={300}>
@@ -265,13 +313,16 @@ export function Toolbar(props: ToolbarProps) {
         <button
           className="tool"
           type="button"
+          data-tool="sort"
           ref={sortMenu.bindTrigger}
           aria-haspopup="menu"
           aria-expanded={sortMenu.open}
+          aria-label={`Sort: ${SORT_LABELS[sort]}`}
+          title={`Sort: ${SORT_LABELS[sort]}`}
           onClick={() => sortMenu.setOpen(!sortMenu.open)}
         >
           <Icon name="sort" />
-          <span>{SORT_LABELS[sort]}</span>
+          <span className="label">{SORT_LABELS[sort]}</span>
           <Icon name="chevron" />
         </button>
         <PopoverPanel control={sortMenu} label="Sort">
@@ -288,48 +339,74 @@ export function Toolbar(props: ToolbarProps) {
           ))}
         </PopoverPanel>
 
-        <button className="tool" type="button" onClick={onToggleZone}>
+        <button
+          className="tool"
+          type="button"
+          data-tool="zone"
+          data-secondary
+          aria-label={`Timestamp zone: ${zone === 'utc' ? 'UTC' : 'Local'}`}
+          title={`Timestamp zone: ${zone === 'utc' ? 'UTC' : 'Local'}`}
+          onClick={onToggleZone}
+        >
           <Icon name="globe" />
-          <span>{zone === 'utc' ? 'UTC' : 'Local'}</span>
-        </button>
-
-        <button className="tool" type="button" aria-pressed={wrap} onClick={onToggleWrap}>
-          <Icon name="wrap" />
-          <span>{wrap ? 'Wrap on' : 'Wrap off'}</span>
+          <span className="label">{zone === 'utc' ? 'UTC' : 'Local'}</span>
         </button>
 
         <button
           className="tool"
           type="button"
+          data-tool="wrap"
+          data-secondary
+          aria-pressed={wrap}
+          aria-label={`Word wrap: ${wrap ? 'On' : 'Off'}`}
+          title={`Word wrap: ${wrap ? 'On' : 'Off'}`}
+          onClick={onToggleWrap}
+        >
+          <Icon name="wrap" />
+          <span className="label">{wrap ? 'Wrap on' : 'Wrap off'}</span>
+        </button>
+
+        <button
+          className="tool"
+          type="button"
+          data-tool="scroll"
+          data-secondary
           aria-pressed={autoscroll}
+          aria-label={`Auto-scroll: ${autoscroll ? 'On' : 'Off'}`}
+          title={`Auto-scroll: ${autoscroll ? 'On' : 'Off'}`}
           onClick={onToggleAutoscroll}
         >
           <Icon name="autoscroll" />
-          <span>{autoscroll ? 'Auto-scroll on' : 'Auto-scroll off'}</span>
+          <span className="label">{autoscroll ? 'Auto-scroll on' : 'Auto-scroll off'}</span>
         </button>
 
         <button
           className="tool"
           type="button"
+          data-tool="pause"
           aria-pressed={paused}
+          aria-label={paused ? 'Resume' : 'Pause'}
           title={paused ? 'Resume the view' : 'Pause the view and keep ingesting'}
           onClick={onTogglePause}
         >
           <Icon name={paused ? 'play' : 'pause'} />
-          <span>{paused ? 'Resume' : 'Pause'}</span>
+          <span className="label">{paused ? 'Resume' : 'Pause'}</span>
           {paused ? <span className="badge">{formatNumber(pending)}</span> : null}
         </button>
 
         <button
           className="tool"
           type="button"
+          data-tool="presets"
           ref={presetMenu.bindTrigger}
           aria-haspopup="menu"
           aria-expanded={presetMenu.open}
+          aria-label="Filter presets"
+          title="Filter presets"
           onClick={() => presetMenu.setOpen(!presetMenu.open)}
         >
           <Icon name="bookmark" />
-          Presets <span className="badge">{presets.length}</span>
+          <span className="label">Presets</span> <span className="badge">{presets.length}</span>
         </button>
         <PopoverPanel control={presetMenu} label="Filter presets" width={300}>
           <div className="popover-title">Saved views</div>
@@ -421,8 +498,50 @@ export function Toolbar(props: ToolbarProps) {
             </div>
           ) : null}
           <p className="menu-note">
-            Presets keep the search, regex mode, level, time range and trace in this browser.
+            Presets keep the search, regex mode, levels, time range and trace in this browser.
           </p>
+        </PopoverPanel>
+
+        <button
+          className="tool tool-more"
+          type="button"
+          id="more-trigger"
+          data-tool="more"
+          ref={moreMenu.bindTrigger}
+          aria-haspopup="menu"
+          aria-expanded={moreMenu.open}
+          aria-label="More tools"
+          title="More tools"
+          onClick={() => moreMenu.setOpen(!moreMenu.open)}
+        >
+          <Icon name="more" />
+        </button>
+        <PopoverPanel control={moreMenu} label="More tools" width={240}>
+          <div className="popover-title">More tools</div>
+          <MenuItem
+            label="Timestamp zone"
+            note={zone === 'utc' ? 'UTC' : 'Local'}
+            onPress={() => {
+              onToggleZone()
+              moreMenu.close()
+            }}
+          />
+          <MenuItem
+            label="Word wrap"
+            note={wrap ? 'On' : 'Off'}
+            onPress={() => {
+              onToggleWrap()
+              moreMenu.close()
+            }}
+          />
+          <MenuItem
+            label="Auto-scroll"
+            note={autoscroll ? 'On' : 'Off'}
+            onPress={() => {
+              onToggleAutoscroll()
+              moreMenu.close()
+            }}
+          />
         </PopoverPanel>
       </div>
     </div>
@@ -452,21 +571,21 @@ export type ToolbarProps = {
   onRenamePreset: (id: string, name: string) => void
 }
 
-function LevelChip({ chip, pressed, count, onPress }: LevelChipProps) {
-  const dotColor = DOT_COLORS[chip]
+function LevelChip({ chip, pressed, count, onPress, menu = false }: LevelChipProps) {
   return (
-    <button className="level-chip" type="button" aria-pressed={pressed} onClick={onPress}>
-      <span className="dot" style={dotColor === undefined ? undefined : { background: dotColor }} />
+    <button
+      className="level-chip"
+      type="button"
+      role={menu ? 'menuitemcheckbox' : undefined}
+      aria-checked={menu ? pressed : undefined}
+      aria-pressed={menu ? undefined : pressed}
+      onClick={onPress}
+    >
+      <span className={chip === 'all' ? 'dot' : `dot ${chip}`} />
       {CHIP_LABELS[chip]}
       <span className="count">{formatNumber(count)}</span>
     </button>
   )
-}
-
-const DOT_COLORS: Partial<Record<LevelChipKey, string>> = {
-  error: 'var(--negative)',
-  warn: 'var(--warning)',
-  info: 'var(--info)',
 }
 
 type LevelChipProps = {
@@ -474,6 +593,7 @@ type LevelChipProps = {
   pressed: boolean
   count: number
   onPress: () => void
+  menu?: boolean
 }
 
 export function MenuItem({

@@ -82,7 +82,7 @@ export function saveTabOrder(ids: readonly string[]): void {
 }
 
 export function defaultInspectorWidth(viewport = window.innerWidth): number {
-  return viewport <= 1180 ? 320 : 356
+  return viewport <= 1180 ? 320 : 440
 }
 
 export function clampInspectorWidth(width: number, viewport = window.innerWidth): number {

@@ -1,6 +1,6 @@
 {
   "name": "logdeck",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Pipe terminal output into a rich, interactive local log viewer",
   "type": "module",
   "license": "MIT",

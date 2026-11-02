@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import type { ParseRules } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
 import { MANUAL_SAMPLE, PIPE_EXAMPLES, SHORTCUTS } from '../app/legacy-data.ts'
 import { copyText } from '../lib/clipboard.ts'
@@ -118,7 +119,7 @@ export function ConfirmDialog({
   )
 }
 
-export type SegmentValue = 'system' | 'dark' | 'light' | 'utc' | 'local' | 'on' | 'off'
+export type SegmentValue = string
 
 export function Segment({
   label,
@@ -152,6 +153,7 @@ export function SettingsSheet({
   onClose,
   prefs,
   onSave,
+  onOpenRules,
   port,
   bufferCap,
 }: {
@@ -169,6 +171,7 @@ export function SettingsSheet({
     autoscroll: boolean
     wrap: boolean
   }) => void
+  onOpenRules: () => void
   port: string
   bufferCap: number
 }) {
@@ -245,6 +248,17 @@ export function SettingsSheet({
       </div>
       <div className="setting-row">
         <div className="setting-copy">
+          <div className="name">Parsing rules</div>
+          <div className="desc">
+            JSON level and time keys, numeric levels. Applies in this browser only.
+          </div>
+        </div>
+        <button className="btn" type="button" onClick={onOpenRules}>
+          <Icon name="settings" /> Edit rules
+        </button>
+      </div>
+      <div className="setting-row">
+        <div className="setting-copy">
           <div className="name">Buffer cap</div>
           <div className="desc">Retained lines per stream, fixed in this build.</div>
         </div>
@@ -310,11 +324,13 @@ export function HelpSheet({
 export function ManualDialog({
   open,
   cap,
+  rules,
   onClose,
   onParse,
 }: {
   open: boolean
   cap: number
+  rules: ParseRules
   onClose: () => void
   onParse: (records: LogRecord[], totalLines: number) => void
 }) {
@@ -411,7 +427,7 @@ export function ManualDialog({
           className="btn primary"
           type="button"
           onClick={() => {
-            const result = parseManual(text, cap)
+            const result = parseManual(text, cap, rules)
             if (result.totalLines === 0) {
               setGuard('Paste some log lines, drop a file, or try the sample.')
               return

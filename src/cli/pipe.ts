@@ -1,5 +1,6 @@
 import { createInterface } from 'node:readline'
 import { openBrowser } from './browser.ts'
+import type { CliStatus } from './status.ts'
 
 type StreamCreation = {
   id: string
@@ -35,9 +36,25 @@ export type PipeOptions = {
   port: number
   name: string | null
   openInBrowser: boolean
+  status: CliStatus
+}
+
+function formatDuration(startedAt: number): string {
+  const elapsed = Math.max(0, Date.now() - startedAt)
+  const seconds = elapsed / 1000
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  const totalSeconds = Math.round(seconds)
+  const minutes = Math.floor(totalSeconds / 60)
+  const rest = totalSeconds % 60
+  return `${String(minutes)}m ${String(rest)}s`
+}
+
+function formatCount(count: number): string {
+  return count.toLocaleString('en-US')
 }
 
 export async function runPipe(options: PipeOptions): Promise<void> {
+  const startedAt = Date.now()
   const created = await createStream(options.port, options.name)
 
   const rest = new WebSocket(
@@ -106,7 +123,11 @@ export async function runPipe(options: PipeOptions): Promise<void> {
 
   await connected
   connectedReject = null
+  options.status.info(
+    `streaming "${created.name}" on http://127.0.0.1:${String(options.port)} — Ctrl+C to stop`,
+  )
 
+  let lineCount = 0
   let chain = Promise.resolve()
   let batch: string[] = []
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -151,6 +172,9 @@ export async function runPipe(options: PipeOptions): Promise<void> {
       if (rest.readyState === 1) rest.send(JSON.stringify({ t: 'end' }))
       rest.close(1000)
       await sleep(30)
+      options.status.info(
+        `"${created.name}" ended — ${formatCount(lineCount)} lines sent in ${formatDuration(startedAt)}`,
+      )
       process.exit(exitCode)
     })
   }
@@ -163,6 +187,7 @@ export async function runPipe(options: PipeOptions): Promise<void> {
 
   readline.on('line', (line) => {
     if (!running) return
+    lineCount += 1
     batch.push(line)
     if (batch.length >= FLUSH_LINES) drain()
     else schedule()

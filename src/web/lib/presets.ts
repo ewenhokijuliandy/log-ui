@@ -6,7 +6,7 @@ export type Preset = {
   name: string
   query: string
   regex: boolean
-  level: LevelChipKey
+  levels: LevelChipKey[]
   range: RangeKey
   sort: SortKey
   trace: string | null
@@ -23,7 +23,7 @@ export const PRESETS_KEY = 'logdeck.presets'
 
 const DESIGN_TRACE_ID = '5b8e1f0c9a2d4e7f8b1c3d5e7a9f0b2d'
 
-const LEVEL_KEYS: readonly LevelChipKey[] = ['all', 'error', 'warn', 'info', 'debug']
+const LEVEL_KEYS: readonly LevelChipKey[] = ['all', 'error', 'warn', 'info', 'debug', 'unknown']
 const RANGE_KEYS: readonly RangeKey[] = ['5m', '15m', '1h', 'all', 'custom']
 
 export const SEED_PRESETS: readonly Preset[] = [
@@ -32,7 +32,7 @@ export const SEED_PRESETS: readonly Preset[] = [
     name: 'payments 5xx',
     query: 'payments',
     regex: false,
-    level: 'error',
+    levels: ['error'],
     range: '15m',
     sort: 'newest',
     trace: null,
@@ -44,7 +44,7 @@ export const SEED_PRESETS: readonly Preset[] = [
     name: 'checkout slow',
     query: 'checkout|latency',
     regex: true,
-    level: 'warn',
+    levels: ['warn'],
     range: 'all',
     sort: 'newest',
     trace: null,
@@ -56,7 +56,7 @@ export const SEED_PRESETS: readonly Preset[] = [
     name: 'trace 5b8e',
     query: '',
     regex: false,
-    level: 'all',
+    levels: [],
     range: 'all',
     sort: 'newest',
     trace: DESIGN_TRACE_ID,
@@ -77,7 +77,7 @@ export function createPreset(
     name: name.trim(),
     query: filter.query.trim(),
     regex: filter.regexMode,
-    level: filter.chip,
+    levels: [...filter.chips],
     range: filter.range,
     sort,
     trace,
@@ -127,7 +127,7 @@ function normalizePreset(value: unknown): Preset | null {
     name: raw.name,
     query: typeof raw.query === 'string' ? raw.query : '',
     regex: raw.regex === true,
-    level: isLevelKey(raw.level) ? raw.level : 'all',
+    levels: normalizeLevels(raw.levels, raw.level),
     range: isRangeKey(raw.range) ? raw.range : 'all',
     sort: raw.sort === 'oldest' ? 'oldest' : 'newest',
     trace: typeof raw.trace === 'string' && raw.trace.length > 0 ? raw.trace : null,
@@ -138,6 +138,17 @@ function normalizePreset(value: unknown): Preset | null {
 
 function isLevelKey(value: unknown): value is LevelChipKey {
   return LEVEL_KEYS.includes(value as LevelChipKey)
+}
+
+function normalizeLevels(levels: unknown, legacy: unknown): LevelChipKey[] {
+  if (Array.isArray(levels)) {
+    const clean = levels.filter(
+      (value): value is LevelChipKey => isLevelKey(value) && value !== 'all',
+    )
+    return [...new Set(clean)]
+  }
+  if (isLevelKey(legacy) && legacy !== 'all') return [legacy]
+  return []
 }
 
 function isRangeKey(value: unknown): value is RangeKey {

@@ -10,7 +10,7 @@ Pipe terminal output into a rich, interactive local log viewer.
 npm install --global logdeck
 ```
 
-The CLI command is `logdeck` (also available as `logdeck`). Requires Node.js 22.12 or newer.
+The CLI binary is `logdeck`. Requires Node.js 22.12 or newer.
 
 ## Quick start
 
@@ -22,7 +22,7 @@ npm run start | logdeck --name=web
 
 The first pipe starts the daemon, opens the browser, and creates a tab. Additional pipes add tabs to the same daemon.
 
-Running `logdeck` with no piped input starts the daemon and opens the Quick Start guide instead.
+Running `logdeck` with no piped input starts the daemon, prints the URL and stop hint (in a terminal), and opens the Quick Start guide instead.
 
 ## CLI
 
@@ -34,6 +34,7 @@ logdeck stop [--port <number>]
 --name <name>          tab name for the piped stream
 --no-open              do not open the browser
 --idle-timeout <min>   idle shutdown in minutes; 0 disables (default: 5)
+--quiet                suppress CLI status messages
 -V, --version          print the version
 -h, --help             print usage
 ```
@@ -45,6 +46,13 @@ logdeck stop
 logdeck stop --port 3333
 ```
 
+Status lines go to **stderr** and are shown only when stderr is a terminal: the startup banner, the stream-end summary and the `logdeck stop` confirmation. `--quiet` suppresses them. stdout is never used for status, so `cmd | logdeck | tee out.log` stays clean.
+
+```text
+logdeck: streaming "api" on http://127.0.0.1:3333 — Ctrl+C to stop
+logdeck: "api" ended — 1,234 lines sent in 18.4s
+```
+
 Closing a tab removes its retained buffer and ends that stream. If a pipe is still writing, the CLI exits with code 0 and the upstream command sees a closed pipe (SIGPIPE on Unix).
 
 The daemon exits after the idle timeout when there are no active streams and no connected browser. `--idle-timeout=0` keeps it running.
@@ -53,8 +61,11 @@ The daemon exits after the idle timeout when there are no active streams and no 
 
 - **Tabs** - one per stream; drag to reorder, double-click or press F2 to rename, close with the tab button.
 - **Search** - plain text or regular expressions (`.*`), with an inline invalid-pattern message.
-- **Filters** - level chips with full-buffer counts, relative or custom time ranges, and saved presets.
-- **Inspect** - click a row (or press Enter) for the raw line, parsed fields, and an expandable JSON tree. Trace IDs isolate a request across the buffer.
+- **Filters** - multi-select level chips (Error merges fatal+error, Debug merges debug+trace, Unknown separate) with full-buffer counts, relative or custom time ranges, and saved presets.
+- **Parsing** - ANSI-stripped lines; ISO or epoch head timestamps plus JSON `time`/`timestamp`/`ts` fields with second-to-nanosecond detection; named or numeric levels (Pino/Bunyan, syslog); JSON bodies and trace/request IDs.
+- **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
+- **Inspect** - click a row (or press Enter) for parsed fields, a Tree/Pretty JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
+- **Compare** - open Compare JSON from the sidebar (rail on desktop, bottom bar on phones), paste two JSON documents, and list added, removed and changed paths. Added and removed rows are tinted; changed paths show a red before line and a green after line. Key order is ignored and the diff is copyable.
 - **Pause** - freeze the visible rows while ingestion and counts continue; resume to reveal the buffered lines.
 - **Manual mode** - paste text or drop a `.txt`/`.log` file (up to 25 MB) for a client-only tab.
 - **Export** - filtered TXT download or a print-styled PDF through the browser's print dialog.

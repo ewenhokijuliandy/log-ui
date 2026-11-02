@@ -1,5 +1,12 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
+import { countForChip, countLevels, emptyLevelCounts } from '../../shared/levels.ts'
+import {
+  isDefaultParseRules,
+  normalizeParseRules,
+  type ParseRules,
+} from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
+import { CompareDialog } from '../components/compare.tsx'
 import {
   ConfirmDialog,
   HelpSheet,
@@ -16,6 +23,7 @@ import {
 import { Sprite } from '../components/icons.tsx'
 import { DetailSheet, Inspector } from '../components/inspector.tsx'
 import { LogList } from '../components/logs.tsx'
+import { ParseRulesDialog } from '../components/parse-rules.tsx'
 import { EmptyState, QuickStart } from '../components/quick.tsx'
 import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
 import { SignalStrip } from '../components/signal.tsx'
@@ -36,6 +44,8 @@ import { useMediaQuery } from '../lib/media.ts'
 import { frozenRecords, pendingCount } from '../lib/pause.ts'
 import { createPreset, loadPresets, type Preset, savePresets } from '../lib/presets.ts'
 import { buildPrintPages } from '../lib/print-sheet.ts'
+import { reparseRecords } from '../lib/reparse.ts'
+import { loadParseRules, PARSE_RULES_KEY, saveParseRules } from './parse-rules.ts'
 import {
   applyTheme,
   clampInspectorWidth,
@@ -49,7 +59,6 @@ import {
 } from './prefs.ts'
 import {
   BUFFER_CAP,
-  chipCount,
   levelCountTotal,
   openSocket,
   reconnectNow,
@@ -57,6 +66,8 @@ import {
   useStreams,
 } from './store.ts'
 import { useUi } from './ui.ts'
+
+const EMPTY_RECORDS: LogRecord[] = []
 
 type PdfState = {
   title: string
@@ -94,7 +105,10 @@ export function App() {
   const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
   const [sort, setSort] = useState<SortKey>('newest')
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets(window.localStorage))
-  const [sheet, setSheet] = useState<'settings' | 'help' | 'manual' | null>(null)
+  const [sheet, setSheet] = useState<'settings' | 'help' | 'manual' | 'rules' | 'compare' | null>(
+    null,
+  )
+  const [rules, setRules] = useState<ParseRules>(() => loadParseRules())
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [closeTarget, setCloseTarget] = useState<string | null>(null)
   const [pdfState, setPdfState] = useState<PdfState | null>(null)
@@ -104,6 +118,13 @@ export function App() {
 
   const active = streams.find((entry) => entry.id === activeId) ?? null
   const narrow = useMediaQuery('(max-width: 960px)')
+  const sourceRecords = active === null ? EMPTY_RECORDS : active.records
+  const derivedRecords = useMemo(() => reparseRecords(sourceRecords, rules), [sourceRecords, rules])
+  const derivedCounts = useMemo(() => {
+    if (active === null) return emptyLevelCounts()
+    if (isDefaultParseRules(rules)) return active.levelCounts
+    return countLevels(derivedRecords)
+  }, [active, rules, derivedRecords])
 
   useEffect(() => {
     openSocket()
@@ -114,6 +135,15 @@ export function App() {
     const onResize = () => setInspectorWidth((value) => clampInspectorWidth(value))
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== PARSE_RULES_KEY) return
+      setRules(loadParseRules())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   useEffect(() => {
@@ -149,21 +179,21 @@ export function App() {
     if (
       current !== undefined &&
       current !== null &&
-      active.records.some((record) => record.seq === current)
+      derivedRecords.some((record) => record.seq === current)
     )
       return
-    const newest = active.records.length > 0 ? active.records[active.records.length - 1] : null
+    const newest = derivedRecords.length > 0 ? derivedRecords[derivedRecords.length - 1] : null
     select(active.id, newest?.seq ?? null)
-  }, [active, select])
+  }, [active, derivedRecords, select])
 
   const paused = active !== null && active.pausedAt !== null
-  const pending = active === null ? 0 : pendingCount(active.records, active.pausedAt)
+  const pending = active === null ? 0 : pendingCount(derivedRecords, active.pausedAt)
 
   const visible = useMemo<LogRecord[]>(() => {
     if (active === null) return []
-    const frozen = frozenRecords(active.records, active.pausedAt)
+    const frozen = frozenRecords(derivedRecords, active.pausedAt)
     return orderRecords(visibleRecords(frozen, filter, isolateTrace), sort)
-  }, [active, filter, isolateTrace, sort])
+  }, [active, derivedRecords, filter, isolateTrace, sort])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -226,7 +256,7 @@ export function App() {
   const selectedRecord =
     active === null || selectedSeq === null
       ? null
-      : (active.records.find((record) => record.seq === selectedSeq) ?? null)
+      : (derivedRecords.find((record) => record.seq === selectedSeq) ?? null)
   const showDetailSheet = narrow && inspectorOpen && selectedRecord !== null
 
   function copySelectedRaw(): Promise<boolean> {
@@ -246,9 +276,9 @@ export function App() {
   function openDetail(): void {
     if (active === null) return
     const current = useUi.getState().selectedSeq[active.id] ?? null
-    const valid = current !== null && active.records.some((record) => record.seq === current)
+    const valid = current !== null && derivedRecords.some((record) => record.seq === current)
     if (!valid) {
-      const newest = active.records[active.records.length - 1]
+      const newest = derivedRecords[derivedRecords.length - 1]
       if (newest !== undefined) select(active.id, newest.seq)
     }
     setInspectorOpen(true)
@@ -322,13 +352,14 @@ export function App() {
   }
 
   const chipCounts = {
-    error: active === null ? 0 : chipCount(active.levelCounts, 'error'),
-    warn: active === null ? 0 : chipCount(active.levelCounts, 'warn'),
-    info: active === null ? 0 : chipCount(active.levelCounts, 'info'),
-    debug: active === null ? 0 : chipCount(active.levelCounts, 'debug'),
+    error: countForChip(derivedCounts, 'error'),
+    warn: countForChip(derivedCounts, 'warn'),
+    info: countForChip(derivedCounts, 'info'),
+    debug: countForChip(derivedCounts, 'debug'),
+    unknown: countForChip(derivedCounts, 'unknown'),
   }
 
-  const totalCount = active === null ? 0 : levelCountTotal(active.levelCounts)
+  const totalCount = levelCountTotal(derivedCounts)
   const totalLines = active?.lineCount ?? 0
   const droppedLines = active?.dropped ?? 0
   const clearedActive = active !== null && cleared.includes(active.id)
@@ -354,6 +385,7 @@ export function App() {
           toggleTheme={toggleTheme}
           onStreams={() => setScreen('stream')}
           onDetail={toggleDetail}
+          onCompare={() => setSheet('compare')}
           detailOpen={inspectorOpen && selectedRecord !== null}
         />
         <div className="main">
@@ -368,7 +400,7 @@ export function App() {
                   if (active === null) return
                   downloadText(
                     active.name,
-                    exportText(exportRecords(active.records, filter, isolateTrace, sort)),
+                    exportText(exportRecords(derivedRecords, filter, isolateTrace, sort)),
                   )
                 }}
                 onPdf={() => {
@@ -376,7 +408,7 @@ export function App() {
                   setPdfState(
                     buildPrintPages(
                       active.name,
-                      exportRecords(active.records, filter, isolateTrace, sort),
+                      exportRecords(derivedRecords, filter, isolateTrace, sort),
                       prefs.zone,
                       BUFFER_CAP,
                     ),
@@ -506,7 +538,7 @@ export function App() {
                       setFilter({
                         query: preset.query,
                         regexMode: preset.regex,
-                        chip: preset.level,
+                        chips: [...preset.levels],
                         range: preset.range,
                         from: preset.from,
                         to: preset.to,
@@ -519,7 +551,7 @@ export function App() {
                     onRenamePreset={renamePreset}
                   />
 
-                  <SignalStrip records={active.records} zone={prefs.zone} />
+                  <SignalStrip records={derivedRecords} zone={prefs.zone} />
 
                   <div
                     className={`log-shell${inspectorOpen && selectedRecord !== null ? '' : ' no-inspector'}`}
@@ -633,6 +665,7 @@ export function App() {
           setPrefs(draft)
           setSheet(null)
         }}
+        onOpenRules={() => setSheet('rules')}
         port={window.location.port === '' ? '3333' : window.location.port}
         bufferCap={BUFFER_CAP}
       />
@@ -649,6 +682,7 @@ export function App() {
       <ManualDialog
         open={sheet === 'manual'}
         cap={BUFFER_CAP}
+        rules={rules}
         onClose={() => setSheet(null)}
         onParse={(records, totalLines) => {
           addManual(records, totalLines)
@@ -656,6 +690,21 @@ export function App() {
           setScreen('stream')
         }}
       />
+
+      <ParseRulesDialog
+        open={sheet === 'rules'}
+        rules={rules}
+        zone={prefs.zone}
+        onClose={() => setSheet(null)}
+        onSave={(next) => {
+          const normalized = normalizeParseRules(next)
+          setRules(normalized)
+          saveParseRules(normalized)
+          setSheet(null)
+        }}
+      />
+
+      <CompareDialog open={sheet === 'compare'} onClose={() => setSheet(null)} />
 
       <PrintSheet
         open={pdfState !== null}

@@ -5,11 +5,21 @@ import { useUi } from '../app/ui.ts'
 import { copyText } from '../lib/clipboard.ts'
 import type { Zone } from '../lib/format-time.ts'
 import { formatNumber, formatTime } from '../lib/format-time.ts'
+import { type JsonToken, type JsonTokenKind, jsonTokens, prettyJson } from '../lib/json-pretty.ts'
 import { copyValueText, jsonEntries, jsonLeafText } from '../lib/json-value.ts'
 import { DialogFrame } from './dialogs.tsx'
 import { Icon } from './icons.tsx'
 
 const COPIED_MS = 1_200
+
+const TOKEN_CLASS: Record<JsonTokenKind, string | undefined> = {
+  key: 'json-key',
+  string: 'val-string',
+  number: 'val-number',
+  bool: 'val-bool',
+  null: 'val-null',
+  plain: undefined,
+}
 
 export function Inspector({
   record,
@@ -24,7 +34,10 @@ export function Inspector({
   const close = useUi((state) => state.setInspectorOpen)
   const setIsolate = useUi((state) => state.setIsolate)
   const [copied, setCopied] = useState<{ seq: number; key: string } | null>(null)
+  const [jsonView, setJsonView] = useState<'tree' | 'pretty'>('tree')
+  const [jsonWrap, setJsonWrap] = useState(false)
   const copiedTimer = useRef<number | null>(null)
+  const treeRef = useRef<HTMLDivElement | null>(null)
 
   const parsed = useMemo(() => {
     if (record === null) return [] as Array<{ key: string; value: string }>
@@ -38,6 +51,11 @@ export function Inspector({
     return base
   }, [record, zone])
 
+  const tokens = useMemo(
+    () => (record === null || record.json === null ? [] : jsonTokens(record.json)),
+    [record],
+  )
+
   useEffect(() => {
     return () => {
       if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current)
@@ -47,6 +65,7 @@ export function Inspector({
   if (record === null) return null
 
   const recordSeq = record.seq
+  const jsonBody = record.json
   const copiedKey = copied !== null && copied.seq === recordSeq ? copied.key : null
 
   function flash(key: string): void {
@@ -65,7 +84,21 @@ export function Inspector({
     if (ok) flash(key)
   }
 
-  const jsonRoot = record.json === null ? [] : jsonEntries(record.json)
+  function setTreeOpen(open: boolean): void {
+    const tree = treeRef.current
+    if (tree === null) return
+    tree.querySelectorAll('details').forEach((details) => {
+      details.open = open
+    })
+  }
+
+  async function copyPretty(): Promise<void> {
+    if (jsonBody === null) return
+    const ok = await copyText(prettyJson(jsonBody))
+    if (ok) flash('pretty')
+  }
+
+  const jsonRoot = jsonBody === null ? [] : jsonEntries(jsonBody)
 
   return (
     <aside className="inspector" aria-label="Line detail">
@@ -91,10 +124,6 @@ export function Inspector({
       </header>
       <div className="inspector-body">
         <section className="insp-section">
-          <div className="insp-label">Raw line</div>
-          <pre className="raw">{record.raw}</pre>
-        </section>
-        <section className="insp-section">
           <div className="insp-label">Parsed fields</div>
           <dl className="parsed">
             {parsed.map((item) => (
@@ -107,27 +136,89 @@ export function Inspector({
           </dl>
         </section>
         {record.json !== null ? (
+          <section className="insp-section json-section">
+            <div className="insp-section-head">
+              <div className="insp-label">JSON body</div>
+              <div className="json-actions">
+                <fieldset className="segment small" aria-label="JSON view">
+                  <button
+                    type="button"
+                    aria-pressed={jsonView === 'tree'}
+                    onClick={() => setJsonView('tree')}
+                  >
+                    Tree
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={jsonView === 'pretty'}
+                    onClick={() => setJsonView('pretty')}
+                  >
+                    Pretty
+                  </button>
+                </fieldset>
+                <button
+                  className="tool"
+                  type="button"
+                  aria-pressed={jsonWrap}
+                  title="Wrap long JSON values"
+                  onClick={() => setJsonWrap(!jsonWrap)}
+                >
+                  Wrap
+                </button>
+                <button className="tool" type="button" onClick={() => setTreeOpen(true)}>
+                  Expand
+                </button>
+                <button className="tool" type="button" onClick={() => setTreeOpen(false)}>
+                  Collapse
+                </button>
+                <button
+                  className="tool"
+                  type="button"
+                  aria-label="Copy pretty JSON"
+                  title={copiedKey === 'pretty' ? 'Copied' : 'Copy pretty JSON'}
+                  onClick={() => void copyPretty()}
+                >
+                  <Icon name={copiedKey === 'pretty' ? 'check' : 'copy'} />
+                </button>
+              </div>
+            </div>
+            {jsonView === 'tree' ? (
+              <div className={`json-tree${jsonWrap ? ' wrap' : ''}`} ref={treeRef}>
+                {jsonRoot.length === 0 ? (
+                  <p className="json-empty">Empty JSON body.</p>
+                ) : (
+                  jsonRoot.map(([key, value]) => (
+                    <JsonNodes
+                      key={key}
+                      name={key}
+                      value={value}
+                      depth={0}
+                      path={key}
+                      copied={copiedKey}
+                      onCopy={copyNode}
+                    />
+                  ))
+                )}
+              </div>
+            ) : (
+              <PrettyJson tokens={tokens} wrap={jsonWrap} />
+            )}
+          </section>
+        ) : (
           <section className="insp-section">
             <div className="insp-label">JSON body</div>
-            <div className="json-tree">
-              {jsonRoot.length === 0 ? (
-                <p className="json-empty">Empty JSON body.</p>
-              ) : (
-                jsonRoot.map(([key, value]) => (
-                  <JsonNodes
-                    key={key}
-                    name={key}
-                    value={value}
-                    depth={0}
-                    path={key}
-                    copied={copiedKey}
-                    onCopy={copyNode}
-                  />
-                ))
-              )}
-            </div>
+            <p className="json-empty">No JSON body on this line. The raw text is below.</p>
           </section>
-        ) : null}
+        )}
+        <section className="insp-section">
+          <details className="raw-block" open={record.json === null}>
+            <summary>Raw line</summary>
+            <pre className="raw">{record.raw}</pre>
+          </details>
+          {record.truncated ? (
+            <p className="json-note">This line was truncated at 100 KB.</p>
+          ) : null}
+        </section>
         {record.ids.length > 0 ? (
           <div className="trace-line">
             <span>Isolate</span>
@@ -161,6 +252,23 @@ export function Inspector({
 
 function short(value: string): string {
   return value.slice(0, 8)
+}
+
+function PrettyJson({ tokens, wrap }: { tokens: JsonToken[]; wrap: boolean }) {
+  let offset = 0
+  return (
+    <pre className={`json-pretty${wrap ? ' wrap' : ''}`}>
+      {tokens.map((token) => {
+        const key = `${String(offset)}-${token.kind}`
+        offset += token.text.length
+        return (
+          <span key={key} className={TOKEN_CLASS[token.kind]}>
+            {token.text}
+          </span>
+        )
+      })}
+    </pre>
+  )
 }
 
 export type InspectorProps = {

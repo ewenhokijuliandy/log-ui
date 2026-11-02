@@ -1,4 +1,5 @@
 import { parseLine } from '../../shared/parse-line.ts'
+import { DEFAULT_PARSE_RULES, type ParseRules } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
 
 export const MANUAL_FILE_LIMIT = 25 * 1024 * 1024
@@ -22,7 +23,11 @@ export type ManualParseResult = {
   totalLines: number
 }
 
-export function parseManual(text: string, cap: number): ManualParseResult {
+export function parseManual(
+  text: string,
+  cap: number,
+  rules: ParseRules = DEFAULT_PARSE_RULES,
+): ManualParseResult {
   const lines = text.split(/\r?\n/)
   let totalLines = 0
   for (const line of lines) {
@@ -35,7 +40,7 @@ export function parseManual(text: string, cap: number): ManualParseResult {
     if (line.trim().length === 0) continue
     seq += 1
     if (seq <= skip) continue
-    const parsed = parseLine(line)
+    const parsed = parseLine(line, rules)
     records.push({ seq, ...parsed })
   }
   return { records, totalLines }

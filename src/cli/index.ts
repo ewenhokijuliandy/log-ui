@@ -3,6 +3,7 @@ import { readVersion } from '../server/version.ts'
 import { openBrowser } from './browser.ts'
 import { DEFAULT_PORT, DEFAULT_STATE_DIR, ensureDaemon, runDaemon, stopDaemon } from './daemon.ts'
 import { type PipeOptions, runPipe } from './pipe.ts'
+import { createStatus } from './status.ts'
 
 function fail(message: string, exitCode = 1): never {
   process.stderr.write(`logdeck: ${message}\n`)
@@ -25,15 +26,17 @@ program
   .option('--name <name>', 'tab name for the piped stream')
   .option('--no-open', 'do not open the browser')
   .option('--idle-timeout <minutes>', 'idle shutdown in minutes (0 disables)', '5')
+  .option('--quiet', 'suppress CLI status messages')
 
 program
   .command('stop')
   .description('stop the local logdeck daemon')
   .action(async (_flags, command) => {
     const opts = command.optsWithGlobals()
+    const status = createStatus(opts.quiet === true)
     try {
       await stopDaemon(toNumber(opts.port), DEFAULT_STATE_DIR)
-      process.stdout.write(`logdeck: daemon stopped on port ${String(opts.port)}\n`)
+      status.info(`daemon stopped on port ${String(opts.port)}`)
     } catch (error) {
       fail(error instanceof Error ? error.message : String(error))
     }
@@ -53,6 +56,7 @@ program.action(async (flags) => {
   const port = toNumber(flags.port)
   const name = typeof flags.name === 'string' ? flags.name : null
   const openInBrowser: boolean = flags.open !== false
+  const status = createStatus(flags.quiet === true)
 
   try {
     await ensureDaemon(port)
@@ -62,12 +66,14 @@ program.action(async (flags) => {
 
   if (process.stdin.isTTY) {
     const url = `http://127.0.0.1:${String(port)}`
-    process.stdout.write(`logdeck: no streams yet — quick start at ${url}\n`)
+    status.info(`running on ${url}`)
+    status.info('pipe a command: command | logdeck')
+    status.info('stop: logdeck stop')
     if (openInBrowser) await openBrowser(url)
     return
   }
 
-  const pipeOptions: PipeOptions = { port, name, openInBrowser }
+  const pipeOptions: PipeOptions = { port, name, openInBrowser, status }
   void runPipe(pipeOptions).catch((error) => {
     fail(error instanceof Error ? error.message : String(error))
   })

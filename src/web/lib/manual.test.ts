@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { normalizeParseRules } from '../../shared/parse-rules.ts'
 import { MANUAL_FILE_LIMIT, manualFileProblem, parseManual } from './manual.ts'
 
 describe('manual parsing', () => {
@@ -38,6 +39,20 @@ describe('manual parsing', () => {
       msg: 'body',
       n: 1,
     })
+  })
+
+  test('accepts custom parse rules', () => {
+    const rules = normalizeParseRules({
+      json: { levelKeys: ['sev'], timeKeys: ['when'], messageKeys: ['text'] },
+    })
+    const result = parseManual(
+      '{"sev":"error","when":"2026-10-26T10:00:00.000Z","text":"boom"}',
+      10_000,
+      rules,
+    )
+    expect(result.records[0]?.level).toBe('error')
+    expect(result.records[0]?.ts).toBe(Date.parse('2026-10-26T10:00:00.000Z'))
+    expect(result.records[0]?.message).toBe('boom')
   })
 
   test('returns an empty result for blank input', () => {
