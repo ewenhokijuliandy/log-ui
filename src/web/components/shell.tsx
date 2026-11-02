@@ -7,7 +7,14 @@ import { PopoverPanel, usePopover } from './popover.tsx'
 
 export type SheetName = 'settings' | 'help' | 'manual' | null
 
-export function Rail({ openSheet, toggleTheme, onStreams, onDetail, detailOpen }: RailProps) {
+export function Rail({
+  openSheet,
+  toggleTheme,
+  onStreams,
+  onDetail,
+  onCompare,
+  detailOpen,
+}: RailProps) {
   const streamsOpen = useUi((state) => state.screen === 'stream')
   return (
     <aside className="rail" aria-label="Workspace">
@@ -35,6 +42,16 @@ export function Rail({ openSheet, toggleTheme, onStreams, onDetail, detailOpen }
       >
         <Icon name="panel" />
         <span className="rail-label">Detail</span>
+      </button>
+      <button
+        className="rail-btn"
+        type="button"
+        title="Compare JSON"
+        aria-label="Compare JSON"
+        onClick={onCompare}
+      >
+        <Icon name="diff" />
+        <span className="rail-label">Compare</span>
       </button>
       <button
         className="rail-btn"
@@ -89,6 +106,7 @@ export type RailProps = {
   toggleTheme: () => void
   onStreams: () => void
   onDetail: () => void
+  onCompare: () => void
   detailOpen: boolean
 }
 

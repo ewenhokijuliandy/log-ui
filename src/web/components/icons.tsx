@@ -30,6 +30,8 @@ const SPRITE_SYMBOLS: readonly string[] = [
   'pause',
   'play',
   'more',
+  'diff',
+  'caret',
 ]
 
 export function Sprite() {
@@ -382,6 +384,45 @@ export function Sprite() {
         <circle cx="3.2" cy="8" r="1" fill="currentColor" />
         <circle cx="8" cy="8" r="1" fill="currentColor" />
         <circle cx="12.8" cy="8" r="1" fill="currentColor" />
+      </symbol>
+      <symbol id="i-caret" viewBox="0 0 10 6">
+        <path
+          d="m1 1 4 4 4-4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </symbol>
+      <symbol id="i-diff" viewBox="0 0 16 16">
+        <rect
+          x="2.5"
+          y="3"
+          width="5"
+          height="10"
+          rx="1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="none"
+        />
+        <rect
+          x="8.5"
+          y="3"
+          width="5"
+          height="10"
+          rx="1"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="none"
+        />
+        <path
+          d="M4.3 6.2h1.4M4.3 8.4h1.4M11 6.2h1.4M11 8.4h1.4"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          fill="none"
+        />
       </symbol>
     </svg>
   )

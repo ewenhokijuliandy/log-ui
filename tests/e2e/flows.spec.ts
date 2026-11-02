@@ -277,6 +277,50 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
+test('compare JSON reports differences and validates both sides', async ({ page }) => {
+  await seed(page, 'compare', [line(1)])
+  const consoleWatch = watchConsole(page)
+
+  await page.getByRole('button', { name: 'Compare JSON' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Compare JSON' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByRole('button', { name: 'Load sample' }).click()
+  await expect(dialog.locator('.compare-summary')).toContainText('2 added')
+  await expect(dialog.locator('.compare-summary')).toContainText('0 removed')
+  await expect(dialog.locator('.compare-summary')).toContainText('3 changed')
+  await expect(dialog.locator('.compare-row')).toHaveCount(5)
+  const changed = dialog.locator('.compare-row.changed').first()
+  await expect(changed).toContainText('$.status')
+  await expect(changed.locator('.compare-before')).toBeVisible()
+  await expect(changed.locator('.compare-after')).toBeVisible()
+
+  await page.getByLabel('A · before').fill('{')
+  await dialog.getByRole('button', { name: 'Compare' }).click()
+  await expect(dialog.getByText('This side is not valid JSON.')).toBeVisible()
+  await expect(dialog.locator('.compare-row')).toHaveCount(0)
+
+  await dialog.getByRole('button', { name: 'Load sample' }).click()
+  const leftValue = await page.getByLabel('A · before').inputValue()
+  const rightValue = await page.getByLabel('B · after').inputValue()
+  await dialog.getByRole('button', { name: 'Swap' }).click()
+  await expect(page.getByLabel('A · before')).toHaveValue(rightValue)
+  await expect(page.getByLabel('B · after')).toHaveValue(leftValue)
+
+  await dialog.getByRole('button', { name: 'Close' }).click()
+  await expect(dialog).not.toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(80)
+  await expect(page.getByRole('button', { name: 'Compare JSON' })).toBeVisible()
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  )
+  expect(overflow).toBe(false)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
 test('pause freezes the rows while counts and buffers keep moving', async ({ page }) => {
   const pipe = await seed(
     page,

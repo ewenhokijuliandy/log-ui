@@ -65,6 +65,7 @@ The daemon exits after the idle timeout when there are no active streams and no 
 - **Parsing** - ANSI-stripped lines; ISO or epoch head timestamps plus JSON `time`/`timestamp`/`ts` fields with second-to-nanosecond detection; named or numeric levels (Pino/Bunyan, syslog); JSON bodies and trace/request IDs.
 - **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
 - **Inspect** - click a row (or press Enter) for parsed fields, a Tree/Pretty JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
+- **Compare** - open Compare JSON from the sidebar (rail on desktop, bottom bar on phones), paste two JSON documents, and list added, removed and changed paths. Added and removed rows are tinted; changed paths show a red before line and a green after line. Key order is ignored and the diff is copyable.
 - **Pause** - freeze the visible rows while ingestion and counts continue; resume to reveal the buffered lines.
 - **Manual mode** - paste text or drop a `.txt`/`.log` file (up to 25 MB) for a client-only tab.
 - **Export** - filtered TXT download or a print-styled PDF through the browser's print dialog.

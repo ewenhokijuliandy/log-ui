@@ -10,6 +10,7 @@ import {
 import type { LogLevel } from '../../shared/types.ts'
 import { formatTime, type Zone } from '../lib/format-time.ts'
 import { DialogFrame, Segment } from './dialogs.tsx'
+import { Icon } from './icons.tsx'
 
 const LEVEL_VALUES: readonly LogLevel[] = [
   'fatal',
@@ -180,13 +181,16 @@ export function ParseRulesDialog({
         </label>
         <label className="field">
           <span className="field-label">Numeric unit</span>
-          <select value={unit} onChange={(event) => setUnit(event.target.value as NumericUnit)}>
-            {UNIT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <span className="select-wrap">
+            <select value={unit} onChange={(event) => setUnit(event.target.value as NumericUnit)}>
+              {UNIT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <Icon name="caret" />
+          </span>
         </label>
       </div>
       <div className="field">

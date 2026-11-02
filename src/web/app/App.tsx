@@ -6,6 +6,7 @@ import {
   type ParseRules,
 } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
+import { CompareDialog } from '../components/compare.tsx'
 import {
   ConfirmDialog,
   HelpSheet,
@@ -104,7 +105,9 @@ export function App() {
   const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
   const [sort, setSort] = useState<SortKey>('newest')
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets(window.localStorage))
-  const [sheet, setSheet] = useState<'settings' | 'help' | 'manual' | 'rules' | null>(null)
+  const [sheet, setSheet] = useState<'settings' | 'help' | 'manual' | 'rules' | 'compare' | null>(
+    null,
+  )
   const [rules, setRules] = useState<ParseRules>(() => loadParseRules())
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [closeTarget, setCloseTarget] = useState<string | null>(null)
@@ -382,6 +385,7 @@ export function App() {
           toggleTheme={toggleTheme}
           onStreams={() => setScreen('stream')}
           onDetail={toggleDetail}
+          onCompare={() => setSheet('compare')}
           detailOpen={inspectorOpen && selectedRecord !== null}
         />
         <div className="main">
@@ -699,6 +703,8 @@ export function App() {
           setSheet(null)
         }}
       />
+
+      <CompareDialog open={sheet === 'compare'} onClose={() => setSheet(null)} />
 
       <PrintSheet
         open={pdfState !== null}

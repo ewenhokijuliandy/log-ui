@@ -2392,6 +2392,27 @@ dialog.quick-dialog {
   border-color: var(--accent);
 }
 
+.select-wrap {
+  position: relative;
+  display: block;
+}
+
+.select-wrap select {
+  padding-right: 28px;
+  appearance: none;
+}
+
+.select-wrap svg {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  width: 12px;
+  height: 8px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
 .rules-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2415,6 +2436,144 @@ dialog.quick-dialog {
   margin-top: 8px;
   color: var(--faint);
   font-size: var(--fs-meta);
+}
+
+dialog.compare-dialog {
+  width: min(880px, calc(100vw - 32px));
+  max-height: 88svh;
+  overflow-y: auto;
+}
+
+.compare-dialog .dialog-actions {
+  flex-wrap: wrap;
+}
+
+.compare-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.compare-inputs .field {
+  margin-top: 0;
+}
+
+.compare-inputs textarea.paste {
+  height: 150px;
+}
+
+.compare-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 18px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+}
+
+.compare-summary .added {
+  color: var(--positive);
+}
+
+.compare-summary .removed {
+  color: var(--negative);
+}
+
+.compare-summary .changed {
+  color: var(--warning);
+}
+
+.compare-note {
+  color: var(--faint);
+}
+
+.compare-result {
+  margin-top: 8px;
+  max-height: 34svh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--raised);
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+.compare-row:last-child {
+  border-bottom: 0;
+}
+
+.compare-row.added {
+  border-left: 2px solid var(--positive);
+  background: var(--pill-pos-bg);
+}
+
+.compare-row.removed {
+  border-left: 2px solid var(--negative);
+  background: var(--pill-neg-bg);
+}
+
+.compare-row.changed {
+  border-left: 2px solid var(--warning);
+  background: var(--pill-warn-bg);
+}
+
+.compare-sign {
+  font-weight: 500;
+}
+
+.compare-row.added .compare-sign {
+  color: var(--positive);
+}
+
+.compare-row.removed .compare-sign {
+  color: var(--negative);
+}
+
+.compare-row.changed .compare-sign {
+  color: var(--warning);
+}
+
+.compare-path {
+  color: var(--muted);
+}
+
+.compare-line {
+  display: flex;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.compare-line-sign {
+  flex: none;
+  font-weight: 500;
+}
+
+.compare-before {
+  color: var(--negative);
+}
+
+.compare-after {
+  color: var(--positive);
+}
+
+@media (max-width: 720px) {
+  .compare-inputs {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
