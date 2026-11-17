@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { countLevels, EMPTY_LEVEL_COUNTS, type LevelCounts } from '../../shared/levels.ts'
+import type { LevelCounts } from '../../shared/levels.ts'
 import { allocateStreamName } from '../../shared/name-allocator.ts'
 import { streamNameProblem } from '../../shared/stream-name.ts'
 import type {
@@ -9,29 +9,37 @@ import type {
   StreamSnapshot,
   StreamStatus,
 } from '../../shared/types.ts'
+import { BUFFER_CAP, hasGap } from '../lib/stream-merge.ts'
+import { clearStreamBuffer, deleteStream, fetchJson, patchStreamName } from './api.ts'
 import { loadTabOrder, saveTabOrder } from './prefs.ts'
+import { entryFromSnapshot, type StreamEntry } from './stream-entry.ts'
+import {
+  addStreamEntry,
+  appendRecords,
+  applyPaused,
+  applySnapshot,
+  applyStreamUpdate,
+  clearRecords,
+  createManualEntry,
+  moveStreamOrder,
+  orderByStoredIds,
+  removeStreamEntry,
+} from './stream-reducers.ts'
 import { type ConnectionPhase, createStreamSocket, type ServerEvent } from './ws-client.ts'
 
-export const BUFFER_CAP = 10_000
-
-export type StreamKind = 'pipe' | 'manual'
-
-export type StreamEntry = {
-  id: string
-  name: string
-  kind: StreamKind
-  status: StreamStatus
-  createdAt: number
-  records: LogRecord[]
-  dropped: number
-  lineCount: number
-  levelCounts: LevelCounts
-  lastSeq: number | null
-  firstSeq: number | null
-  pausedAt: number | null
-}
+export type { StreamEntry, StreamKind } from './stream-entry.ts'
+export { BUFFER_CAP }
 
 export type RenameResult = { ok: true } | { ok: false; error: string }
+
+type StreamUpdatePayload = {
+  id: string
+  status: StreamStatus
+  name?: string
+  lineCount?: number
+  dropped?: number
+  levelCounts?: LevelCounts
+}
 
 type StoreState = {
   streams: StreamEntry[]
@@ -41,6 +49,7 @@ type StoreState = {
   connection: ConnectionPhase
   simulatedLost: boolean
   bootError: string | null
+  lastError: string | null
 }
 
 type StoreActions = {
@@ -57,50 +66,69 @@ type StoreActions = {
   clearStream: (id: string) => Promise<void>
 }
 
-const joinPath = (path: string): string => `${window.location.origin}${path}`
-
-async function fetchJson<T>(path: string): Promise<T | null> {
-  try {
-    const response = await fetch(joinPath(path), { signal: AbortSignal.timeout(4000) })
-    if (!response.ok) return null
-    return (await response.json()) as T
-  } catch {
-    return null
+function handleStreamCreated(event: ServerEvent): void {
+  const meta = event.meta as StreamMeta | null
+  if (meta === null) return
+  const current = useStreams.getState()
+  const next = addStreamEntry(current.streams, meta)
+  if (next !== null) {
+    saveTabOrder(next.map((item) => item.id))
+    useStreams.setState({ streams: next, activeId: current.activeId ?? meta.id })
   }
+  void current.resync(meta.id)
 }
 
-function entryFromSnapshot(meta: StreamMeta, snapshot: StreamSnapshot): StreamEntry {
-  const records = [...snapshot.records]
-  if (records.length > BUFFER_CAP) records.splice(0, records.length - BUFFER_CAP)
-  return {
-    id: meta.id,
-    name: meta.name,
-    kind: 'pipe',
-    status: snapshot.status,
-    createdAt: meta.createdAt,
-    records,
-    dropped: snapshot.dropped,
-    lineCount: records.length,
-    levelCounts: countLevels(records),
-    lastSeq: snapshot.lastSeq,
-    firstSeq: records.length > 0 ? (records[0]?.seq ?? null) : null,
-    pausedAt: null,
-  }
+function handleStreamUpdated(event: ServerEvent): void {
+  const payload = event.payload as StreamUpdatePayload | null
+  if (payload === null) return
+  useStreams.setState((state) => ({
+    streams: state.streams.map((item) =>
+      item.id === payload.id ? applyStreamUpdate(item, payload) : item,
+    ),
+  }))
 }
 
-function orderEntries(entries: readonly StreamEntry[]): StreamEntry[] {
-  const stored = loadTabOrder() ?? []
-  const held = new Set(stored)
-  const ordered: StreamEntry[] = []
-  for (const id of stored) {
-    const entry = entries.find((item) => item.id === id)
-    if (entry !== undefined) ordered.push(entry)
-  }
-  for (const entry of entries) {
-    if (held.has(entry.id)) continue
-    ordered.push(entry)
-  }
-  return ordered
+function handleStreamRemoved(event: ServerEvent): void {
+  const id = event.id as string | null
+  if (id === null) return
+  useStreams.setState((state) => {
+    const next = removeStreamEntry(state.streams, id)
+    saveTabOrder(next.map((item) => item.id))
+    const activeId = state.activeId === id ? (next[0]?.id ?? null) : state.activeId
+    return { streams: next, activeId }
+  })
+}
+
+function handleLogsAppended(event: ServerEvent): void {
+  const streamId = event.streamId as string | null
+  const records = event.records as LogRecord[] | null
+  if (streamId === null || records === null) return
+  const dropped = event.dropped as number | undefined
+  const current = useStreams.getState().streams.find((item) => item.id === streamId)
+  const gap = current !== undefined && hasGap(current.records, records)
+  useStreams.setState((state) => ({
+    streams: state.streams.map((item) =>
+      item.id === streamId ? appendRecords(item, records, dropped) : item,
+    ),
+  }))
+  if (gap) setTimeout(() => void useStreams.getState().resync(streamId), 0)
+}
+
+function handleLogsCleared(event: ServerEvent): void {
+  const id = event.streamId as string | null
+  if (id === null) return
+  useStreams.setState((state) => ({
+    cleared: [...state.cleared.filter((item) => item !== id), id],
+    streams: state.streams.map((item) => (item.id === id ? clearRecords(item) : item)),
+  }))
+}
+
+const EVENT_HANDLERS: Record<string, (event: ServerEvent) => void> = {
+  'stream:created': handleStreamCreated,
+  'stream:updated': handleStreamUpdated,
+  'stream:removed': handleStreamRemoved,
+  'logs:appended': handleLogsAppended,
+  'logs:cleared': handleLogsCleared,
 }
 
 export const useStreams = create<StoreState & StoreActions>((set, get) => ({
@@ -111,44 +139,36 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   connection: 'connecting',
   simulatedLost: false,
   bootError: null,
+  lastError: null,
+
+  applyEvent: (event) => {
+    EVENT_HANDLERS[event.type]?.(event)
+  },
 
   setActive: (id) => set({ activeId: id }),
 
   setSimulatedLost: (value) => set({ simulatedLost: value }),
 
   moveTab: (dragId, overId, before) => {
-    const streams = get().streams
-    if (dragId === overId) return
-    const ordered = streams.map((entry) => entry.id)
-    const from = ordered.indexOf(dragId)
-    if (from === -1) return
-    ordered.splice(from, 1)
-    const to = ordered.indexOf(overId)
-    if (to === -1) return
-    ordered.splice(before ? to : to + 1, 0, dragId)
+    const ordered = moveStreamOrder(
+      get().streams.map((entry) => entry.id),
+      dragId,
+      overId,
+      before,
+    )
+    if (ordered === null) return
     applyOrder(ordered)
   },
 
   addManual: (records, totalLines) => {
     const existing = get().streams.map((entry) => entry.name)
     const name = allocateStreamName(existing, 'manual')
-    const kept =
-      records.length > BUFFER_CAP ? records.slice(records.length - BUFFER_CAP) : [...records]
-    const dropped = Math.max(0, Math.max(totalLines, records.length) - kept.length)
-    const entry: StreamEntry = {
+    const entry = createManualEntry(records, totalLines, {
       id: crypto.randomUUID(),
       name,
-      kind: 'manual',
       status: 'stopped',
       createdAt: Date.now(),
-      records: kept,
-      dropped,
-      lineCount: kept.length,
-      levelCounts: countLevels(kept),
-      lastSeq: kept.length > 0 ? (kept[kept.length - 1]?.seq ?? null) : null,
-      firstSeq: kept[0]?.seq ?? null,
-      pausedAt: null,
-    }
+    })
     set((state) => {
       const next = [...state.streams, entry]
       saveTabOrder(next.map((item) => item.id))
@@ -158,13 +178,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
 
   setPaused: (id, paused) => {
     set((state) => ({
-      streams: state.streams.map((item) => {
-        if (item.id !== id) return item
-        if (!paused) return { ...item, pausedAt: null }
-        if (item.pausedAt !== null) return item
-        const newest = item.lastSeq ?? item.records[item.records.length - 1]?.seq ?? 0
-        return { ...item, pausedAt: newest }
-      }),
+      streams: state.streams.map((item) => (item.id === id ? applyPaused(item, paused) : item)),
     }))
   },
 
@@ -183,32 +197,14 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       }))
       return { ok: true }
     }
-    try {
-      const response = await fetch(joinPath(`/api/streams/${id}`), {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name }),
-        signal: AbortSignal.timeout(4000),
-      })
-      if (!response.ok) {
-        const raw = await response.text()
-        let error = 'Could not rename this stream.'
-        try {
-          const parsed = JSON.parse(raw) as { error?: unknown }
-          if (typeof parsed.error === 'string') error = parsed.error
-        } catch {}
-        return { ok: false, error }
-      }
-      const meta = (await response.json()) as StreamMeta
-      set((state) => ({
-        streams: state.streams.map((item) =>
-          item.id === id ? { ...item, name: meta.name } : item,
-        ),
-      }))
-      return { ok: true }
-    } catch {
-      return { ok: false, error: 'Could not rename this stream.' }
-    }
+    const outcome = await patchStreamName(id, name)
+    if (!outcome.ok) return { ok: false, error: outcome.error }
+    set((state) => ({
+      streams: state.streams.map((item) =>
+        item.id === id ? { ...item, name: outcome.name } : item,
+      ),
+    }))
+    return { ok: true }
   },
 
   closeStream: async (id) => {
@@ -227,8 +223,10 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       return
     }
     try {
-      await fetch(joinPath(`/api/streams/${id}`), { method: 'DELETE' })
-    } catch {}
+      await deleteStream(id)
+    } catch {
+      set({ lastError: 'Could not close this stream.' })
+    }
   },
 
   clearStream: async (id) => {
@@ -237,23 +235,15 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     if (entry.kind === 'manual') {
       set((state) => ({
         cleared: [...state.cleared.filter((item) => item !== id), id],
-        streams: state.streams.map((item) => {
-          if (item.id !== id) return item
-          return {
-            ...item,
-            records: [],
-            dropped: 0,
-            lineCount: 0,
-            levelCounts: { ...EMPTY_LEVEL_COUNTS },
-            pausedAt: null,
-          }
-        }),
+        streams: state.streams.map((item) => (item.id === id ? clearRecords(item) : item)),
       }))
       return
     }
     try {
-      await fetch(joinPath(`/api/streams/${id}/clear`), { method: 'POST' })
-    } catch {}
+      await clearStreamBuffer(id)
+    } catch {
+      set({ lastError: 'Could not clear this stream.' })
+    }
   },
 
   boot: async () => {
@@ -276,7 +266,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     for (const entry of previous.values()) {
       if (entry.kind === 'manual') entries.push(entry)
     }
-    const ordered = orderEntries(entries)
+    const ordered = orderByStoredIds(entries, loadTabOrder() ?? [])
     const current = get().activeId
     set({
       streams: ordered,
@@ -292,144 +282,8 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     const snapshot = await fetchJson<StreamSnapshot>(`/api/streams/${id}/logs${query}`)
     if (snapshot === null) return
     set((state) => ({
-      streams: state.streams.map((item) => {
-        if (item.id !== id) return item
-        if (snapshot.gap) {
-          return {
-            ...item,
-            records: [...snapshot.records],
-            dropped: snapshot.dropped,
-            lineCount: snapshot.records.length,
-            levelCounts: countLevels(snapshot.records),
-            lastSeq: snapshot.lastSeq,
-            firstSeq: snapshot.records[0]?.seq ?? null,
-          }
-        }
-        const merged = mergeRecords(item.records, snapshot.records)
-        return {
-          ...item,
-          records: merged,
-          dropped: snapshot.dropped,
-          lineCount: merged.length,
-          levelCounts: countLevels(merged),
-          lastSeq: snapshot.lastSeq ?? item.lastSeq,
-          firstSeq: merged[0]?.seq ?? null,
-        }
-      }),
+      streams: state.streams.map((item) => (item.id === id ? applySnapshot(item, snapshot) : item)),
     }))
-  },
-
-  applyEvent: (event) => {
-    switch (event.type) {
-      case 'stream:created': {
-        const meta = event.meta as StreamMeta | null
-        if (meta === null) return
-        set((state) => {
-          if (state.streams.some((item) => item.id === meta.id)) return state
-          const entry: StreamEntry = {
-            id: meta.id,
-            name: meta.name,
-            kind: 'pipe',
-            status: meta.status,
-            createdAt: meta.createdAt,
-            records: [],
-            dropped: 0,
-            lineCount: 0,
-            levelCounts: { ...EMPTY_LEVEL_COUNTS },
-            lastSeq: null,
-            firstSeq: null,
-            pausedAt: null,
-          }
-          const next = [...state.streams, entry]
-          saveTabOrder(next.map((item) => item.id))
-          return { streams: next, activeId: state.activeId ?? entry.id }
-        })
-        void get().resync(meta.id)
-        return
-      }
-      case 'stream:updated': {
-        const payload = event.payload as {
-          id: string
-          status: StreamStatus
-          name?: string
-          lineCount?: number
-          dropped?: number
-          levelCounts?: LevelCounts
-        } | null
-        if (payload === null) return
-        set((state) => ({
-          streams: state.streams.map((item) => {
-            if (item.id !== payload.id) return item
-            return {
-              ...item,
-              status: payload.status,
-              name: payload.name ?? item.name,
-              lineCount: payload.lineCount ?? item.lineCount,
-              dropped: payload.dropped ?? item.dropped,
-              levelCounts: payload.levelCounts ?? item.levelCounts,
-              lastSeq: item.lastSeq,
-            }
-          }),
-        }))
-        return
-      }
-      case 'stream:removed': {
-        const id = event.id as string | null
-        if (id === null) return
-        set((state) => {
-          const next = state.streams.filter((item) => item.id !== id)
-          saveTabOrder(next.map((item) => item.id))
-          const activeId = state.activeId === id ? (next[0]?.id ?? null) : state.activeId
-          return { streams: next, activeId }
-        })
-        return
-      }
-      case 'logs:appended': {
-        const streamId = event.streamId as string | null
-        const records = event.records as LogRecord[] | null
-        if (streamId === null || records === null) return
-        set((state) => ({
-          streams: state.streams.map((item) => {
-            if (item.id !== streamId) return item
-            const merged = mergeRecords(item.records, records)
-            if (hasGap(item.records, records)) setTimeout(() => void get().resync(streamId), 0)
-            return {
-              ...item,
-              records: merged,
-              dropped: (event.dropped as number | undefined) ?? item.dropped,
-              lineCount: merged.length,
-              levelCounts: countLevels(merged),
-              lastSeq: merged[merged.length - 1]?.seq ?? item.lastSeq,
-              firstSeq: merged[0]?.seq ?? null,
-            }
-          }),
-        }))
-        return
-      }
-      case 'logs:cleared': {
-        const id = event.streamId as string | null
-        if (id === null) return
-        set((state) => ({
-          cleared: [...state.cleared.filter((item) => item !== id), id],
-          streams: state.streams.map((item) => {
-            if (item.id !== id) return item
-            return {
-              ...item,
-              records: [],
-              dropped: 0,
-              lineCount: 0,
-              levelCounts: { ...EMPTY_LEVEL_COUNTS },
-              firstSeq: item.firstSeq,
-              lastSeq: item.lastSeq,
-              pausedAt: null,
-            }
-          }),
-        }))
-        return
-      }
-      default:
-        return
-    }
   },
 }))
 
@@ -442,36 +296,18 @@ function applyOrder(orderedIds: readonly string[]): void {
   useStreams.setState({ streams: next })
 }
 
-function hasGap(existing: readonly LogRecord[], incoming: readonly LogRecord[]): boolean {
-  if (existing.length === 0 || incoming.length === 0) return false
-  const lastExisting = existing[existing.length - 1]?.seq ?? null
-  const firstIncoming = incoming[0]?.seq ?? null
-  if (lastExisting === null || firstIncoming === null) return false
-  return firstIncoming > lastExisting + 1
-}
-
-function mergeRecords(existing: readonly LogRecord[], incoming: readonly LogRecord[]): LogRecord[] {
-  const deduped = existing.filter((record) => {
-    const firstIncoming = incoming.length > 0 ? (incoming[0]?.seq ?? 0) : 0
-    return record.seq < firstIncoming
-  })
-  const merged = [...deduped, ...incoming]
-  if (merged.length > BUFFER_CAP) merged.splice(0, merged.length - BUFFER_CAP)
-  return merged
-}
-
-type SocketHolder = { socket: ReturnType<typeof createStreamSocket> | null }
-
-const holder: SocketHolder = { socket: null }
-let hasConnected = false
+let streamSocket: ReturnType<typeof createStreamSocket> | null = null
+let hasConnectedOnce = false
 
 function ensureSocket(): void {
-  if (holder.socket !== null) return
-  holder.socket = createStreamSocket(handleSocketEvent, (phase) => {
+  if (streamSocket !== null) return
+  streamSocket = createStreamSocket(handleSocketEvent, (phase) => {
     useStreams.setState({ connection: phase })
     if (phase !== 'connected') return
-    if (hasConnected || useStreams.getState().bootError !== null) void useStreams.getState().boot()
-    hasConnected = true
+    if (hasConnectedOnce || useStreams.getState().bootError !== null) {
+      void useStreams.getState().boot()
+    }
+    hasConnectedOnce = true
   })
 }
 
@@ -484,7 +320,7 @@ export function openSocket(): void {
 }
 
 export function reconnectNow(): void {
-  holder.socket?.reconnect()
+  streamSocket?.reconnect()
 }
 
 export function levelCountTotal(counts: LevelCounts): number {

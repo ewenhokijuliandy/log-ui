@@ -2,24 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LogRecord } from '../../shared/types.ts'
 import { INSPECTOR_MAX_WIDTH, INSPECTOR_MIN_WIDTH } from '../app/prefs.ts'
 import { useUi } from '../app/ui.ts'
-import { copyText } from '../lib/clipboard.ts'
 import type { Zone } from '../lib/format-time.ts'
 import { formatNumber, formatTime } from '../lib/format-time.ts'
-import { type JsonToken, type JsonTokenKind, jsonTokens, prettyJson } from '../lib/json-pretty.ts'
-import { copyValueText, jsonEntries, jsonLeafText } from '../lib/json-value.ts'
-import { DialogFrame } from './dialogs.tsx'
+import { jsonTokens, prettyJson } from '../lib/json-pretty.ts'
+import { copyValueText, jsonEntries } from '../lib/json-value.ts'
+import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
 import { Icon } from './icons.tsx'
-
-const COPIED_MS = 1_200
-
-const TOKEN_CLASS: Record<JsonTokenKind, string | undefined> = {
-  key: 'json-key',
-  string: 'val-string',
-  number: 'val-number',
-  bool: 'val-bool',
-  null: 'val-null',
-  plain: undefined,
-}
+import { JsonNodes, PrettyJson } from './json-tree.tsx'
 
 export function Inspector({
   record,
@@ -27,16 +16,13 @@ export function Inspector({
   width,
   onWidth,
   onResetWidth,
-  onCopyRaw,
-  onCopyJson,
   sheet = false,
 }: InspectorProps) {
   const close = useUi((state) => state.setInspectorOpen)
   const setIsolate = useUi((state) => state.setIsolate)
-  const [copied, setCopied] = useState<{ seq: number; key: string } | null>(null)
+  const { copiedKey, copy } = useCopyFeedback(record?.seq ?? null)
   const [jsonView, setJsonView] = useState<'tree' | 'pretty'>('tree')
   const [jsonWrap, setJsonWrap] = useState(false)
-  const copiedTimer = useRef<number | null>(null)
   const treeRef = useRef<HTMLDivElement | null>(null)
 
   const parsed = useMemo(() => {
@@ -56,49 +42,20 @@ export function Inspector({
     [record],
   )
 
-  useEffect(() => {
-    return () => {
-      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current)
-    }
-  }, [])
-
   if (record === null) return null
 
-  const recordSeq = record.seq
   const jsonBody = record.json
-  const copiedKey = copied !== null && copied.seq === recordSeq ? copied.key : null
-
-  function flash(key: string): void {
-    setCopied({ seq: recordSeq, key })
-    if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current)
-    copiedTimer.current = window.setTimeout(() => setCopied(null), COPIED_MS)
-  }
-
-  async function copyNode(path: string, value: unknown): Promise<void> {
-    const ok = await copyText(copyValueText(value))
-    if (ok) flash(path)
-  }
-
-  async function copyFoot(key: string, action: () => Promise<boolean>): Promise<void> {
-    const ok = await action()
-    if (ok) flash(key)
-  }
+  const jsonRoot = jsonBody === null ? [] : jsonEntries(jsonBody)
 
   function setTreeOpen(open: boolean): void {
     const tree = treeRef.current
     if (tree === null) return
-    tree.querySelectorAll('details').forEach((details) => {
-      details.open = open
-    })
+    for (const details of tree.querySelectorAll('details')) details.open = open
   }
 
-  async function copyPretty(): Promise<void> {
-    if (jsonBody === null) return
-    const ok = await copyText(prettyJson(jsonBody))
-    if (ok) flash('pretty')
+  function copyNode(path: string, value: unknown): Promise<void> {
+    return copy(copyValueText(value), path)
   }
-
-  const jsonRoot = jsonBody === null ? [] : jsonEntries(jsonBody)
 
   return (
     <aside className="inspector" aria-label="Line detail">
@@ -135,7 +92,12 @@ export function Inspector({
             ))}
           </dl>
         </section>
-        {record.json !== null ? (
+        {jsonBody === null ? (
+          <section className="insp-section">
+            <div className="insp-label">JSON body</div>
+            <p className="json-empty">No JSON body on this line. The raw text is below.</p>
+          </section>
+        ) : (
           <section className="insp-section json-section">
             <div className="insp-section-head">
               <div className="insp-label">JSON body</div>
@@ -176,7 +138,7 @@ export function Inspector({
                   type="button"
                   aria-label="Copy pretty JSON"
                   title={copiedKey === 'pretty' ? 'Copied' : 'Copy pretty JSON'}
-                  onClick={() => void copyPretty()}
+                  onClick={() => void copy(prettyJson(jsonBody), 'pretty')}
                 >
                   <Icon name={copiedKey === 'pretty' ? 'check' : 'copy'} />
                 </button>
@@ -204,14 +166,9 @@ export function Inspector({
               <PrettyJson tokens={tokens} wrap={jsonWrap} />
             )}
           </section>
-        ) : (
-          <section className="insp-section">
-            <div className="insp-label">JSON body</div>
-            <p className="json-empty">No JSON body on this line. The raw text is below.</p>
-          </section>
         )}
         <section className="insp-section">
-          <details className="raw-block" open={record.json === null}>
+          <details className="raw-block" open={jsonBody === null}>
             <summary>Raw line</summary>
             <pre className="raw">{record.raw}</pre>
           </details>
@@ -237,37 +194,20 @@ export function Inspector({
         ) : null}
       </div>
       <footer className="inspector-foot">
-        <button className="btn" type="button" onClick={() => void copyFoot('raw', onCopyRaw)}>
+        <button className="btn" type="button" onClick={() => void copy(record.raw, 'raw')}>
           <Icon name={copiedKey === 'raw' ? 'check' : 'copy'} />
           {copiedKey === 'raw' ? 'Copied' : 'Copy raw'}
         </button>
-        <button className="btn" type="button" onClick={() => void copyFoot('json', onCopyJson)}>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => void copy(jsonCopyText(record), 'json')}
+        >
           <Icon name={copiedKey === 'json' ? 'check' : 'copy'} />
           {copiedKey === 'json' ? 'Copied' : 'Copy JSON'}
         </button>
       </footer>
     </aside>
-  )
-}
-
-function short(value: string): string {
-  return value.slice(0, 8)
-}
-
-function PrettyJson({ tokens, wrap }: { tokens: JsonToken[]; wrap: boolean }) {
-  let offset = 0
-  return (
-    <pre className={`json-pretty${wrap ? ' wrap' : ''}`}>
-      {tokens.map((token) => {
-        const key = `${String(offset)}-${token.kind}`
-        offset += token.text.length
-        return (
-          <span key={key} className={TOKEN_CLASS[token.kind]}>
-            {token.text}
-          </span>
-        )
-      })}
-    </pre>
   )
 }
 
@@ -277,44 +217,16 @@ export type InspectorProps = {
   width: number
   onWidth: (width: number) => void
   onResetWidth: () => void
-  onCopyRaw: () => Promise<boolean>
-  onCopyJson: () => Promise<boolean>
   sheet?: boolean
 }
 
-export function DetailSheet({
-  record,
-  zone,
-  onClose,
-  onCopyRaw,
-  onCopyJson,
-}: {
-  record: LogRecord
-  zone: Zone
-  onClose: () => void
-  onCopyRaw: () => Promise<boolean>
-  onCopyJson: () => Promise<boolean>
-}) {
-  return (
-    <DialogFrame
-      open
-      wide
-      className="detail-sheet"
-      label={`Line ${formatNumber(record.seq)}`}
-      onClose={onClose}
-    >
-      <Inspector
-        record={record}
-        zone={zone}
-        width={0}
-        onWidth={() => {}}
-        onResetWidth={() => {}}
-        onCopyRaw={onCopyRaw}
-        onCopyJson={onCopyJson}
-        sheet
-      />
-    </DialogFrame>
-  )
+function jsonCopyText(record: LogRecord): string {
+  if (record.json === null) return record.raw
+  return JSON.stringify(record.json, null, 2)
+}
+
+function short(value: string): string {
+  return value.slice(0, 8)
 }
 
 function InspectorField({ label, value }: { label: string; value: string }) {
@@ -408,95 +320,5 @@ function InspectorResizer({
         }
       }}
     />
-  )
-}
-
-type JsonNodeProps = {
-  name: string
-  value: unknown
-  depth: number
-  path: string
-  copied: string | null
-  onCopy: (path: string, value: unknown) => Promise<void>
-}
-
-function JsonNodes({ name, value, depth, path, copied, onCopy }: JsonNodeProps) {
-  if (value === null || typeof value !== 'object') {
-    return (
-      <JsonLeaf
-        name={name}
-        value={value}
-        depth={depth}
-        path={path}
-        copied={copied}
-        onCopy={onCopy}
-      />
-    )
-  }
-  const entries = jsonEntries(value)
-  const shape = Array.isArray(value) ? `[${entries.length}]` : `{${entries.length}}`
-  return (
-    <details open={depth === 0}>
-      <summary style={{ paddingLeft: `${String(depth * 12)}px` }}>
-        <span className="json-key">{name}:</span>
-        <span className="json-punct"> {shape}</span>
-        <button
-          className={`json-copy${copied === path ? ' is-copied' : ''}`}
-          type="button"
-          title={copied === path ? 'Copied' : `Copy ${path}`}
-          aria-label={`Copy ${path}`}
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            void onCopy(path, value)
-          }}
-        >
-          <Icon name={copied === path ? 'check' : 'copy'} />
-        </button>
-      </summary>
-      <div>
-        {entries.map(([key, child]) => (
-          <JsonNodes
-            key={key}
-            name={key}
-            value={child}
-            depth={depth + 1}
-            path={`${path}.${key}`}
-            copied={copied}
-            onCopy={onCopy}
-          />
-        ))}
-      </div>
-    </details>
-  )
-}
-
-function JsonLeaf({ name, value, depth, path, copied, onCopy }: JsonNodeProps) {
-  const kind =
-    value === null
-      ? 'null'
-      : typeof value === 'boolean'
-        ? 'bool'
-        : typeof value === 'number'
-          ? 'number'
-          : 'string'
-  return (
-    <button
-      className="json-leaf"
-      type="button"
-      style={{ paddingLeft: `${String(depth * 12)}px` }}
-      title={copied === path ? 'Copied' : 'Copy value'}
-      aria-label={`Copy ${path}`}
-      onClick={() => void onCopy(path, value)}
-    >
-      <span className="json-key">{name}:</span>
-      <span className="json-punct"> </span>
-      <span className={`val-${kind}`}>{jsonLeafText(value)}</span>
-      {copied === path ? (
-        <span className="json-copied" role="status">
-          Copied
-        </span>
-      ) : null}
-    </button>
   )
 }

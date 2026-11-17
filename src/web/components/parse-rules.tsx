@@ -9,7 +9,7 @@ import {
 } from '../../shared/parse-rules.ts'
 import type { LogLevel } from '../../shared/types.ts'
 import { formatTime, type Zone } from '../lib/format-time.ts'
-import { DialogFrame, Segment } from './dialogs.tsx'
+import { DialogFrame, Segment } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
 
 const LEVEL_VALUES: readonly LogLevel[] = [

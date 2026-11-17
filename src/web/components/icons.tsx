@@ -428,9 +428,7 @@ export function Sprite() {
   )
 }
 
-const VALID = SPRITE_SYMBOLS
-
-export function Icon({ name }: { name: (typeof VALID)[number] }) {
+export function Icon({ name }: { name: (typeof SPRITE_SYMBOLS)[number] }) {
   return (
     <svg aria-hidden="true">
       <use href={`#i-${name}`} />

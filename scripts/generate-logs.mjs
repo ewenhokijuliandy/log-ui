@@ -35,9 +35,9 @@ function line() {
   }
 
   const level = tick % 17 === 0 ? 'ERROR' : levels[tick % levels.length]
-  const id = tick % 9 === 0 ? ` trace_id=${trace}` : ''
+  const traceSuffix = tick % 9 === 0 ? ` trace_id=${trace}` : ''
   const status = level === 'ERROR' ? '500' : level === 'WARN' ? '429' : '200'
-  return `${ts} ${level} [${name}] request ${String(tick)} status=${status} latency=${String(10 + (tick % 90))}ms${id}`
+  return `${ts} ${level} [${name}] request ${String(tick)} status=${status} latency=${String(10 + (tick % 90))}ms${traceSuffix}`
 }
 
 function emit() {

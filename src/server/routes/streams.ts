@@ -1,5 +1,6 @@
 import type { Hono, MiddlewareHandler } from 'hono'
 import type { StreamRegistry } from '../stream-registry.ts'
+import { readStreamNameBody } from './body.ts'
 
 export function registerStreamRoutes(
   app: Hono,
@@ -7,17 +8,9 @@ export function registerStreamRoutes(
   guard: MiddlewareHandler,
   browserEligible: () => boolean,
 ): void {
-  app.post('/api/streams', guard, async (c) => {
-    let name: string | null = null
-    const raw = await c.req.text()
-    if (raw !== '') {
-      try {
-        const parsed = JSON.parse(raw) as { name?: unknown }
-        if (typeof parsed.name === 'string') name = parsed.name
-      } catch {}
-    }
-    const entry = registry.create(name)
-    return c.json(
+  app.post('/api/streams', guard, async (context) => {
+    const entry = registry.create(await readStreamNameBody(context))
+    return context.json(
       {
         id: entry.id,
         name: entry.name,
@@ -28,47 +21,40 @@ export function registerStreamRoutes(
     )
   })
 
-  app.get('/api/streams', (c) => c.json(registry.list()))
+  app.get('/api/streams', guard, (context) => context.json(registry.list()))
 
-  app.get('/api/streams/:id/logs', (c) => {
-    const rawSince = c.req.query('since')
+  app.get('/api/streams/:id/logs', guard, (context) => {
+    const rawSince = context.req.query('since')
     let since: number | null = null
     if (rawSince !== undefined) {
       const parsed = Number(rawSince)
-      if (!Number.isInteger(parsed)) return c.text('invalid since', 400)
+      if (!Number.isInteger(parsed)) return context.text('invalid since', 400)
       since = parsed
     }
-    const snapshot = registry.snapshot(c.req.param('id'), since)
-    if (snapshot === null) return c.text('stream not found', 404)
-    return c.json(snapshot)
+    const snapshot = registry.snapshot(context.req.param('id'), since)
+    if (snapshot === null) return context.text('stream not found', 404)
+    return context.json(snapshot)
   })
 
-  app.post('/api/streams/:id/clear', guard, (c) => {
-    const ok = registry.clearBuffer(c.req.param('id'))
-    if (!ok) return c.text('stream not found', 404)
-    return c.json({ ok: true })
+  app.post('/api/streams/:id/clear', guard, (context) => {
+    const wasCleared = registry.clearBuffer(context.req.param('id'))
+    if (!wasCleared) return context.text('stream not found', 404)
+    return context.json({ ok: true })
   })
 
-  app.patch('/api/streams/:id', guard, async (c) => {
-    const id = c.req.param('id')
-    if (registry.entry(id) === null) return c.text('stream not found', 404)
-    let name: string | null = null
-    const raw = await c.req.text()
-    if (raw !== '') {
-      try {
-        const parsed = JSON.parse(raw) as { name?: unknown }
-        if (typeof parsed.name === 'string') name = parsed.name
-      } catch {}
-    }
-    if (name === null) return c.json({ error: 'Name is required.' }, 400)
+  app.patch('/api/streams/:id', guard, async (context) => {
+    const id = context.req.param('id')
+    if (registry.entry(id) === null) return context.text('stream not found', 404)
+    const name = await readStreamNameBody(context)
+    if (name === null) return context.json({ error: 'Name is required.' }, 400)
     const outcome = registry.rename(id, name)
-    if (!outcome.ok) return c.json({ error: outcome.error }, outcome.status)
-    return c.json(outcome.meta)
+    if (!outcome.ok) return context.json({ error: outcome.error }, outcome.status)
+    return context.json(outcome.meta)
   })
 
-  app.delete('/api/streams/:id', guard, (c) => {
-    const ok = registry.removeStream(c.req.param('id'))
-    if (!ok) return c.text('stream not found', 404)
-    return c.body(null, 204)
+  app.delete('/api/streams/:id', guard, (context) => {
+    const found = registry.removeStream(context.req.param('id'))
+    if (!found) return context.text('stream not found', 404)
+    return context.body(null, 204)
   })
 }

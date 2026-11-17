@@ -31,8 +31,8 @@ program
 program
   .command('stop')
   .description('stop the local logdeck daemon')
-  .action(async (_flags, command) => {
-    const opts = command.optsWithGlobals()
+  .action(async function stopAction(this: Command) {
+    const opts = this.optsWithGlobals()
     const status = createStatus(opts.quiet === true)
     try {
       await stopDaemon(toNumber(opts.port), DEFAULT_STATE_DIR)
@@ -45,8 +45,8 @@ program
 program
   .command('__daemon', { hidden: true })
   .description('internal daemon entry')
-  .action(async (_flags, command) => {
-    const opts = command.optsWithGlobals()
+  .action(async function daemonAction(this: Command) {
+    const opts = this.optsWithGlobals()
     const port = toNumber(opts.port)
     const idleMinutes = toNumber(opts.idleTimeout)
     await runDaemon(port, idleMinutes, DEFAULT_STATE_DIR, (code) => process.exit(code))

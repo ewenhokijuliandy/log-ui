@@ -13,7 +13,13 @@ export type JsonSpan = {
 
 export function extractJson(text: string): JsonSpan | null {
   if (text.length > JSON_SKIP_LIMIT) return null
-  if (!text.includes('{') && !text.includes('[')) return null
+  const hasBrace = text.includes('{')
+  const hasBracket = text.includes('[')
+  if (!hasBrace && !hasBracket) return null
+
+  const closableBrace = hasBrace && text.includes('}')
+  const closableBracket = hasBracket && text.includes(']')
+  if (!closableBrace && !closableBracket) return null
 
   let budget = MAX_SCAN_CHARS
 
@@ -21,6 +27,8 @@ export function extractJson(text: string): JsonSpan | null {
     if (budget <= 0) return null
     const opener = text[index]
     if (!OPENS.has(opener)) continue
+    if (opener === '{' && !closableBrace) continue
+    if (opener === '[' && !closableBracket) continue
 
     const closer = CLOSERS[opener]
     const stack: string[] = []
@@ -32,34 +40,34 @@ export function extractJson(text: string): JsonSpan | null {
     for (; cursor < text.length; cursor += 1) {
       if (budget <= 0) return null
       budget -= 1
-      const ch = text[cursor]
+      const character = text[cursor]
       if (inString) {
         if (escaped) {
           escaped = false
           continue
         }
-        if (ch === '\\') {
+        if (character === '\\') {
           escaped = true
           continue
         }
-        if (ch === '"') inString = false
+        if (character === '"') inString = false
         continue
       }
-      if (ch === '"') {
+      if (character === '"') {
         inString = true
         continue
       }
-      if (ch === '{') {
+      if (character === '{') {
         stack.push('}')
         continue
       }
-      if (ch === '[') {
+      if (character === '[') {
         stack.push(']')
         continue
       }
-      if (ch !== '}' && ch !== ']') continue
-      if (stack.pop() !== ch) break
-      if (ch === closer && stack.length === 0) {
+      if (character !== '}' && character !== ']') continue
+      if (stack.pop() !== character) break
+      if (character === closer && stack.length === 0) {
         end = cursor
         break
       }

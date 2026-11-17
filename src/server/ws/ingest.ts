@@ -8,9 +8,10 @@ function toText(data: unknown): string {
   return ''
 }
 
-export function buildIngestEvents(c: Context, registry: StreamRegistry): WSEvents {
-  const streamId = c.req.query('stream') ?? ''
-  const token = c.req.query('token') ?? ''
+export function buildIngestEvents(context: Context, registry: StreamRegistry): WSEvents {
+  const streamId = context.req.query('stream') ?? ''
+  const token = context.req.query('token') ?? ''
+  let authorizedSocket: WsLike | null = null
 
   return {
     onOpen: (_evt, ws) => {
@@ -19,7 +20,8 @@ export function buildIngestEvents(c: Context, registry: StreamRegistry): WSEvent
         ws.close(1008, 'invalid-stream')
         return
       }
-      registry.setIngestSocket(streamId, ws as unknown as WsLike)
+      authorizedSocket = ws as unknown as WsLike
+      registry.setIngestSocket(streamId, authorizedSocket)
     },
     onMessage: (evt, ws) => {
       let payload: unknown = null
@@ -43,9 +45,9 @@ export function buildIngestEvents(c: Context, registry: StreamRegistry): WSEvent
       if (kind === 'end') registry.stop(streamId)
     },
     onClose: () => {
-      const entry = registry.entry(streamId)
-      if (entry === null) return
-      if (entry.status === 'active') registry.stop(streamId)
+      if (authorizedSocket === null) return
+      if (!registry.isCurrentIngest(streamId, authorizedSocket)) return
+      registry.stop(streamId)
     },
   }
 }

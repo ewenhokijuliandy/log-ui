@@ -79,7 +79,7 @@ export function LogList({
 
   return (
     <section className={`log-panel${empty ? ' is-empty' : ''}`} aria-label="Log lines">
-      {isolateTrace !== null ? (
+      {isolateTrace === null ? null : (
         <div className="isolate-banner open">
           <Icon name="isolate" />
           <span>Isolated trace</span>
@@ -89,7 +89,7 @@ export function LogList({
             Clear isolation
           </button>
         </div>
-      ) : null}
+      )}
       {paused ? (
         <div className="pause-banner" role="status">
           <Icon name="pause" />
@@ -156,11 +156,11 @@ export function LogList({
                   {record.level.toUpperCase()}
                 </span>
                 <span className="msg">
-                  {record.json !== null ? (
+                  {record.json === null ? null : (
                     <span className="json-mark" title="JSON body">
                       {'{ }'}
                     </span>
-                  ) : null}
+                  )}
                   <span className="msg-text">{record.message}</span>
                 </span>
                 <span className="ids">

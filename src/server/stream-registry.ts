@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { LevelCounts } from '../shared/levels.ts'
-import { allocateStreamName } from '../shared/name-allocator.ts'
 import { parseLine } from '../shared/parse-line.ts'
 import { LogRing } from '../shared/ring-buffer.ts'
 import { streamNameProblem } from '../shared/stream-name.ts'
 import type { LogRecord, StreamMeta, StreamSnapshot, StreamStatus } from '../shared/types.ts'
+import { resolveCreatedName } from './stream-name-create.ts'
 
 export type WsLike = {
   close(code?: number, reason?: string): void
@@ -41,6 +41,14 @@ export type RegistryEvent =
   | { type: 'stream:removed'; id: string }
   | { type: 'logs:appended'; streamId: string; records: LogRecord[]; dropped: number }
   | { type: 'logs:cleared'; streamId: string }
+
+function closeQuietly(socket: WsLike, code: number, reason: string): void {
+  try {
+    socket.close(code, reason)
+  } catch {
+    socket.close()
+  }
+}
 
 export class StreamRegistry {
   private entries = new Map<string, StreamEntry>()
@@ -79,12 +87,10 @@ export class StreamRegistry {
   }
 
   create(requestedName: string | null): StreamEntry {
-    const clean = requestedName?.trim() ?? ''
     const taken = [...this.entries.values()].map((entry) => entry.name)
-    const name = clean.length > 0 ? clean : allocateStreamName(taken)
     const entry: StreamEntry = {
       id: randomUUID(),
-      name,
+      name: resolveCreatedName(requestedName, taken),
       status: 'active',
       createdAt: Date.now(),
       token: randomUUID().replace(/-/g, ''),
@@ -114,7 +120,14 @@ export class StreamRegistry {
   setIngestSocket(id: string, socket: WsLike): void {
     const entry = this.entries.get(id)
     if (entry === undefined) return
+    if (entry.ingestSocket === socket) return
+    const previous = entry.ingestSocket
     entry.ingestSocket = socket
+    if (previous !== null) closeQuietly(previous, 1000, 'replaced')
+  }
+
+  isCurrentIngest(id: string, socket: WsLike): boolean {
+    return this.entries.get(id)?.ingestSocket === socket
   }
 
   closeIngest(id: string): void {
@@ -122,11 +135,7 @@ export class StreamRegistry {
     if (entry === undefined || entry.ingestSocket === null) return
     const socket = entry.ingestSocket
     entry.ingestSocket = null
-    try {
-      socket.close(1000, 'stream-closed')
-    } catch {
-      socket.close()
-    }
+    closeQuietly(socket, 1000, 'stream-closed')
   }
 
   rename(id: string, requestedName: string): RenameOutcome {

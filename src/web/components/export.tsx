@@ -2,7 +2,7 @@ import type { LogRecord } from '../../shared/types.ts'
 import type { FilterState, SortKey } from '../lib/filters.ts'
 import { orderRecords, visibleRecords } from '../lib/filters.ts'
 import { formatNumber } from '../lib/format-time.ts'
-import { MenuItem } from './toolbar.tsx'
+import { MenuItem } from './menu-item.tsx'
 
 export function ExportMenuContent({
   count,

@@ -1,6 +1,9 @@
 import { createInterface } from 'node:readline'
 import { openBrowser } from './browser.ts'
+import { connectIngestSocket } from './ingest-socket.ts'
+import { createLineBatcher } from './line-batcher.ts'
 import type { CliStatus } from './status.ts'
+import { WS_CLOSED, WS_OPEN } from './ws-state.ts'
 
 type StreamCreation = {
   id: string
@@ -12,7 +15,9 @@ type StreamCreation = {
 const FLUSH_MS = 50
 const FLUSH_LINES = 500
 const BACKPRESSURE_BYTES = 4 * 1024 * 1024
+const BACKPRESSURE_POLL_MS = 10
 const CONNECT_TIMEOUT_MS = 5000
+const END_FRAME_DELAY_MS = 30
 const WATCHDOG_MS = 200
 
 function sleep(ms: number): Promise<void> {
@@ -30,6 +35,10 @@ async function createStream(port: number, name: string | null): Promise<StreamCr
     throw new Error(`could not register the stream (HTTP ${String(response.status)})`)
   }
   return (await response.json()) as StreamCreation
+}
+
+function ingestUrl(port: number, created: StreamCreation): string {
+  return `ws://127.0.0.1:${port}/ingest?stream=${created.id}&token=${created.ingestToken}`
 }
 
 export type PipeOptions = {
@@ -56,87 +65,52 @@ function formatCount(count: number): string {
 export async function runPipe(options: PipeOptions): Promise<void> {
   const startedAt = Date.now()
   const created = await createStream(options.port, options.name)
-
-  const rest = new WebSocket(
-    `ws://127.0.0.1:${options.port}/ingest?stream=${created.id}&token=${created.ingestToken}`,
+  const ingestSocket = await connectIngestSocket(
+    ingestUrl(options.port, created),
+    CONNECT_TIMEOUT_MS,
   )
 
-  let opened = false
-  let running = true
-  let connectedResolve: (() => void) | null = null
-  let connectedReject: ((error: Error) => void) | null = null
-  const connected = new Promise<void>((resolve, reject) => {
-    connectedResolve = resolve
-    connectedReject = reject
-  })
-  const guard = setTimeout(() => {
-    connectedReject?.(new Error(`daemon did not accept the stream on port ${options.port}`))
-  }, CONNECT_TIMEOUT_MS)
+  options.status.info(
+    `streaming "${created.name}" on http://127.0.0.1:${String(options.port)} — Ctrl+C to stop`,
+  )
 
-  let readline: ReturnType<typeof createInterface> | null = null
+  let running = true
+  let lineCount = 0
+  let chain = Promise.resolve()
   let watchdog: ReturnType<typeof setInterval> | null = null
+  let readline: ReturnType<typeof createInterface> | null = null
+
+  const batcher = createLineBatcher({
+    flushMs: FLUSH_MS,
+    maxLines: FLUSH_LINES,
+    send: (lines) => enqueue(JSON.stringify({ t: 'lines', lines })),
+  })
 
   function stopSocketHandling(): void {
     running = false
-    if (watchdog !== null) {
-      clearInterval(watchdog)
-      watchdog = null
-    }
+    if (watchdog === null) return
+    clearInterval(watchdog)
+    watchdog = null
   }
 
   function exitQuietly(): void {
     if (!running) return
     stopSocketHandling()
+    batcher.cancel()
     readline?.close()
     process.exit(0)
   }
 
-  const openFuture = new Promise<void>((resolve, reject) => {
-    rest.addEventListener(
-      'open',
-      () => {
-        opened = true
-        resolve()
-      },
-      { once: true },
-    )
-    rest.addEventListener('error', () => {
-      if (opened) {
-        exitQuietly()
-        return
-      }
-      clearTimeout(guard)
-      reject(new Error('could not connect to the logdeck daemon'))
-    })
-    rest.addEventListener('close', () => {
-      if (opened) exitQuietly()
-    })
-  })
-
-  void openFuture.then(() => {
-    clearTimeout(guard)
-    connectedResolve?.()
-  })
-  void openFuture.catch((error) => {
-    connectedReject?.(error instanceof Error ? error : new Error(String(error)))
-  })
-
-  await connected
-  connectedReject = null
-  options.status.info(
-    `streaming "${created.name}" on http://127.0.0.1:${String(options.port)} — Ctrl+C to stop`,
-  )
-
-  let lineCount = 0
-  let chain = Promise.resolve()
-  let batch: string[] = []
-  let timer: ReturnType<typeof setTimeout> | null = null
-
   function ship(text: string): Promise<void> {
-    if (rest.readyState !== 1) return Promise.resolve()
+    if (ingestSocket.readyState !== WS_OPEN) return Promise.resolve()
     return (async () => {
-      while (rest.readyState === 1 && rest.bufferedAmount > BACKPRESSURE_BYTES) await sleep(10)
-      if (rest.readyState === 1) rest.send(text)
+      while (
+        ingestSocket.readyState === WS_OPEN &&
+        ingestSocket.bufferedAmount > BACKPRESSURE_BYTES
+      ) {
+        await sleep(BACKPRESSURE_POLL_MS)
+      }
+      if (ingestSocket.readyState === WS_OPEN) ingestSocket.send(text)
     })()
   }
 
@@ -144,40 +118,28 @@ export async function runPipe(options: PipeOptions): Promise<void> {
     chain = chain.then(() => ship(text))
   }
 
-  function drain(): void {
-    if (timer !== null) {
-      clearTimeout(timer)
-      timer = null
-    }
-    if (batch.length === 0) return
-    const lines = batch
-    batch = []
-    enqueue(JSON.stringify({ t: 'lines', lines }))
-  }
-
-  function schedule(): void {
-    if (timer !== null) return
-    timer = setTimeout(() => {
-      timer = null
-      drain()
-    }, FLUSH_MS)
-  }
-
   function finish(exitCode: number): void {
     if (!running) return
     stopSocketHandling()
     readline?.close()
-    drain()
+    batcher.flush()
     chain = chain.then(async () => {
-      if (rest.readyState === 1) rest.send(JSON.stringify({ t: 'end' }))
-      rest.close(1000)
-      await sleep(30)
+      if (ingestSocket.readyState === WS_OPEN) ingestSocket.send(JSON.stringify({ t: 'end' }))
+      ingestSocket.close(1000)
+      await sleep(END_FRAME_DELAY_MS)
       options.status.info(
         `"${created.name}" ended — ${formatCount(lineCount)} lines sent in ${formatDuration(startedAt)}`,
       )
       process.exit(exitCode)
     })
   }
+
+  ingestSocket.addEventListener('close', () => {
+    if (running) exitQuietly()
+  })
+  ingestSocket.addEventListener('error', () => {
+    if (running) exitQuietly()
+  })
 
   readline = createInterface({
     input: process.stdin,
@@ -188,9 +150,7 @@ export async function runPipe(options: PipeOptions): Promise<void> {
   readline.on('line', (line) => {
     if (!running) return
     lineCount += 1
-    batch.push(line)
-    if (batch.length >= FLUSH_LINES) drain()
-    else schedule()
+    batcher.push(line)
   })
 
   readline.on('close', () => finish(0))
@@ -198,7 +158,7 @@ export async function runPipe(options: PipeOptions): Promise<void> {
   process.on('SIGINT', () => finish(0))
 
   watchdog = setInterval(() => {
-    if (running && rest.readyState === 3) exitQuietly()
+    if (running && ingestSocket.readyState === WS_CLOSED) exitQuietly()
   }, WATCHDOG_MS)
 
   if (created.shouldOpenBrowser && options.openInBrowser) {

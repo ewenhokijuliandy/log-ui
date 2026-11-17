@@ -9,8 +9,8 @@ export async function copyText(text: string): Promise<boolean> {
     area.style.opacity = '0'
     document.body.append(area)
     area.select()
-    const ok = document.execCommand('copy')
+    const copied = document.execCommand('copy')
     area.remove()
-    return ok
+    return copied
   }
 }

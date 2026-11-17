@@ -1,5 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
-import { existsSync, openSync } from 'node:fs'
+import { existsSync, openSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,10 +21,14 @@ type Snapshot = {
 }
 
 const children: ChildProcessWithoutNullStreams[] = []
+const daemonPorts = new Set<number>()
 
 afterEach(async () => {
   const list = children.splice(0)
   for (const child of list) child.kill('SIGKILL')
+  const ports = [...daemonPorts]
+  daemonPorts.clear()
+  for (const port of ports) await stopDaemonOnPort(port)
 })
 
 function pickFreePort(): Promise<number> {
@@ -39,6 +43,48 @@ function pickFreePort(): Promise<number> {
   })
 }
 
+async function pickDaemonPort(): Promise<number> {
+  const port = await pickFreePort()
+  daemonPorts.add(port)
+  return port
+}
+
+async function stopDaemonOnPort(port: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const stopper = spawn(process.execPath, [CLI_PATH, 'stop', `--port=${String(port)}`], {
+      stdio: 'ignore',
+    })
+    stopper.once('close', () => resolve())
+    stopper.once('error', () => resolve())
+  })
+  await waitForPortClosed(port, 3000)
+  removeStaleState(port)
+}
+
+async function waitForPortClosed(port: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const alive = await probeAlive(port)
+    if (!alive) return
+    await sleep(50)
+  }
+}
+
+async function probeAlive(port: number): Promise<boolean> {
+  try {
+    await fetch(`http://127.0.0.1:${String(port)}/api/health`, {
+      signal: AbortSignal.timeout(300),
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function removeStaleState(port: number): void {
+  rmSync(pidFileFor(port), { force: true })
+}
+
 type Exit = { code: number | null; stdout: string; stderr: string }
 
 const exitRecords = new WeakMap<ChildProcessWithoutNullStreams, Promise<Exit>>()
@@ -48,7 +94,17 @@ type SpawnOptions = {
   status?: boolean
 }
 
+function trackPortArgument(args: string[]): void {
+  for (const arg of args) {
+    const match = /^--port=(\d+)$/.exec(arg)
+    if (match === null) continue
+    const port = Number(match[1])
+    if (port > 0) daemonPorts.add(port)
+  }
+}
+
 function spawnCli(args: string[], options: SpawnOptions = {}): ChildProcessWithoutNullStreams {
+  trackPortArgument(args)
   const stdio: Array<'pipe' | number> = ['pipe', 'pipe', 'pipe']
   if (options.stderrTo !== undefined) {
     stdio[2] = openSync(options.stderrTo, 'w')
@@ -168,7 +224,7 @@ describe('logdeck cli', () => {
   })
 
   test('piped stdin streams into the daemon and exits 0 on EOF', async () => {
-    const port = await pickFreePort()
+    const port = await pickDaemonPort()
     const cli = spawnCli([`--port=${String(port)}`, '--name=api'])
 
     const [entry] = await streamMeta(port, 1)
@@ -195,7 +251,7 @@ describe('logdeck cli', () => {
   })
 
   test('writes the stream banner and summary to stderr', async () => {
-    const port = await pickFreePort()
+    const port = await pickDaemonPort()
     const cli = spawnCli([`--port=${String(port)}`, '--name=feedback'], { status: true })
 
     const [entry] = await streamMeta(port, 1)
@@ -211,7 +267,7 @@ describe('logdeck cli', () => {
   })
 
   test('--quiet suppresses status output', async () => {
-    const port = await pickFreePort()
+    const port = await pickDaemonPort()
     const cli = spawnCli([`--port=${String(port)}`, '--name=quiet', '--quiet'], { status: true })
 
     const [entry] = await streamMeta(port, 1)
@@ -226,7 +282,7 @@ describe('logdeck cli', () => {
   })
 
   test('two concurrent pipes get unique default names', async () => {
-    const port = await pickFreePort()
+    const port = await pickDaemonPort()
     const first = spawnCli([`--port=${String(port)}`])
     const second = spawnCli([`--port=${String(port)}`])
 
@@ -242,7 +298,7 @@ describe('logdeck cli', () => {
   })
 
   test('stop shuts the daemon down and removes the pidfile', async () => {
-    const port = await pickFreePort()
+    const port = await pickDaemonPort()
     const cli = spawnCli([`--port=${String(port)}`])
     await streamMeta(port, 1)
 
@@ -258,17 +314,15 @@ describe('logdeck cli', () => {
     } catch {
       failed = true
     }
-    console.log('stage: health check done failed=', String(failed))
     expect(failed).toBe(true)
     expect(existsSync(pidFileFor(port))).toBe(false)
 
     const streamExit = await collect(cli)
-    console.log('stage: stream exit', streamExit.code, JSON.stringify(streamExit.stderr))
     expect(streamExit.code).toBe(0)
   })
 
   test('SIGINT stops the stream with records intact', async () => {
-    const port = await pickFreePort()
+    const port = await pickDaemonPort()
     const cli = spawnCli([`--port=${String(port)}`, '--name=bootstrap'])
 
     const [entry] = await streamMeta(port, 1)

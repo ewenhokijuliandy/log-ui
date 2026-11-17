@@ -1,4 +1,5 @@
 import type { LevelChipKey } from '../../shared/levels.ts'
+import { bestEffort } from './best-effort.ts'
 import type { FilterState, RangeKey, SortKey } from './filters.ts'
 
 export type Preset = {
@@ -113,9 +114,9 @@ export function loadPresets(storage: PresetStorage): Preset[] {
 }
 
 export function savePresets(storage: PresetStorage, presets: readonly Preset[]): void {
-  try {
+  bestEffort(() => {
     storage.setItem(PRESETS_KEY, JSON.stringify(presets))
-  } catch {}
+  })
 }
 
 function normalizePreset(value: unknown): Preset | null {

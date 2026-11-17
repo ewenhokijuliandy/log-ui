@@ -1,4 +1,4 @@
-import type { Hono } from 'hono'
+import type { Hono, MiddlewareHandler } from 'hono'
 
 export type HealthInfo = {
   pid: number
@@ -7,9 +7,9 @@ export type HealthInfo = {
   portProvider: () => number
 }
 
-export function registerHealthRoutes(app: Hono, info: HealthInfo): void {
-  app.get('/api/health', (c) =>
-    c.json({
+export function registerHealthRoutes(app: Hono, info: HealthInfo, guard: MiddlewareHandler): void {
+  app.get('/api/health', guard, (context) =>
+    context.json({
       ok: true,
       pid: info.pid,
       version: info.version,

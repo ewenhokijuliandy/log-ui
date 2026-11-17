@@ -1,294 +1,21 @@
 import { stripAnsi } from './ansi.ts'
-import { extractJson, jsonLevelValue, jsonMessageValue, jsonTimeValue } from './json-extract.ts'
-import { levelFromNumeric } from './levels.ts'
-import {
-  DEFAULT_PARSE_RULES,
-  type NumericUnit,
-  numericLevelMap,
-  type ParseRules,
-} from './parse-rules.ts'
+import { collectIdsFromJson, collectIdsFromText, limitIds } from './id-collect.ts'
+import { extractJson, jsonMessageValue } from './json-extract.ts'
+import { detectLevel } from './level-detect.ts'
+import { DEFAULT_PARSE_RULES, type ParseRules } from './parse-rules.ts'
+import { findTimestamp, parseJsonTimestamp } from './timestamp.ts'
 import type { LogLevel, ParsedLine } from './types.ts'
 
 const LINE_CAP = 100 * 1024
-const ID_LIMIT = 8
-const EPOCH_MIN = Date.UTC(2000, 0, 1)
-const EPOCH_MAX = Date.UTC(2100, 0, 1)
-
-const ISO_TIMESTAMP =
-  /^\s*\[?(\d{4}-\d{2}-\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:[.,](\d{1,9}))?(Z|z|[+-]\d{2}:?\d{2})?/
-const EPOCH_TIMESTAMP = /^\[?(\d{10,13})(?:[.,](\d{1,6}))?(?=[\s,|]|$)/
-
-const LEVEL_ALIASES: Record<string, LogLevel> = {
-  FATAL: 'fatal',
-  CRITICAL: 'fatal',
-  CRIT: 'fatal',
-  ERROR: 'error',
-  ERR: 'error',
-  WARN: 'warn',
-  WARNING: 'warn',
-  INFO: 'info',
-  NOTICE: 'info',
-  DEBUG: 'debug',
-  TRACE: 'trace',
-  VERBOSE: 'trace',
-}
-
-const BRACKET_LEVEL = /\[([A-Za-z]+)\]/g
-const WORD_LEVEL =
-  /\b(FATAL|CRITICAL|CRIT|ERROR|ERR|WARN|WARNING|INFO|NOTICE|DEBUG|TRACE|VERBOSE)\b/
-
-const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi
-const HEX32_PATTERN = /\b[0-9a-f]{32}\b/gi
-const KEYED_ID_PATTERN =
-  /\b(?:trace|span|request|correlation|conversation|x-request)[-_]?(?:id)?\s*[=:]\s*["']?([0-9a-zA-Z][0-9a-zA-Z_:-]{7,63})["']?/gi
-
-const JSON_ID_KEYS: readonly string[] = [
-  'trace_id',
-  'traceId',
-  'trace',
-  'span_id',
-  'spanId',
-  'span',
-  'request_id',
-  'requestId',
-  'request',
-  'req_id',
-  'req',
-  'correlation_id',
-  'correlationId',
-  'x_request_id',
-  'x-request-id',
-  'conversation_id',
-]
-
-type TimestampHit = {
-  ts: number
-  end: number
-}
-
-type LevelHit = {
-  level: LogLevel
-  consumed: number
-}
-
-function inPlausibleRange(ts: number): boolean {
-  return ts >= EPOCH_MIN && ts <= EPOCH_MAX
-}
-
-function consumeSeparators(text: string, cursor: number): number {
-  let end = cursor
-  if (text[end] === ']') end += 1
-  for (let index = end; index < text.length; index += 1) {
-    const ch = text[index]
-    if (ch !== ' ' && ch !== '\t') break
-    end = index + 1
-  }
-  return end
-}
-
-function parseIsoTimestamp(text: string): TimestampHit | null {
-  const match = ISO_TIMESTAMP.exec(text)
-  if (match === null) return null
-
-  const date = match[1] ?? ''
-  const hour = match[2] ?? '0'
-  const minute = match[3] ?? '0'
-  const second = match[4] ?? '0'
-  const fraction = match[5] ?? ''
-  const zone = match[6]
-
-  const year = Number(date.slice(0, 4))
-  const month = Number(date.slice(5, 7))
-  const day = Number(date.slice(8, 10))
-  const ms = fraction.padEnd(3, '0').slice(0, 3)
-
-  let ts = Date.UTC(year, month - 1, day, Number(hour), Number(minute), Number(second), Number(ms))
-
-  if (zone === undefined) {
-    ts += new Date(ts).getTimezoneOffset() * 60_000
-  }
-
-  if (zone !== undefined && (zone.startsWith('-') || zone.startsWith('+'))) {
-    const normalize = zone.replace(':', '')
-    const sign = normalize[0] === '-' ? -1 : 1
-    const offsetHours = Number(normalize.slice(1, 3))
-    const offsetMinutes = Number(normalize.slice(3, 5))
-    ts -= sign * (offsetHours * 60 + offsetMinutes) * 60_000
-  }
-
-  if (!inPlausibleRange(ts)) return null
-
-  return { ts, end: consumeSeparators(text, match[0].length) }
-}
-
-function parseEpochTimestamp(text: string): TimestampHit | null {
-  const match = EPOCH_TIMESTAMP.exec(text)
-  if (match === null) return null
-
-  const digits = match[1] ?? ''
-  const fraction = match[2] ?? ''
-  const base = Number(digits)
-  let ts = base
-
-  if (digits.length === 10) {
-    ts = base * 1000 + Number(fraction.padEnd(3, '0').slice(0, 3) || '0')
-  }
-
-  if (!inPlausibleRange(ts)) return null
-
-  return { ts, end: consumeSeparators(text, match[0].length) }
-}
-
-function findTimestamp(text: string): TimestampHit | null {
-  const iso = parseIsoTimestamp(text)
-  if (iso !== null) return iso
-  return parseEpochTimestamp(text)
-}
-
-function numericEpochToMillis(value: number, unit: NumericUnit): number {
-  if (unit === 's') return Math.round(value * 1000)
-  if (unit === 'ms') return Math.round(value)
-  if (unit === 'us') return Math.round(value / 1e3)
-  if (unit === 'ns') return Math.round(value / 1e6)
-  const magnitude = Math.abs(value)
-  if (magnitude >= 1e17) return Math.round(value / 1e6)
-  if (magnitude >= 1e14) return Math.round(value / 1e3)
-  if (magnitude >= 1e11) return Math.round(value)
-  if (magnitude >= 1e8) return Math.round(value * 1000)
-  return Number.NaN
-}
-
-function parseJsonTimestampValue(value: string | number, unit: NumericUnit): number | null {
-  if (typeof value === 'number') {
-    const ts = numericEpochToMillis(value, unit)
-    return inPlausibleRange(ts) ? ts : null
-  }
-  const text = value.trim()
-  if (/^-?\d+(?:\.\d+)?$/.test(text)) {
-    const ts = numericEpochToMillis(Number(text), unit)
-    return inPlausibleRange(ts) ? ts : null
-  }
-  const iso = parseIsoTimestamp(text)
-  if (iso !== null) return iso.ts
-  const parsed = Date.parse(text)
-  return inPlausibleRange(parsed) ? parsed : null
-}
-
-function parseJsonTimestamp(json: unknown, rules: ParseRules): number | null {
-  if (json === null) return null
-  const value = jsonTimeValue(json, rules.json.timeKeys)
-  if (value === null) return null
-  return parseJsonTimestampValue(value, rules.time.numericUnit)
-}
-
-function detectLevelInJson(json: unknown, rules: ParseRules): LevelHit | null {
-  const token = jsonLevelValue(json, rules.json.levelKeys)
-  if (token === null) return null
-  if (typeof token === 'number') {
-    const level = levelFromNumeric(token, numericLevelMap(rules))
-    if (level === null) return null
-    return { level, consumed: 0 }
-  }
-  const named = LEVEL_ALIASES[token.toUpperCase()]
-  if (named !== undefined) return { level: named, consumed: 0 }
-  const level = levelFromNumeric(token, numericLevelMap(rules))
-  if (level === null) return null
-  return { level, consumed: 0 }
-}
-
-function detectLevelInBrackets(text: string): LevelHit | null {
-  for (const match of text.matchAll(BRACKET_LEVEL)) {
-    const level = LEVEL_ALIASES[(match[1] ?? '').toUpperCase()]
-    if (level === undefined) continue
-    return { level, consumed: consumeSeparators(text, (match.index ?? 0) + match[0].length) }
-  }
-  return null
-}
-
-function detectLevelInWords(text: string): LevelHit | null {
-  let consumedPrefix = 0
-  let current = text
-
-  for (let guard = 0; guard < 8; guard += 1) {
-    const match = WORD_LEVEL.exec(current)
-    if (match === null) return null
-    if ((match.index ?? -1) === 0) {
-      const level = LEVEL_ALIASES[match[1] ?? '']
-      if (level === undefined) return null
-      return { level, consumed: consumeSeparators(text, consumedPrefix + match[0].length) }
-    }
-
-    const bracketRun = /^\[[^\]]*\][ \t]*/y
-    const run = bracketRun.exec(current)
-    if (run === null) return null
-    consumedPrefix += run[0].length
-    current = current.slice(run[0].length)
-  }
-
-  return null
-}
-
-function detectLevel(json: unknown, text: string, rules: ParseRules): LevelHit | null {
-  const fromJson = detectLevelInJson(json, rules)
-  if (fromJson !== null) return fromJson
-  const fromBrackets = detectLevelInBrackets(text)
-  if (fromBrackets !== null) return fromBrackets
-  return detectLevelInWords(text)
-}
-
-function collectIdsFromJson(json: unknown, into: Map<string, string>): void {
-  if (typeof json !== 'object' || json === null) return
-  const record = json as Record<string, unknown>
-  for (const key of JSON_ID_KEYS) {
-    if (into.size >= ID_LIMIT) return
-    const raw = record[key]
-    if (typeof raw !== 'string' && typeof raw !== 'number') continue
-    const id = String(raw).trim()
-    if (id.length < 8 || id.length > 64) continue
-    into.set(id.toLowerCase(), id)
-  }
-}
-
-function collectIdsFromText(text: string, into: Map<string, string>): void {
-  for (const match of text.matchAll(KEYED_ID_PATTERN)) {
-    if (into.size >= ID_LIMIT) return
-    const id = match[1]
-    if (id === undefined) continue
-    into.set(id.toLowerCase(), id)
-  }
-  for (const match of text.matchAll(UUID_PATTERN)) {
-    if (into.size >= ID_LIMIT) return
-    const id = match[0]
-    into.set(id.toLowerCase(), id)
-  }
-  for (const match of text.matchAll(HEX32_PATTERN)) {
-    if (into.size >= ID_LIMIT) return
-    const id = match[0]
-    into.set(id.toLowerCase(), id)
-  }
-}
-
-function limitIds(collected: Map<string, string>): string[] {
-  const ids: string[] = []
-  for (const id of collected.values()) {
-    if (ids.length >= ID_LIMIT) break
-    ids.push(id)
-  }
-  return ids
-}
 
 export function parseLine(line: string, rules: ParseRules = DEFAULT_PARSE_RULES): ParsedLine {
   const truncated = line.length > LINE_CAP
   const capped = truncated ? line.slice(0, LINE_CAP) : line
   const stripped = stripAnsi(capped)
 
-  let remainder = stripped
   const timestamp = findTimestamp(stripped)
-  if (timestamp === null) {
-    remainder = remainder.replace(/^[ \t]+/, '')
-  } else {
-    remainder = stripped.slice(timestamp.end)
-  }
+  const remainder =
+    timestamp === null ? stripped.replace(/^[ \t]+/, '') : stripped.slice(timestamp.end)
 
   let jsonHit = extractJson(remainder)
   let text = remainder
@@ -302,13 +29,10 @@ export function parseLine(line: string, rules: ParseRules = DEFAULT_PARSE_RULES)
   }
 
   let json: unknown | null = null
-  let message: string
-
+  let message = text.trim()
   if (jsonHit !== null) {
     json = jsonHit.value
     message = jsonMessageValue(json, rules.json.messageKeys) ?? text.trim()
-  } else {
-    message = text.trim()
   }
 
   const ids: Map<string, string> = new Map()

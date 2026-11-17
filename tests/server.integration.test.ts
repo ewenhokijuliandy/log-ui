@@ -123,8 +123,11 @@ function messageQueue(socket: WebSocket): { next: (timeoutMs?: number) => Promis
   socket.addEventListener('message', (event: MessageEvent) => {
     const text = typeof event.data === 'string' ? event.data : ''
     const waiter = waiters.shift()
-    if (waiter !== undefined) waiter(text)
-    else pending.push(text)
+    if (waiter !== undefined) {
+      waiter(text)
+      return
+    }
+    pending.push(text)
   })
 
   return {
@@ -443,5 +446,181 @@ describe('daemon server', () => {
     await closeInfo(ingest)
     await vi.waitFor(() => expect(exits.length).toBe(1), { timeout: 3000, interval: 40 })
     expect(exits[0]).toBe(0)
+  })
+
+  test('every api route rejects a forged host header', async () => {
+    const server = await boot()
+    const meta = await createStream(server, 'guarded')
+    const forged = { host: `evil.example:${String(server.port)}` }
+
+    const health = await fetchJson(server, '/api/health', { headers: forged })
+    expect(health.status).toBe(403)
+
+    const listing = await fetchJson(server, '/api/streams', { headers: forged })
+    expect(listing.status).toBe(403)
+
+    const logs = await fetchJson(server, `/api/streams/${meta.id}/logs`, { headers: forged })
+    expect(logs.status).toBe(403)
+
+    const created = await fetchJson(server, '/api/streams', {
+      method: 'POST',
+      body: '',
+      headers: forged,
+    })
+    expect(created.status).toBe(403)
+
+    const cleared = await fetchJson(server, `/api/streams/${meta.id}/clear`, {
+      method: 'POST',
+      headers: forged,
+    })
+    expect(cleared.status).toBe(403)
+
+    const renamed = await fetchJson(server, `/api/streams/${meta.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'hijacked' }),
+      headers: { ...forged, 'content-type': 'application/json' },
+    })
+    expect(renamed.status).toBe(403)
+
+    const removed = await fetchJson(server, `/api/streams/${meta.id}`, {
+      method: 'DELETE',
+      headers: forged,
+    })
+    expect(removed.status).toBe(403)
+
+    const stopped = await fetchJson(server, '/api/shutdown', { method: 'POST', headers: forged })
+    expect(stopped.status).toBe(403)
+
+    const intact = await snapshot(server, meta.id)
+    expect(intact.status).toBe('active')
+    const names = JSON.parse((await fetchJson(server, '/api/streams')).text) as Array<{
+      name: string
+    }>
+    expect(names.map((entry) => entry.name)).toContain('guarded')
+  })
+
+  test('a rejected ingest socket leaves the stream active', async () => {
+    const server = await boot()
+    const meta = await createStream(server, 'protected')
+    const ingest = await openSocket(
+      new WebSocket(
+        `ws://127.0.0.1:${server.port}/ingest?stream=${meta.id}&token=${meta.ingestToken}`,
+      ),
+    )
+    await sendLines(ingest, makeLines(0, 3))
+    await waitForDepth(server, meta.id, 3)
+
+    const rejected = new WebSocket(
+      `ws://127.0.0.1:${server.port}/ingest?stream=${meta.id}&token=not-the-token`,
+    )
+    const closed = await closeInfo(rejected)
+    expect(closed.code).toBe(1008)
+
+    await sleep(80)
+    const state = await snapshot(server, meta.id)
+    expect(state.status).toBe('active')
+
+    await sendLines(ingest, makeLines(100, 2))
+    await waitForDepth(server, meta.id, 5)
+    const still = await snapshot(server, meta.id)
+    expect(still.status).toBe('active')
+    expect(still.records.length).toBe(5)
+  })
+
+  test('a replacement ingest socket closes the first and keeps the stream active', async () => {
+    const server = await boot()
+    const meta = await createStream(server, 'replaced')
+    const url = `ws://127.0.0.1:${server.port}/ingest?stream=${meta.id}&token=${meta.ingestToken}`
+
+    const first = await openSocket(new WebSocket(url))
+    await sendLines(first, makeLines(0, 2))
+    await waitForDepth(server, meta.id, 2)
+
+    const second = await openSocket(new WebSocket(url))
+    const firstClosed = await closeInfo(first)
+    expect(firstClosed.code).toBe(1000)
+    expect(firstClosed.reason).toBe('replaced')
+
+    const state = await snapshot(server, meta.id)
+    expect(state.status).toBe('active')
+
+    await sendLines(second, makeLines(500, 2))
+    await waitForDepth(server, meta.id, 4)
+    const after = await snapshot(server, meta.id)
+    expect(after.status).toBe('active')
+    expect(after.records.map((record) => record.seq)).toEqual([1, 2, 3, 4])
+    expect(after.records.map((record) => record.raw)).toContain(makeLines(500, 1)[0])
+  })
+
+  test('create repairs duplicate, oversized and empty names', async () => {
+    const server = await boot()
+    const first = await createStream(server, 'dup')
+    expect(first.name).toBe('dup')
+
+    const second = await createStream(server, 'dup')
+    expect(second.name).toBe('dup (2)')
+
+    const third = await createStream(server, 'dup')
+    expect(third.name).toBe('dup (3)')
+
+    const oversized = await createStream(server, 'x'.repeat(300))
+    expect(oversized.name).toBe('x'.repeat(64))
+
+    const capped = await createStream(server, 'y'.repeat(64))
+    expect(capped.name).toBe('y'.repeat(64))
+
+    const cappedDuplicate = await createStream(server, 'y'.repeat(64))
+    expect(cappedDuplicate.name).toBe(`${'y'.repeat(60)} (2)`)
+    expect(cappedDuplicate.name.length).toBe(64)
+
+    const blank = await createStream(server, '   ')
+    expect(blank.name).toBe('log-viewer-1')
+
+    const empty = await createStream(server, '')
+    expect(empty.name).toBe('log-viewer-2')
+
+    const missing = await createStream(server, null)
+    expect(missing.name).toBe('log-viewer-3')
+  })
+
+  test('logs:cleared is broadcast after the pending appended records', async () => {
+    const server = await boot()
+    const browser = await openSocket(new WebSocket(`ws://127.0.0.1:${server.port}/ws`))
+    const events = messageQueue(browser)
+
+    const meta = await createStream(server, 'ordering')
+    const created = await events.next()
+    expect(created.type).toBe('stream:created')
+
+    const ingest = await openSocket(
+      new WebSocket(
+        `ws://127.0.0.1:${server.port}/ingest?stream=${meta.id}&token=${meta.ingestToken}`,
+      ),
+    )
+    await sendLines(ingest, makeLines(0, 5))
+
+    const cleared = await fetchJson(server, `/api/streams/${meta.id}/clear`, { method: 'POST' })
+    expect(cleared.status).toBe(200)
+
+    const order: string[] = []
+    let pendingSeqs: number[] = []
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const event = await events.next(3000)
+      order.push(event.type)
+      if (event.type === 'logs:appended') {
+        pendingSeqs = (event.records as Array<{ seq: number }>).map((record) => record.seq)
+      }
+      if (event.type === 'logs:cleared') break
+    }
+    expect(order).toContain('logs:cleared')
+    expect(order.indexOf('logs:appended')).toBeLessThan(order.indexOf('logs:cleared'))
+    expect(pendingSeqs).toEqual([1, 2, 3, 4, 5])
+
+    await sendLines(ingest, makeLines(500, 3))
+    const afterClear = await waitForMessage(events, 'logs:appended')
+    expect(afterClear.streamId).toBe(meta.id)
+    const records = afterClear.records as Array<{ seq: number; raw: string }>
+    expect(records.map((record) => record.seq)).toEqual([6, 7, 8])
+    for (const record of records) expect(record.raw).toContain('perf line 5')
   })
 })

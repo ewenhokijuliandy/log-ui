@@ -6,6 +6,13 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import open from 'open'
 
+const HEALTH_TIMEOUT_MS = 1000
+const PORT_PROBE_TIMEOUT_MS = 600
+const READY_POLL_MS = 100
+const READY_ATTEMPTS = 50
+const SHUTDOWN_TIMEOUT_MS = 1000
+const STOP_GRACE_MS = 300
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const cli = resolve(root, 'dist/cli.js')
 const generator = resolve(root, 'scripts/generate-logs.mjs')
@@ -24,9 +31,20 @@ let daemon = null
 let ownsDaemon = false
 let stopping = false
 
+async function bestEffort(action) {
+  try {
+    await action()
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function healthInfo() {
   try {
-    const response = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1000) })
+    const response = await fetch(`${base}/api/health`, {
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    })
     if (!response.ok) return null
     const info = await response.json()
     if (info === null || typeof info !== 'object') return null
@@ -47,7 +65,7 @@ function portInUse(targetPort) {
       socket.destroy()
       resolvePort(busy)
     }
-    socket.setTimeout(600)
+    socket.setTimeout(PORT_PROBE_TIMEOUT_MS)
     socket.once('connect', () => finish(true))
     socket.once('timeout', () => finish(true))
     socket.once('error', () => finish(false))
@@ -76,35 +94,7 @@ function launch(name, interval) {
   })
 }
 
-async function stop() {
-  if (stopping) return
-  stopping = true
-  console.log('\n[demo] stopping streams...')
-  for (const child of children) {
-    if (!child.killed) child.kill('SIGTERM')
-  }
-  await delay(300)
-  for (const child of children) {
-    if (!child.killed) child.kill('SIGKILL')
-  }
-  if (ownsDaemon && daemon !== null && !daemon.killed) {
-    daemon.kill('SIGTERM')
-    try {
-      await fetch(`${base}/api/shutdown`, { method: 'POST', signal: AbortSignal.timeout(1000) })
-    } catch {}
-  }
-  if (!ownsDaemon) console.log('[demo] the daemon that was already running was left untouched.')
-  process.exit(0)
-}
-
-process.on('SIGINT', () => void stop())
-process.on('SIGTERM', () => void stop())
-
-const existing = await healthInfo()
-
-if (existing !== null) {
-  console.log(`[demo] reusing the logdeck daemon already running on ${base}`)
-} else {
+async function startDaemonForDemo() {
   const busy = await portInUse(port)
   if (busy) {
     console.error(`[demo] Port ${String(port)} is in use by something that is not logdeck.`)
@@ -120,15 +110,52 @@ if (existing !== null) {
   })
   ownsDaemon = true
 
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    if ((await healthInfo()) !== null) break
-    if (attempt === 49) {
+  for (let attempt = 0; attempt < READY_ATTEMPTS; attempt += 1) {
+    if ((await healthInfo()) !== null) return
+    if (attempt === READY_ATTEMPTS - 1) {
       console.error(`[demo] logdeck did not become ready on ${base}.`)
       daemon.kill('SIGTERM')
       process.exit(1)
     }
-    await delay(100)
+    await delay(READY_POLL_MS)
   }
+}
+
+async function stop() {
+  if (stopping) return
+  stopping = true
+  console.log('\n[demo] stopping streams...')
+  for (const child of children) {
+    if (!child.killed) child.kill('SIGTERM')
+  }
+  await delay(STOP_GRACE_MS)
+  for (const child of children) {
+    if (!child.killed) child.kill('SIGKILL')
+  }
+  if (ownsDaemon && daemon !== null && !daemon.killed) {
+    daemon.kill('SIGTERM')
+    await bestEffort(() =>
+      fetch(`${base}/api/shutdown`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(SHUTDOWN_TIMEOUT_MS),
+      }),
+    )
+  }
+  if (!ownsDaemon) console.log('[demo] the daemon that was already running was left untouched.')
+  process.exit(0)
+}
+
+process.on('SIGINT', () => void stop())
+process.on('SIGTERM', () => void stop())
+
+const existing = await healthInfo()
+
+if (existing !== null) {
+  console.log(`[demo] reusing the logdeck daemon already running on ${base}`)
+}
+
+if (existing === null) {
+  await startDaemonForDemo()
 }
 
 console.log(`
@@ -145,11 +172,8 @@ launch('api', 500)
 launch('worker', 900)
 
 if (shouldOpen) {
-  try {
-    await open(base)
-  } catch {
-    console.log(`[demo] open the URL manually: ${base}`)
-  }
+  const opened = await bestEffort(() => open(base))
+  if (!opened) console.log(`[demo] open the URL manually: ${base}`)
 }
 
 await new Promise(() => {})

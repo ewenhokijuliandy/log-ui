@@ -5,6 +5,25 @@ import type { Page } from '@playwright/test'
 export const E2E_PORT = Number(process.env.LOGDECK_E2E_PORT ?? 4173)
 export const E2E_URL = `http://127.0.0.1:${String(E2E_PORT)}`
 
+async function bestEffort(action: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await action()
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function fetchJsonOrNull(path: string): Promise<unknown> {
+  try {
+    const response = await fetch(`${E2E_URL}${path}`)
+    if (!response.ok) return null
+    return (await response.json()) as unknown
+  } catch {
+    return null
+  }
+}
+
 export type Pipe = {
   child: ChildProcessWithoutNullStreams
   write: (lines: readonly string[]) => Promise<void>
@@ -38,26 +57,18 @@ export function startPipe(name: string): Pipe {
 }
 
 export async function clearStreams(): Promise<void> {
-  try {
-    const response = await fetch(`${E2E_URL}/api/streams`)
-    if (!response.ok) return
-    const metas = (await response.json()) as Array<{ id: string }>
-    await Promise.all(
-      metas.map((meta) => fetch(`${E2E_URL}/api/streams/${meta.id}`, { method: 'DELETE' })),
-    )
-  } catch {}
+  const metas = (await fetchJsonOrNull('/api/streams')) as Array<{ id: string }> | null
+  if (!Array.isArray(metas)) return
+  await Promise.all(
+    metas.map((meta) => fetch(`${E2E_URL}/api/streams/${meta.id}`, { method: 'DELETE' })),
+  )
 }
 
 export async function waitForStream(name: string, timeoutMs = 10_000): Promise<void> {
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
-    try {
-      const response = await fetch(`${E2E_URL}/api/streams`)
-      if (response.ok) {
-        const metas = (await response.json()) as Array<{ name: string }>
-        if (metas.some((meta) => meta.name === name)) return
-      }
-    } catch {}
+    const metas = (await fetchJsonOrNull('/api/streams')) as Array<{ name: string }> | null
+    if (Array.isArray(metas) && metas.some((meta) => meta.name === name)) return
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error(`stream ${name} did not appear`)
@@ -66,19 +77,14 @@ export async function waitForStream(name: string, timeoutMs = 10_000): Promise<v
 export async function waitForHealth(timeoutMs = 10_000): Promise<void> {
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
-    try {
-      const response = await fetch(`${E2E_URL}/api/health`)
-      if (response.ok) return
-    } catch {}
+    if ((await fetchJsonOrNull('/api/health')) !== null) return
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error('logdeck daemon did not become healthy')
 }
 
 export async function shutdownDaemon(): Promise<void> {
-  try {
-    await fetch(`${E2E_URL}/api/shutdown`, { method: 'POST' })
-  } catch {}
+  await bestEffort(() => fetch(`${E2E_URL}/api/shutdown`, { method: 'POST' }))
 }
 
 export function startDaemon(): ChildProcess {

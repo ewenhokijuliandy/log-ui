@@ -16,7 +16,7 @@ export function SignalStrip({ records, zone }: { records: readonly LogRecord[]; 
         ))}
       </div>
       <span className="signal-note">
-        {signal.noteTs !== null ? `${formatClock(signal.noteTs, zone)} · ${signal.noteLabel}` : ''}
+        {signal.noteTs === null ? '' : `${formatClock(signal.noteTs, zone)} · ${signal.noteLabel}`}
       </span>
     </div>
   )

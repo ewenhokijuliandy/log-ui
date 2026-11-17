@@ -1,5 +1,5 @@
 import { PIPE_EXAMPLES } from '../app/legacy-data.ts'
-import { DialogFrame, PipeRow } from './dialogs.tsx'
+import { DialogFrame, PipeRow } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
 
 export function QuickStart({

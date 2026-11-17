@@ -61,10 +61,21 @@
       "includes": [
         "src/web/components/logs.tsx",
         "src/web/components/signal.tsx",
-        "src/web/components/dialogs.tsx",
         "src/web/components/tabs.tsx",
         "src/web/components/toolbar.tsx",
-        "src/web/components/shell.tsx"
+        "src/web/components/shell.tsx",
+        "src/web/components/filter-chips.tsx",
+        "src/web/components/range-picker.tsx",
+        "src/web/components/presets-menu.tsx",
+        "src/web/components/sort-menu.tsx",
+        "src/web/components/display-tools.tsx",
+        "src/web/components/menu-item.tsx",
+        "src/web/components/dialog-frame.tsx",
+        "src/web/components/confirm-dialog.tsx",
+        "src/web/components/help-sheet.tsx",
+        "src/web/components/manual-dialog.tsx",
+        "src/web/components/print-sheet.tsx",
+        "src/web/components/settings-sheet.tsx"
       ],
       "linter": {
         "rules": {

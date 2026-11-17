@@ -1,3 +1,5 @@
+import { bestEffort } from '../lib/best-effort.ts'
+
 export type ThemeChoice = 'system' | 'dark' | 'light'
 export type Zone = 'utc' | 'local'
 
@@ -49,9 +51,9 @@ function isTheme(value: unknown): value is ThemeChoice {
 }
 
 export function savePrefs(prefs: Prefs): void {
-  try {
+  bestEffort(() => {
     window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
-  } catch {}
+  })
 }
 
 export function resolveTheme(choice: ThemeChoice): 'dark' | 'light' {
@@ -76,9 +78,9 @@ export function loadTabOrder(): string[] | null {
 }
 
 export function saveTabOrder(ids: readonly string[]): void {
-  try {
+  bestEffort(() => {
     window.localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(ids))
-  } catch {}
+  })
 }
 
 export function defaultInspectorWidth(viewport = window.innerWidth): number {
@@ -104,7 +106,7 @@ export function loadInspectorWidth(): number | null {
 }
 
 export function saveInspectorWidth(width: number): void {
-  try {
+  bestEffort(() => {
     window.localStorage.setItem(INSPECTOR_WIDTH_KEY, String(width))
-  } catch {}
+  })
 }

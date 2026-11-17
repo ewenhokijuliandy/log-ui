@@ -59,6 +59,18 @@ export class BroadcastHub {
     this.pending.clear()
   }
 
+  flushStream(streamId: string): void {
+    const slot = this.pending.get(streamId)
+    if (slot === undefined) return
+    this.pending.delete(streamId)
+    this.broadcast({
+      type: 'logs:appended',
+      streamId,
+      records: slot.records,
+      dropped: slot.dropped,
+    })
+  }
+
   broadcast(event: unknown): void {
     if (this.sockets.size === 0) return
     const text = JSON.stringify(event)

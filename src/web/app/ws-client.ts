@@ -1,3 +1,5 @@
+import { bestEffort } from '../lib/best-effort.ts'
+
 export type ServerEvent = {
   type: string
   [key: string]: unknown
@@ -79,9 +81,7 @@ export function createStreamSocket(
       if (current !== null) {
         current.onclose = null
         current.onerror = null
-        try {
-          current.close()
-        } catch {}
+        bestEffort(() => current.close())
       }
       connect()
     },

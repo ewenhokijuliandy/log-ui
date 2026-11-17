@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { copyText } from '../lib/clipboard.ts'
+import { useState } from 'react'
 import {
   type DiffEntry,
   type DiffResult,
@@ -7,7 +6,8 @@ import {
   diffToText,
   diffValueText,
 } from '../lib/json-diff.ts'
-import { DialogFrame } from './dialogs.tsx'
+import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
+import { DialogFrame } from './dialog-frame.tsx'
 
 const MAX_SIDE_BYTES = 1_000_000
 
@@ -100,14 +100,7 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [rightError, setRightError] = useState('')
   const [result, setResult] = useState<DiffResult | null>(null)
   const [message, setMessage] = useState('Paste JSON into both sides, or load the sample.')
-  const [copied, setCopied] = useState(false)
-  const copiedTimer = useRef<number | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current)
-    }
-  }, [])
+  const { copied, copy } = useCopyFeedback()
 
   function compare(leftText: string, rightText: string): void {
     const leftSide = parseSide(leftText)
@@ -158,11 +151,7 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
 
   async function copyDiff(): Promise<void> {
     if (result === null || result.entries.length === 0) return
-    const ok = await copyText(diffToText(result.entries))
-    if (!ok) return
-    setCopied(true)
-    if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current)
-    copiedTimer.current = window.setTimeout(() => setCopied(false), 1_200)
+    await copy(diffToText(result.entries))
   }
 
   const added =

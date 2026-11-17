@@ -5,8 +5,11 @@ function firstIndexAfter(records: readonly Sequenced[], boundary: number): numbe
   let high = records.length
   while (low < high) {
     const mid = Math.floor((low + high) / 2)
-    if ((records[mid]?.seq ?? 0) <= boundary) low = mid + 1
-    else high = mid
+    if ((records[mid]?.seq ?? 0) <= boundary) {
+      low = mid + 1
+      continue
+    }
+    high = mid
   }
   return low
 }
