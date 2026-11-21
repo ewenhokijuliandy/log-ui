@@ -349,6 +349,21 @@ test('prettify JSON formats from the rail menu', async ({ page }) => {
   await dialog.getByRole('button', { name: '4 spaces' }).click()
   await expect(output).toContainText(/\n {4}"status"/)
 
+  await dialog.getByRole('button', { name: 'Minify' }).click()
+  await expect(output).toHaveText(
+    '{"order_id":"ord_8841","status":"pending","amount":128.4,"items":[{"sku":"SKU-4471","qty":2}]}',
+  )
+
+  await dialog.getByRole('button', { name: 'Sort keys' }).click()
+  await expect(output).toHaveText(
+    '{"amount":128.4,"items":[{"qty":2,"sku":"SKU-4471"}],"order_id":"ord_8841","status":"pending"}',
+  )
+
+  await dialog.getByRole('button', { name: 'Pretty' }).click()
+  const sortedPretty = await output.evaluate((node) => node.textContent ?? '')
+  expect(sortedPretty.startsWith('{\n    "amount"')).toBe(true)
+  expect(sortedPretty).toContain('"status": "pending"')
+
   await dialog.getByLabel('JSON in').fill('{"a":}')
   await dialog.getByRole('button', { name: 'Prettify' }).click()
   await expect(dialog.getByText('This is not valid JSON.')).toBeVisible()

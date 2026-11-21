@@ -11,10 +11,22 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
   const [indent, setIndent] = useState<PrettifyIndent>(2)
+  const [mode, setMode] = useState<'pretty' | 'minify'>('pretty')
+  const [sortKeys, setSortKeys] = useState(false)
   const { copied, copy } = useCopyFeedback()
 
+  function options(pretty: boolean, spaces: PrettifyIndent, sorted: boolean) {
+    return { indent: spaces, minify: !pretty, sortKeys: sorted }
+  }
+
+  function reformat(pretty: boolean, spaces: PrettifyIndent, sorted: boolean): void {
+    if (output.length === 0) return
+    const result = prettifyJsonText(input, options(pretty, spaces, sorted))
+    setOutput(result.ok ? result.text : '')
+  }
+
   function runPrettify(): void {
-    const result = prettifyJsonText(input, indent)
+    const result = prettifyJsonText(input, options(mode === 'pretty', indent, sortKeys))
     if (!result.ok) {
       setError(result.error)
       setOutput('')
@@ -39,9 +51,19 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
   function changeIndent(value: string): void {
     const next: PrettifyIndent = value === '4' ? 4 : 2
     setIndent(next)
-    if (output.length === 0) return
-    const result = prettifyJsonText(input, next)
-    setOutput(result.ok ? result.text : '')
+    reformat(mode === 'pretty', next, sortKeys)
+  }
+
+  function changeMode(value: string): void {
+    const next = value === 'minify' ? 'minify' : 'pretty'
+    setMode(next)
+    reformat(next === 'pretty', indent, sortKeys)
+  }
+
+  function toggleSortKeys(): void {
+    const next = !sortKeys
+    setSortKeys(next)
+    reformat(mode === 'pretty', indent, next)
   }
 
   return (
@@ -76,17 +98,39 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
       <div className="prettify-footer">
         <div className="prettify-tools">
           <div className="prettify-indent">
-            <span>Indent</span>
+            <span>Format</span>
             <Segment
-              label="Indent"
-              value={String(indent)}
+              label="Format"
+              value={mode}
               options={[
-                { value: '2', label: '2 spaces' },
-                { value: '4', label: '4 spaces' },
+                { value: 'pretty', label: 'Pretty' },
+                { value: 'minify', label: 'Minify' },
               ]}
-              onChange={changeIndent}
+              onChange={changeMode}
             />
           </div>
+          {mode === 'pretty' ? (
+            <div className="prettify-indent">
+              <span>Indent</span>
+              <Segment
+                label="Indent"
+                value={String(indent)}
+                options={[
+                  { value: '2', label: '2 spaces' },
+                  { value: '4', label: '4 spaces' },
+                ]}
+                onChange={changeIndent}
+              />
+            </div>
+          ) : null}
+          <button
+            className="btn ghost"
+            type="button"
+            aria-pressed={sortKeys}
+            onClick={toggleSortKeys}
+          >
+            Sort keys
+          </button>
           <button className="btn ghost" type="button" onClick={loadSample}>
             Load sample
           </button>

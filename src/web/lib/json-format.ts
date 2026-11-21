@@ -4,9 +4,25 @@ export const MAX_PRETTIFY_BYTES = 1_000_000
 
 export type PrettifyIndent = 2 | 4
 
+export type PrettifyOptions = {
+  indent?: PrettifyIndent
+  minify?: boolean
+  sortKeys?: boolean
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => sortKeysDeep(item))
+  if (value === null || typeof value !== 'object') return value
+  const sorted: Record<string, unknown> = {}
+  for (const key of Object.keys(value).sort()) {
+    sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key])
+  }
+  return sorted
+}
+
 export function prettifyJsonText(
   raw: string,
-  indent: PrettifyIndent = 2,
+  options: PrettifyOptions = {},
   maxBytes = MAX_PRETTIFY_BYTES,
 ): PrettifyResult {
   const trimmed = raw.trim()
@@ -22,5 +38,9 @@ export function prettifyJsonText(
   } catch {
     return { ok: false, error: 'This is not valid JSON.' }
   }
-  return { ok: true, text: JSON.stringify(parsed, null, indent) }
+  const value = options.sortKeys === true ? sortKeysDeep(parsed) : parsed
+  if (options.minify === true) {
+    return { ok: true, text: JSON.stringify(value) }
+  }
+  return { ok: true, text: JSON.stringify(value, null, options.indent ?? 2) }
 }

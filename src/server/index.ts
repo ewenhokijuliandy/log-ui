@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { type ServerType, serve } from '@hono/node-server'
+import { normalizeBufferCap } from '../shared/buffer-cap.ts'
 import { buildApp } from './app.ts'
 import { createServerLifecycle, waitForListening } from './lifecycle.ts'
 import { sameOriginGuard } from './security.ts'
@@ -16,6 +17,7 @@ export type ServerOptions = {
   onExit: (code: number) => void
   webRoot?: string
   stateDir?: string
+  bufferCap?: number
 }
 
 export type StartedServer = {
@@ -30,6 +32,11 @@ export type StartedServer = {
 export async function startServer(options: ServerOptions): Promise<StartedServer> {
   const settings = createSettingsStore(options.stateDir)
   await settings.load()
+  if (options.bufferCap !== undefined) {
+    const bufferCap = normalizeBufferCap(options.bufferCap)
+    if (bufferCap === null) throw new Error('invalid buffer cap')
+    await settings.setBufferCap(bufferCap)
+  }
   const registry = new StreamRegistry(settings.get().bufferCap)
   const hub = new BroadcastHub()
 

@@ -17,12 +17,14 @@ afterEach(async () => {
 async function boot(options?: {
   idleTimeoutMs?: number
   stateDir?: string
+  bufferCap?: number
 }): Promise<StartedServer> {
   const exits: number[] = []
   const server = await startServer({
     port: 0,
     idleTimeoutMs: options?.idleTimeoutMs ?? 0,
     stateDir: options?.stateDir,
+    bufferCap: options?.bufferCap,
     onExit: (code) => exits.push(code),
     webRoot: '/nonexistent-web-root',
   })
@@ -430,6 +432,20 @@ describe('daemon server', () => {
     expect(after.records).toHaveLength(1000)
     expect(after.dropped).toBe(5000)
     expect(JSON.parse((await fetchJson(server, '/api/settings')).text)).toEqual({ bufferCap: 1000 })
+  })
+
+  test('startServer can seed the buffer cap from the CLI flag', async () => {
+    const server = await boot({ bufferCap: 1000 })
+    expect(JSON.parse((await fetchJson(server, '/api/settings')).text)).toEqual({ bufferCap: 1000 })
+
+    const meta = await createStream(server, 'cli-cap')
+    server.registry.ingest(
+      meta.id,
+      Array.from({ length: 1500 }, (_, index) => `line-${String(index)}`),
+    )
+    const snap = await snapshot(server, meta.id)
+    expect(snap.records).toHaveLength(1000)
+    expect(snap.dropped).toBe(500)
   })
 
   test('settings persist across daemon restarts', async () => {

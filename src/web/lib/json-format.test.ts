@@ -11,11 +11,36 @@ describe('prettifyJsonText', () => {
   })
 
   test('formats with four spaces when requested', () => {
-    const result = prettifyJsonText('{"a":1}', 4)
+    const result = prettifyJsonText('{"a":1}', { indent: 4 })
     expect(result).toEqual({ ok: true, text: '{\n    "a": 1\n}' })
   })
 
-  test('preserves key order and accepts top-level scalars', () => {
+  test('minifies', () => {
+    expect(prettifyJsonText('{ "a": 1, "b": [true] }', { minify: true })).toEqual({
+      ok: true,
+      text: '{"a":1,"b":[true]}',
+    })
+  })
+
+  test('sorts keys deeply while preserving arrays', () => {
+    expect(
+      prettifyJsonText('{"z":1,"a":{"y":2,"b":3},"items":[{"z":1,"a":2}]}', {
+        sortKeys: true,
+      }),
+    ).toEqual({
+      ok: true,
+      text: '{\n  "a": {\n    "b": 3,\n    "y": 2\n  },\n  "items": [\n    {\n      "a": 2,\n      "z": 1\n    }\n  ],\n  "z": 1\n}',
+    })
+  })
+
+  test('sorts keys and minifies together', () => {
+    expect(prettifyJsonText('{"b":1,"a":2}', { sortKeys: true, minify: true })).toEqual({
+      ok: true,
+      text: '{"a":2,"b":1}',
+    })
+  })
+
+  test('preserves key order without sorting and accepts top-level scalars', () => {
     expect(prettifyJsonText('{"z":1,"a":2}')).toEqual({
       ok: true,
       text: '{\n  "z": 1,\n  "a": 2\n}',

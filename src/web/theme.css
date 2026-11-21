@@ -2595,6 +2595,11 @@ dialog.prettify-dialog {
   flex-wrap: wrap;
 }
 
+.prettify-tools .btn.ghost[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--text);
+}
+
 .prettify-indent {
   display: flex;
   align-items: center;

@@ -34,6 +34,7 @@ logdeck stop [--port <number>]
 --name <name>          tab name for the piped stream
 --no-open              do not open the browser
 --idle-timeout <min>   idle shutdown in minutes; 0 disables (default: 5)
+--buffer-cap <number>  initial buffer limit (1,000–50,000; settable later in Settings)
 --quiet                suppress CLI status messages
 -V, --version          print the version
 -h, --help             print usage
@@ -65,7 +66,7 @@ logdeck: "api" ended — 1,234 lines sent in 18.4s
 
 Closing a tab removes its retained buffer and ends that stream. If a pipe is still writing, the CLI exits with code 0 and the upstream command sees a closed pipe (SIGPIPE on Unix).
 
-The daemon exits after the idle timeout when there are no active streams and no connected browser. `--idle-timeout=0` keeps it running.
+The daemon exits after the idle timeout when there are no active streams and no connected browser. `--idle-timeout=0` keeps it running. `--buffer-cap` seeds the persisted buffer limit when it starts or updates the running daemon; Settings remains the live control.
 
 ## Viewer
 
@@ -76,7 +77,7 @@ The daemon exits after the idle timeout when there are no active streams and no 
 - **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
 - **Inspect** - click a row (or press Enter) for parsed fields, a Pretty (default) or Tree JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
 - **Compare** - open Compare JSON from the sidebar (rail on desktop, bottom bar on phones), paste two JSON documents, and list added, removed and changed paths. Added and removed rows are tinted; changed paths show a red before line and a green after line. Key order is ignored and the diff is copyable. **Pretty** formats both sides in place before comparing.
-- **Pretty** - open Pretty JSON from the sidebar, paste messy JSON, choose 2- or 4-space indentation, format it locally (1 MB limit), and copy the result.
+- **Pretty** - open Pretty JSON from the sidebar, paste messy JSON, choose Pretty (2- or 4-space indent) or Minify, optionally sort keys, format it locally (1 MB limit), and copy the result.
 - **Pause** - freeze the visible rows while ingestion and counts continue; resume to reveal the buffered lines.
 - **Manual mode** - paste text or drop a `.txt`/`.log` file (up to 25 MB) for a client-only tab.
 - **Export** - filtered TXT download or a print-styled PDF through the browser's print dialog.

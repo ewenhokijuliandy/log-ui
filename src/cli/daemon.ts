@@ -46,7 +46,10 @@ export type EnsureDaemonResult = {
   started: boolean
 }
 
-export async function ensureDaemon(port: number): Promise<EnsureDaemonResult> {
+export async function ensureDaemon(
+  port: number,
+  bufferCap: number | null = null,
+): Promise<EnsureDaemonResult> {
   const existing = await probeHealth(port)
   if (existing !== null) {
     const ours = readVersion()
@@ -58,7 +61,9 @@ export async function ensureDaemon(port: number): Promise<EnsureDaemonResult> {
     return { health: existing, started: false }
   }
 
-  spawn(process.execPath, [cliScriptPath(), '__daemon', `--port=${String(port)}`], {
+  const daemonArgs = [cliScriptPath(), '__daemon', `--port=${String(port)}`]
+  if (bufferCap !== null) daemonArgs.push(`--buffer-cap=${String(bufferCap)}`)
+  spawn(process.execPath, daemonArgs, {
     detached: true,
     stdio: 'ignore',
   }).unref()
@@ -73,6 +78,18 @@ export async function ensureDaemon(port: number): Promise<EnsureDaemonResult> {
       )
     }
     await sleep(100)
+  }
+}
+
+export async function setDaemonBufferCap(port: number, bufferCap: number): Promise<void> {
+  const response = await fetch(`http://127.0.0.1:${port}/api/settings`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ bufferCap }),
+    signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+  })
+  if (!response.ok) {
+    throw new Error(`could not set the buffer limit (HTTP ${String(response.status)})`)
   }
 }
 
@@ -102,6 +119,7 @@ export async function runDaemon(
   idleMinutes: number,
   stateDir: string,
   exit: (code: number) => void,
+  bufferCap: number | null = null,
 ): Promise<void> {
   let exitCode: number | null = null
 
@@ -117,6 +135,7 @@ export async function runDaemon(
       port,
       idleTimeoutMs: Math.max(0, Math.round(idleMinutes * 60_000)),
       stateDir,
+      bufferCap: bufferCap ?? undefined,
       onExit: (code) => {
         void finalize(code)
       },

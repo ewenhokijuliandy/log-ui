@@ -1,7 +1,15 @@
 import { Command } from 'commander'
 import { readVersion } from '../server/version.ts'
+import { normalizeBufferCap } from '../shared/buffer-cap.ts'
 import { openBrowser } from './browser.ts'
-import { DEFAULT_PORT, DEFAULT_STATE_DIR, ensureDaemon, runDaemon, stopDaemon } from './daemon.ts'
+import {
+  DEFAULT_PORT,
+  DEFAULT_STATE_DIR,
+  ensureDaemon,
+  runDaemon,
+  setDaemonBufferCap,
+  stopDaemon,
+} from './daemon.ts'
 import { type PipeOptions, runPipe } from './pipe.ts'
 import { createStatus } from './status.ts'
 
@@ -16,6 +24,15 @@ function toNumber(raw: unknown): number {
   return parsed
 }
 
+function parseBufferCap(raw: unknown): number | null {
+  if (raw === undefined) return null
+  const bufferCap = normalizeBufferCap(Number(raw))
+  if (bufferCap === null) {
+    fail('--buffer-cap must be a whole number from 1,000 to 50,000')
+  }
+  return bufferCap
+}
+
 const program = new Command()
 
 program
@@ -27,6 +44,7 @@ program
   .option('--no-open', 'do not open the browser')
   .option('--idle-timeout <minutes>', 'idle shutdown in minutes (0 disables)', '5')
   .option('--quiet', 'suppress CLI status messages')
+  .option('--buffer-cap <number>', 'initial buffer limit (1,000–50,000)')
 
 program
   .command('stop')
@@ -49,7 +67,8 @@ program
     const opts = this.optsWithGlobals()
     const port = toNumber(opts.port)
     const idleMinutes = toNumber(opts.idleTimeout)
-    await runDaemon(port, idleMinutes, DEFAULT_STATE_DIR, (code) => process.exit(code))
+    const bufferCap = parseBufferCap(opts.bufferCap)
+    await runDaemon(port, idleMinutes, DEFAULT_STATE_DIR, (code) => process.exit(code), bufferCap)
   })
 
 program.action(async (flags) => {
@@ -57,11 +76,13 @@ program.action(async (flags) => {
   const name = typeof flags.name === 'string' ? flags.name : null
   const openInBrowser: boolean = flags.open !== false
   const status = createStatus(flags.quiet === true)
+  const bufferCap = parseBufferCap(flags.bufferCap)
 
   let daemonStarted = false
   try {
-    const daemon = await ensureDaemon(port)
+    const daemon = await ensureDaemon(port, bufferCap)
     daemonStarted = daemon.started
+    if (!daemon.started && bufferCap !== null) await setDaemonBufferCap(port, bufferCap)
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error))
   }
