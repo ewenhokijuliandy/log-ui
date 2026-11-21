@@ -20,6 +20,8 @@ import {
   removeStreamEntry,
 } from './stream-reducers.ts'
 
+const CAP = 10_000
+
 function record(seq: number, level: LogLevel = 'info'): LogRecord {
   return {
     raw: `line ${seq}`,
@@ -62,7 +64,7 @@ function entry(id: string, records: LogRecord[] = []): StreamEntry {
 describe('appendRecords', () => {
   test('appends new records and recomputes derived fields', () => {
     const start = entry('a', [record(1, 'info'), record(2, 'warn')])
-    const next = appendRecords(start, [record(3, 'error')])
+    const next = appendRecords(start, [record(3, 'error')], undefined, CAP)
     expect(next.records.map((item) => item.seq)).toEqual([1, 2, 3])
     expect(next.lineCount).toBe(3)
     expect(next.levelCounts.error).toBe(1)
@@ -75,14 +77,14 @@ describe('appendRecords', () => {
   test('uses the provided dropped count when present', () => {
     const start = entry('a', [record(1)])
     start.dropped = 5
-    expect(appendRecords(start, [record(2)], 9).dropped).toBe(9)
-    expect(appendRecords(start, [record(2)]).dropped).toBe(5)
+    expect(appendRecords(start, [record(2)], 9, CAP).dropped).toBe(9)
+    expect(appendRecords(start, [record(2)], undefined, CAP).dropped).toBe(5)
   })
 
   test('keeps the previous lastSeq when the merged buffer is empty', () => {
     const start = entry('a', [])
     start.lastSeq = 42
-    const next = appendRecords(start, [])
+    const next = appendRecords(start, [], undefined, CAP)
     expect(next.records).toEqual([])
     expect(next.lastSeq).toBe(42)
     expect(next.firstSeq).toBeNull()
@@ -183,7 +185,7 @@ describe('moveStreamOrder', () => {
 describe('applySnapshot', () => {
   test('replaces the buffer when the snapshot reports a gap', () => {
     const start = entry('a', [record(1), record(2)])
-    const next = applySnapshot(start, snapshot([record(9), record(10)], true))
+    const next = applySnapshot(start, snapshot([record(9), record(10)], true), CAP)
     expect(next.records.map((item) => item.seq)).toEqual([9, 10])
     expect(next.firstSeq).toBe(9)
     expect(next.lastSeq).toBe(10)
@@ -193,14 +195,14 @@ describe('applySnapshot', () => {
   test('merges without a gap and keeps a null lastSeq from the old entry', () => {
     const start = entry('a', [record(1)])
     const noSeq = { ...snapshot([record(2)]), lastSeq: null }
-    const next = applySnapshot(start, noSeq)
+    const next = applySnapshot(start, noSeq, CAP)
     expect(next.records.map((item) => item.seq)).toEqual([1, 2])
     expect(next.lastSeq).toBe(1)
   })
 
   test('keeps every record when a resync returns no new lines', () => {
     const start = entry('a', [record(1), record(2)])
-    const next = applySnapshot(start, snapshot([]))
+    const next = applySnapshot(start, snapshot([]), CAP)
     expect(next.records.map((item) => item.seq)).toEqual([1, 2])
     expect(next.lineCount).toBe(2)
   })
@@ -208,12 +210,17 @@ describe('applySnapshot', () => {
 
 describe('createManualEntry', () => {
   test('builds a stopped manual entry with trimmed records', () => {
-    const created = createManualEntry([record(1), record(2)], 5, {
-      id: 'm1',
-      name: 'manual 1',
-      status: 'stopped',
-      createdAt: 1,
-    })
+    const created = createManualEntry(
+      [record(1), record(2)],
+      5,
+      {
+        id: 'm1',
+        name: 'manual 1',
+        status: 'stopped',
+        createdAt: 1,
+      },
+      CAP,
+    )
     expect(created).toMatchObject({
       id: 'm1',
       kind: 'manual',
@@ -226,12 +233,17 @@ describe('createManualEntry', () => {
 
   test('keeps only the newest records beyond the cap', () => {
     const many = Array.from({ length: 10 }, (_, index) => record(index + 1))
-    const created = createManualEntry(many, 10, {
-      id: 'm1',
-      name: 'manual 1',
-      status: 'stopped',
-      createdAt: 1,
-    })
+    const created = createManualEntry(
+      many,
+      10,
+      {
+        id: 'm1',
+        name: 'manual 1',
+        status: 'stopped',
+        createdAt: 1,
+      },
+      CAP,
+    )
     expect(created.records).toHaveLength(10)
     expect(created.lineCount).toBe(10)
     expect(created.dropped).toBe(0)

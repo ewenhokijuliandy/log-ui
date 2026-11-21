@@ -21,7 +21,7 @@ export function Inspector({
   const close = useUi((state) => state.setInspectorOpen)
   const setIsolate = useUi((state) => state.setIsolate)
   const { copiedKey, copy } = useCopyFeedback(record?.seq ?? null)
-  const [jsonView, setJsonView] = useState<'tree' | 'pretty'>('tree')
+  const [jsonView, setJsonView] = useState<'tree' | 'pretty'>('pretty')
   const [jsonWrap, setJsonWrap] = useState(false)
   const treeRef = useRef<HTMLDivElement | null>(null)
 
@@ -105,17 +105,17 @@ export function Inspector({
                 <fieldset className="segment small" aria-label="JSON view">
                   <button
                     type="button"
-                    aria-pressed={jsonView === 'tree'}
-                    onClick={() => setJsonView('tree')}
-                  >
-                    Tree
-                  </button>
-                  <button
-                    type="button"
                     aria-pressed={jsonView === 'pretty'}
                     onClick={() => setJsonView('pretty')}
                   >
                     Pretty
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={jsonView === 'tree'}
+                    onClick={() => setJsonView('tree')}
+                  >
+                    Tree
                   </button>
                 </fieldset>
                 <button
@@ -127,12 +127,16 @@ export function Inspector({
                 >
                   Wrap
                 </button>
-                <button className="tool" type="button" onClick={() => setTreeOpen(true)}>
-                  Expand
-                </button>
-                <button className="tool" type="button" onClick={() => setTreeOpen(false)}>
-                  Collapse
-                </button>
+                {jsonView === 'tree' ? (
+                  <>
+                    <button className="tool" type="button" onClick={() => setTreeOpen(true)}>
+                      Expand
+                    </button>
+                    <button className="tool" type="button" onClick={() => setTreeOpen(false)}>
+                      Collapse
+                    </button>
+                  </>
+                ) : null}
                 <button
                   className="tool"
                   type="button"

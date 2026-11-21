@@ -2,8 +2,10 @@ import { createNodeWebSocket } from '@hono/node-ws'
 import { Hono, type MiddlewareHandler } from 'hono'
 import type { ServerLifecycle } from './lifecycle.ts'
 import { type HealthInfo, registerHealthRoutes } from './routes/health.ts'
+import { registerSettingsRoutes } from './routes/settings.ts'
 import { registerShutdownRoute } from './routes/shutdown.ts'
 import { registerStreamRoutes } from './routes/streams.ts'
+import type { SettingsStore } from './settings.ts'
 import { registerStaticRoutes } from './static.ts'
 import type { StreamRegistry } from './stream-registry.ts'
 import type { BroadcastHub, BrowserSocket } from './ws/browser.ts'
@@ -14,6 +16,7 @@ export type AppDeps = {
   hub: BroadcastHub
   guard: MiddlewareHandler
   lifecycle: ServerLifecycle
+  settings: SettingsStore
   health: HealthInfo
   webRoot: string
 }
@@ -28,6 +31,7 @@ export function buildApp(deps: AppDeps): BuiltApp {
   const injectWs = createNodeWebSocket({ app })
 
   registerHealthRoutes(app, deps.health, deps.guard)
+  registerSettingsRoutes(app, deps.settings, deps.registry, deps.hub, deps.guard)
   registerStreamRoutes(app, deps.registry, deps.guard, () => deps.hub.browserEligible())
   registerShutdownRoute(app, deps.guard, () => deps.lifecycle.shutdown())
 

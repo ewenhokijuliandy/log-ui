@@ -94,6 +94,37 @@ describe('ring buffer', () => {
     expect(record.seq).toBe(2)
   })
 
+  test('resize keeps the newest records and counts evictions as dropped', () => {
+    const ring = new LogRing(6)
+    ring.push(line('info', 'a'))
+    ring.push(line('warn', 'b'))
+    ring.push(line('error', 'c'))
+    ring.push(line('info', 'd'))
+    ring.push(line('debug', 'e'))
+    ring.push(line('info', 'f'))
+    ring.resize(3)
+    expect(ring.capacity).toBe(3)
+    expect(ring.all().map((record) => record.seq)).toEqual([4, 5, 6])
+    expect(ring.stats.lineCount).toBe(3)
+    expect(ring.stats.dropped).toBe(3)
+    expect(ring.stats.levelCounts).toEqual(
+      expect.objectContaining({ info: 2, debug: 1, error: 0, warn: 0 }),
+    )
+    ring.push(line('info', 'g'))
+    expect(ring.all().map((record) => record.seq)).toEqual([5, 6, 7])
+    expect(ring.stats.dropped).toBe(4)
+  })
+
+  test('resize to a larger capacity keeps every record', () => {
+    const ring = new LogRing(2)
+    ring.push(line('info', 'a'))
+    ring.push(line('info', 'b'))
+    ring.resize(5)
+    expect(ring.capacity).toBe(5)
+    expect(ring.all().map((record) => record.seq)).toEqual([1, 2])
+    expect(ring.stats.dropped).toBe(0)
+  })
+
   test('sequence stays contiguous under heavy eviction', () => {
     const ring = new LogRing(64)
     for (let i = 0; i < 130; i += 1) ring.push(line('debug', `d${String(i)}`))

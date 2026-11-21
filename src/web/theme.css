@@ -2792,6 +2792,58 @@ textarea.paste::placeholder {
   line-height: 1.45;
 }
 
+.buffer-cap-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buffer-cap-control .select-wrap {
+  width: 150px;
+}
+
+.buffer-cap-control .select-wrap select {
+  width: 100%;
+  height: 28px;
+  padding: 0 28px 0 11px;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-pill);
+  background: var(--raised);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  appearance: none;
+}
+
+.buffer-cap-control .select-wrap select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.buffer-cap-input {
+  width: 96px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-pill);
+  background: var(--raised);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+}
+
+.buffer-cap-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.buffer-cap-error {
+  margin-top: 0;
+  text-align: right;
+}
+
 .readout {
   display: inline-flex;
   align-items: center;

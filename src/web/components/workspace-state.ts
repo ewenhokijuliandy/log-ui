@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { countForChip } from '../../shared/levels.ts'
 import { normalizeParseRules, type ParseRules } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
+import { patchSettings } from '../app/api.ts'
 import { emptyStateText } from '../app/empty-state.ts'
 import { loadParseRules, saveParseRules } from '../app/parse-rules.ts'
 import {
@@ -11,7 +12,7 @@ import {
   type Prefs,
   saveInspectorWidth,
 } from '../app/prefs.ts'
-import { BUFFER_CAP, levelCountTotal, reconnectNow, useStreams } from '../app/store.ts'
+import { levelCountTotal, reconnectNow, useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
 import { useKeyboardShortcuts } from '../app/use-keyboard-shortcuts.ts'
 import { usePrefsEffects } from '../app/use-prefs-effects.ts'
@@ -47,6 +48,7 @@ export type { PdfState, SheetName }
 
 export type Workspace = {
   zeroStreams: boolean
+  bufferCap: number
   stream: {
     data: StreamData
     actions: StreamActions
@@ -106,6 +108,7 @@ export function useWorkspace(): Workspace {
   const closeStream = useStreams((state) => state.closeStream)
   const clearStream = useStreams((state) => state.clearStream)
   const cleared = useStreams((state) => state.cleared)
+  const bufferCap = useStreams((state) => state.bufferCap)
 
   const screen = useUi((state) => state.screen)
   const setScreen = useUi((state) => state.setScreen)
@@ -320,6 +323,13 @@ export function useWorkspace(): Workspace {
 
   const sheets = buildSheets({
     sheet,
+    bufferCap,
+    onSaveBufferCap: async (value) => {
+      const result = await patchSettings(value)
+      if (!result.ok) return result.error
+      useStreams.getState().setBufferCap(result.settings.bufferCap)
+      return null
+    },
     onCloseSheet: () => setSheet(null),
     onOpenRules: () => setSheet('rules'),
     onQuickStartFromHelp: () => {
@@ -371,6 +381,7 @@ export function useWorkspace(): Workspace {
 
   return {
     zeroStreams,
+    bufferCap,
     stream: { data, actions, filter, sort, prefs, presets },
     exportMenu: {
       count: visible.length,
@@ -380,7 +391,7 @@ export function useWorkspace(): Workspace {
       },
       onPdf: () => {
         if (active === null) return
-        setPdfState(buildPrintPages(active.name, exportCurrent(), prefs.zone, BUFFER_CAP))
+        setPdfState(buildPrintPages(active.name, exportCurrent(), prefs.zone, bufferCap))
       },
     },
     rail: {

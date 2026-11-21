@@ -2,7 +2,6 @@ import type { ParseRules } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
 import type { Prefs } from '../app/prefs.ts'
 import type { StreamEntry } from '../app/store.ts'
-import { BUFFER_CAP } from '../app/store.ts'
 import { formatNumber } from '../lib/format-time.ts'
 
 export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | 'compare' | 'prettify' | null
@@ -40,6 +39,7 @@ export type SheetsModel = {
     prefs: Prefs
     onSave: (draft: Prefs) => void
     onOpenRules: () => void
+    onSaveBufferCap: (value: number) => Promise<string | null>
     port: string
     bufferCap: number
   }
@@ -85,6 +85,8 @@ export type SheetsInput = {
   onSavePrefs: (draft: Prefs) => void
   rules: ParseRules
   onSaveRules: (next: ParseRules) => void
+  bufferCap: number
+  onSaveBufferCap: (value: number) => Promise<string | null>
   onParseManual: (records: LogRecord[], totalLines: number) => void
   pdfState: PdfState | null
   onClosePdf: () => void
@@ -135,8 +137,9 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       prefs: input.prefs,
       onSave: input.onSavePrefs,
       onOpenRules: input.onOpenRules,
+      onSaveBufferCap: input.onSaveBufferCap,
       port: window.location.port === '' ? '3333' : window.location.port,
-      bufferCap: BUFFER_CAP,
+      bufferCap: input.bufferCap,
     },
     help: {
       open: input.sheet === 'help',
@@ -145,7 +148,7 @@ export function buildSheets(input: SheetsInput): SheetsModel {
     },
     manual: {
       open: input.sheet === 'manual',
-      cap: BUFFER_CAP,
+      cap: input.bufferCap,
       rules: input.rules,
       onClose: input.onCloseSheet,
       onParse: input.onParseManual,

@@ -184,12 +184,11 @@ test('inspector switches JSON views, wraps and expands the tree', async ({ page 
   const inspector = page.locator('.inspector')
   await expect(inspector).toBeVisible()
   await expect(inspector).toContainText('JSON body')
-  await expect(inspector.locator('.json-tree')).toBeVisible()
-  await expect(inspector.locator('.raw')).toBeHidden()
-
-  await inspector.getByRole('button', { name: 'Pretty', exact: true }).click()
   await expect(inspector.locator('.json-pretty')).toBeVisible()
   await expect(inspector.locator('.json-pretty')).toContainText('"order"')
+  await expect(inspector.locator('.raw')).toBeHidden()
+  await expect(inspector.getByRole('button', { name: 'Expand', exact: true })).toHaveCount(0)
+
   await inspector.getByRole('button', { name: 'Wrap', exact: true }).click()
   await expect(inspector.locator('.json-pretty')).toHaveClass(/wrap/)
 
@@ -362,6 +361,33 @@ test('prettify JSON formats from the rail menu', async ({ page }) => {
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
   expect(overflow).toBe(false)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
+test('settings buffer limit saves a custom value and restores it on reload', async ({ page }) => {
+  await seed(page, 'capacity', [line(1)])
+  const consoleWatch = watchConsole(page)
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Settings' })
+  const preset = dialog.getByLabel('Buffer limit preset')
+  await expect(preset).toHaveValue('10000')
+
+  await preset.selectOption('custom')
+  await dialog.getByLabel('Custom buffer limit').fill('7500')
+  await dialog.getByRole('button', { name: 'Save settings' }).click()
+  await expect(dialog).not.toBeVisible()
+
+  await page.reload()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  const reopened = page.getByRole('dialog', { name: 'Settings' })
+  await expect(reopened.getByLabel('Buffer limit preset')).toHaveValue('custom')
+  await expect(reopened.getByLabel('Custom buffer limit')).toHaveValue('7500')
+
+  await reopened.getByLabel('Buffer limit preset').selectOption('10000')
+  await reopened.getByRole('button', { name: 'Save settings' }).click()
+  await expect(reopened).not.toBeVisible()
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })

@@ -1,4 +1,7 @@
+import { mkdtemp, rm } from 'node:fs/promises'
 import { request as httpRequest, type IncomingMessage } from 'node:http'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { type StartedServer, startServer } from '../src/server/index'
 
@@ -11,11 +14,15 @@ afterEach(async () => {
   await Promise.all(servers.map((entry) => entry.close()))
 })
 
-async function boot(options?: { idleTimeoutMs?: number }): Promise<StartedServer> {
+async function boot(options?: {
+  idleTimeoutMs?: number
+  stateDir?: string
+}): Promise<StartedServer> {
   const exits: number[] = []
   const server = await startServer({
     port: 0,
     idleTimeoutMs: options?.idleTimeoutMs ?? 0,
+    stateDir: options?.stateDir,
     onExit: (code) => exits.push(code),
     webRoot: '/nonexistent-web-root',
   })
@@ -389,6 +396,67 @@ describe('daemon server', () => {
       headers: { 'content-type': 'application/json' },
     })
     expect(missing.status).toBe(404)
+  })
+
+  test('settings API validates and resizes existing streams', async () => {
+    const server = await boot()
+    const initial = await fetchJson(server, '/api/settings')
+    expect(initial.status).toBe(200)
+    expect(JSON.parse(initial.text)).toEqual({ bufferCap: 10_000 })
+
+    const invalid = await fetchJson(server, '/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ bufferCap: 50_001 }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(invalid.status).toBe(400)
+
+    const meta = await createStream(server, 'capped')
+    server.registry.ingest(
+      meta.id,
+      Array.from({ length: 6000 }, (_, index) => `line-${String(index)}`),
+    )
+    expect((await snapshot(server, meta.id)).records).toHaveLength(6000)
+
+    const patched = await fetchJson(server, '/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ bufferCap: 1000 }),
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(patched.status).toBe(200)
+    expect(JSON.parse(patched.text)).toEqual({ bufferCap: 1000 })
+
+    const after = await snapshot(server, meta.id)
+    expect(after.records).toHaveLength(1000)
+    expect(after.dropped).toBe(5000)
+    expect(JSON.parse((await fetchJson(server, '/api/settings')).text)).toEqual({ bufferCap: 1000 })
+  })
+
+  test('settings persist across daemon restarts', async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), 'logdeck-settings-'))
+    try {
+      const first = await boot({ stateDir })
+      const patched = await fetchJson(first, '/api/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ bufferCap: 25_000 }),
+        headers: { 'content-type': 'application/json' },
+      })
+      expect(patched.status).toBe(200)
+
+      const second = await boot({ stateDir })
+      const loaded = await fetchJson(second, '/api/settings')
+      expect(loaded.status).toBe(200)
+      expect(JSON.parse(loaded.text)).toEqual({ bufferCap: 25_000 })
+
+      const meta = await createStream(second, 'persisted')
+      second.registry.ingest(
+        meta.id,
+        Array.from({ length: 12_000 }, (_, index) => `line-${String(index)}`),
+      )
+      expect((await snapshot(second, meta.id)).records).toHaveLength(12_000)
+    } finally {
+      await rm(stateDir, { recursive: true, force: true })
+    }
   })
 
   test('shutdown endpoint exits with code 0 under a second', async () => {

@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import type { LogLevel, LogRecord } from '../../shared/types.ts'
-import { BUFFER_CAP, hasGap, mergeRecords } from './stream-merge.ts'
+import { hasGap, mergeRecords } from './stream-merge.ts'
+
+const CAP = 10_000
 
 function record(seq: number, level: LogLevel = 'info'): LogRecord {
   return {
@@ -18,7 +20,7 @@ function record(seq: number, level: LogLevel = 'info'): LogRecord {
 describe('mergeRecords', () => {
   test('keeps every existing record when incoming is empty', () => {
     const existing = [record(1), record(2), record(3)]
-    const merged = mergeRecords(existing, [])
+    const merged = mergeRecords(existing, [], CAP)
     expect(merged.map((item) => item.seq)).toEqual([1, 2, 3])
     expect(merged).not.toBe(existing)
   })
@@ -26,19 +28,19 @@ describe('mergeRecords', () => {
   test('keeps the incoming copies when sequences overlap', () => {
     const existing = [record(1), record(2), record(3)]
     const incoming = [record(2, 'error'), record(3, 'warn'), record(4, 'debug')]
-    const merged = mergeRecords(existing, incoming)
+    const merged = mergeRecords(existing, incoming, CAP)
     expect(merged.map((item) => item.seq)).toEqual([1, 2, 3, 4])
     expect(merged[1]).toBe(incoming[0])
     expect(merged[2]).toBe(incoming[1])
   })
 
   test('trims to the buffer cap keeping the newest records', () => {
-    const existing = Array.from({ length: BUFFER_CAP }, (_, index) => record(index + 1))
-    const incoming = [record(BUFFER_CAP + 1), record(BUFFER_CAP + 2)]
-    const merged = mergeRecords(existing, incoming)
-    expect(merged).toHaveLength(BUFFER_CAP)
+    const existing = Array.from({ length: CAP }, (_, index) => record(index + 1))
+    const incoming = [record(CAP + 1), record(CAP + 2)]
+    const merged = mergeRecords(existing, incoming, CAP)
+    expect(merged).toHaveLength(CAP)
     expect(merged[0]?.seq).toBe(3)
-    expect(merged[merged.length - 1]?.seq).toBe(BUFFER_CAP + 2)
+    expect(merged[merged.length - 1]?.seq).toBe(CAP + 2)
   })
 })
 

@@ -9,7 +9,7 @@ export type SliceResult = {
 const DEFAULT_CAPACITY = 10_000
 
 export class LogRing {
-  readonly capacity: number
+  capacity: number
   private slots: Array<LogRecord | undefined>
   private head = 0
   private count = 0
@@ -67,6 +67,25 @@ export class LogRing {
     this.counts[record.level] += 1
 
     return record
+  }
+
+  resize(capacity: number): void {
+    const next = Math.max(1, Math.floor(capacity))
+    if (next === this.capacity) return
+    const records = this.all()
+    const kept = records.slice(-next)
+    const evicted = records.length - kept.length
+    this.capacity = next
+    this.slots = new Array(next)
+    this.head = 0
+    this.count = 0
+    this.counts = emptyLevelCounts()
+    if (evicted > 0) this.dropped += evicted
+    for (const record of kept) {
+      this.slots[this.count] = record
+      this.count += 1
+      this.counts[record.level] += 1
+    }
   }
 
   clear(): void {

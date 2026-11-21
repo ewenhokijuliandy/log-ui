@@ -5,6 +5,7 @@ import { type ServerType, serve } from '@hono/node-server'
 import { buildApp } from './app.ts'
 import { createServerLifecycle, waitForListening } from './lifecycle.ts'
 import { sameOriginGuard } from './security.ts'
+import { createSettingsStore } from './settings.ts'
 import { StreamRegistry } from './stream-registry.ts'
 import { readVersion } from './version.ts'
 import { BroadcastHub } from './ws/browser.ts'
@@ -14,6 +15,7 @@ export type ServerOptions = {
   idleTimeoutMs: number
   onExit: (code: number) => void
   webRoot?: string
+  stateDir?: string
 }
 
 export type StartedServer = {
@@ -26,7 +28,9 @@ export type StartedServer = {
 }
 
 export async function startServer(options: ServerOptions): Promise<StartedServer> {
-  const registry = new StreamRegistry()
+  const settings = createSettingsStore(options.stateDir)
+  await settings.load()
+  const registry = new StreamRegistry(settings.get().bufferCap)
   const hub = new BroadcastHub()
 
   let port = options.port
@@ -46,6 +50,7 @@ export async function startServer(options: ServerOptions): Promise<StartedServer
     hub,
     guard: sameOriginGuard(() => port),
     lifecycle,
+    settings,
     health: {
       pid: process.pid,
       version: readVersion(),

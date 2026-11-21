@@ -1,6 +1,5 @@
 import { countLevels, emptyLevelCounts, type LevelCounts } from '../../shared/levels.ts'
 import type { LogRecord, StreamMeta, StreamSnapshot, StreamStatus } from '../../shared/types.ts'
-import { BUFFER_CAP } from '../lib/stream-merge.ts'
 
 export type StreamKind = 'pipe' | 'manual'
 
@@ -17,6 +16,20 @@ export type StreamEntry = {
   lastSeq: number | null
   firstSeq: number | null
   pausedAt: number | null
+}
+
+export function trimEntryToCap(entry: StreamEntry, cap: number): StreamEntry {
+  const removed = entry.records.length - cap
+  if (removed <= 0) return entry
+  const records = entry.records.slice(-cap)
+  return {
+    ...entry,
+    records,
+    lineCount: records.length,
+    levelCounts: countLevels(records),
+    firstSeq: records[0]?.seq ?? null,
+    dropped: entry.kind === 'manual' ? entry.dropped + removed : entry.dropped,
+  }
 }
 
 export function createEmptyEntry(meta: StreamMeta, kind: StreamKind): StreamEntry {
@@ -36,9 +49,13 @@ export function createEmptyEntry(meta: StreamMeta, kind: StreamKind): StreamEntr
   }
 }
 
-export function entryFromSnapshot(meta: StreamMeta, snapshot: StreamSnapshot): StreamEntry {
+export function entryFromSnapshot(
+  meta: StreamMeta,
+  snapshot: StreamSnapshot,
+  cap: number,
+): StreamEntry {
   const records = [...snapshot.records]
-  if (records.length > BUFFER_CAP) records.splice(0, records.length - BUFFER_CAP)
+  if (records.length > cap) records.splice(0, records.length - cap)
   return {
     id: meta.id,
     name: meta.name,

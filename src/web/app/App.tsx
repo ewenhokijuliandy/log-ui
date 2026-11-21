@@ -6,7 +6,6 @@ import { StreamView } from '../components/stream-view.tsx'
 import { StreamTabs } from '../components/tabs.tsx'
 import { WorkspaceSheets } from '../components/workspace-sheets.tsx'
 import { useWorkspace } from '../components/workspace-state.ts'
-import { BUFFER_CAP } from './store.ts'
 
 export function App() {
   const workspace = useWorkspace()
@@ -21,7 +20,7 @@ export function App() {
             onExport={
               <ExportMenuContent
                 count={workspace.exportMenu.count}
-                cap={BUFFER_CAP}
+                cap={workspace.bufferCap}
                 onTxt={workspace.exportMenu.onTxt}
                 onPdf={workspace.exportMenu.onPdf}
               />

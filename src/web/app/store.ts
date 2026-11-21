@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { BUFFER_CAP_DEFAULT, normalizeBufferCap } from '../../shared/buffer-cap.ts'
 import type { LevelCounts } from '../../shared/levels.ts'
 import { allocateStreamName } from '../../shared/name-allocator.ts'
 import { streamNameProblem } from '../../shared/stream-name.ts'
@@ -9,10 +10,10 @@ import type {
   StreamSnapshot,
   StreamStatus,
 } from '../../shared/types.ts'
-import { BUFFER_CAP, hasGap } from '../lib/stream-merge.ts'
+import { hasGap } from '../lib/stream-merge.ts'
 import { clearStreamBuffer, deleteStream, fetchJson, patchStreamName } from './api.ts'
 import { loadTabOrder, saveTabOrder } from './prefs.ts'
-import { entryFromSnapshot, type StreamEntry } from './stream-entry.ts'
+import { entryFromSnapshot, type StreamEntry, trimEntryToCap } from './stream-entry.ts'
 import {
   addStreamEntry,
   appendRecords,
@@ -28,7 +29,6 @@ import {
 import { type ConnectionPhase, createStreamSocket, type ServerEvent } from './ws-client.ts'
 
 export type { StreamEntry, StreamKind } from './stream-entry.ts'
-export { BUFFER_CAP }
 
 export type RenameResult = { ok: true } | { ok: false; error: string }
 
@@ -50,6 +50,7 @@ type StoreState = {
   simulatedLost: boolean
   bootError: string | null
   lastError: string | null
+  bufferCap: number
 }
 
 type StoreActions = {
@@ -58,6 +59,7 @@ type StoreActions = {
   resync: (id: string) => Promise<void>
   setActive: (id: string | null) => void
   setSimulatedLost: (value: boolean) => void
+  setBufferCap: (value: number) => void
   moveTab: (dragId: string, overId: string, before: boolean) => void
   addManual: (records: LogRecord[], totalLines: number) => void
   setPaused: (id: string, paused: boolean) => void
@@ -106,9 +108,10 @@ function handleLogsAppended(event: ServerEvent): void {
   const dropped = event.dropped as number | undefined
   const current = useStreams.getState().streams.find((item) => item.id === streamId)
   const gap = current !== undefined && hasGap(current.records, records)
+  const cap = useStreams.getState().bufferCap
   useStreams.setState((state) => ({
     streams: state.streams.map((item) =>
-      item.id === streamId ? appendRecords(item, records, dropped) : item,
+      item.id === streamId ? appendRecords(item, records, dropped, cap) : item,
     ),
   }))
   if (gap) setTimeout(() => void useStreams.getState().resync(streamId), 0)
@@ -123,12 +126,19 @@ function handleLogsCleared(event: ServerEvent): void {
   }))
 }
 
+function handleSettingsUpdated(event: ServerEvent): void {
+  const cap = normalizeBufferCap(event.bufferCap)
+  if (cap === null) return
+  useStreams.getState().setBufferCap(cap)
+}
+
 const EVENT_HANDLERS: Record<string, (event: ServerEvent) => void> = {
   'stream:created': handleStreamCreated,
   'stream:updated': handleStreamUpdated,
   'stream:removed': handleStreamRemoved,
   'logs:appended': handleLogsAppended,
   'logs:cleared': handleLogsCleared,
+  'settings:updated': handleSettingsUpdated,
 }
 
 export const useStreams = create<StoreState & StoreActions>((set, get) => ({
@@ -140,6 +150,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   simulatedLost: false,
   bootError: null,
   lastError: null,
+  bufferCap: BUFFER_CAP_DEFAULT,
 
   applyEvent: (event) => {
     EVENT_HANDLERS[event.type]?.(event)
@@ -148,6 +159,15 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   setActive: (id) => set({ activeId: id }),
 
   setSimulatedLost: (value) => set({ simulatedLost: value }),
+
+  setBufferCap: (value) => {
+    const cap = normalizeBufferCap(value)
+    if (cap === null) return
+    set((state) => ({
+      bufferCap: cap,
+      streams: state.streams.map((entry) => trimEntryToCap(entry, cap)),
+    }))
+  },
 
   moveTab: (dragId, overId, before) => {
     const ordered = moveStreamOrder(
@@ -163,12 +183,17 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   addManual: (records, totalLines) => {
     const existing = get().streams.map((entry) => entry.name)
     const name = allocateStreamName(existing, 'manual')
-    const entry = createManualEntry(records, totalLines, {
-      id: crypto.randomUUID(),
-      name,
-      status: 'stopped',
-      createdAt: Date.now(),
-    })
+    const entry = createManualEntry(
+      records,
+      totalLines,
+      {
+        id: crypto.randomUUID(),
+        name,
+        status: 'stopped',
+        createdAt: Date.now(),
+      },
+      get().bufferCap,
+    )
     set((state) => {
       const next = [...state.streams, entry]
       saveTabOrder(next.map((item) => item.id))
@@ -252,6 +277,8 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       set({ bootError: 'The logdeck daemon is unreachable on this port.' })
       return
     }
+    const settings = await fetchJson<{ bufferCap?: unknown }>('/api/settings')
+    const cap = normalizeBufferCap(settings?.bufferCap) ?? get().bufferCap
     const previous = new Map(get().streams.map((entry) => [entry.id, entry]))
     const entries: StreamEntry[] = []
     for (const item of meta) {
@@ -259,12 +286,12 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       if (snapshot === null) continue
       const existing = previous.get(item.id)
       entries.push({
-        ...entryFromSnapshot(item, snapshot),
+        ...entryFromSnapshot(item, snapshot, cap),
         pausedAt: existing?.pausedAt ?? null,
       })
     }
     for (const entry of previous.values()) {
-      if (entry.kind === 'manual') entries.push(entry)
+      if (entry.kind === 'manual') entries.push(trimEntryToCap(entry, cap))
     }
     const ordered = orderByStoredIds(entries, loadTabOrder() ?? [])
     const current = get().activeId
@@ -272,6 +299,7 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       streams: ordered,
       activeId: ordered.some((entry) => entry.id === current) ? current : (ordered[0]?.id ?? null),
       bootError: null,
+      bufferCap: cap,
     })
   },
 
@@ -282,7 +310,9 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     const snapshot = await fetchJson<StreamSnapshot>(`/api/streams/${id}/logs${query}`)
     if (snapshot === null) return
     set((state) => ({
-      streams: state.streams.map((item) => (item.id === id ? applySnapshot(item, snapshot) : item)),
+      streams: state.streams.map((item) =>
+        item.id === id ? applySnapshot(item, snapshot, state.bufferCap) : item,
+      ),
     }))
   },
 }))

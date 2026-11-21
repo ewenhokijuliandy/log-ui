@@ -10,12 +10,15 @@ type SettingsPrefs = {
   wrap: boolean
 }
 
+const PRESETS = [5_000, 10_000, 25_000, 50_000]
+
 export function SettingsSheet({
   open,
   onClose,
   prefs,
   onSave,
   onOpenRules,
+  onSaveBufferCap,
   port,
   bufferCap,
 }: {
@@ -24,14 +27,42 @@ export function SettingsSheet({
   prefs: SettingsPrefs
   onSave: (prefs: SettingsPrefs) => void
   onOpenRules: () => void
+  onSaveBufferCap: (value: number) => Promise<string | null>
   port: string
   bufferCap: number
 }) {
   const [draft, setDraft] = useState(prefs)
+  const [capChoice, setCapChoice] = useState(String(bufferCap))
+  const [customCap, setCustomCap] = useState(String(bufferCap))
+  const [capError, setCapError] = useState('')
 
   useEffect(() => {
-    if (open) setDraft(prefs)
-  }, [open, prefs])
+    if (!open) return
+    setDraft(prefs)
+    setCapChoice(PRESETS.includes(bufferCap) ? String(bufferCap) : 'custom')
+    setCustomCap(String(bufferCap))
+    setCapError('')
+  }, [open, prefs, bufferCap])
+
+  function readCap(): number | null {
+    const selected = capChoice === 'custom' ? Number(customCap) : Number(capChoice)
+    if (!Number.isInteger(selected) || selected < 1000 || selected > 50000) return null
+    return selected
+  }
+
+  async function save(): Promise<void> {
+    const cap = readCap()
+    if (cap === null) {
+      setCapError('Use a whole number from 1,000 to 50,000 lines.')
+      return
+    }
+    const error = await onSaveBufferCap(cap)
+    if (error !== null) {
+      setCapError(error)
+      return
+    }
+    onSave(draft)
+  }
 
   return (
     <DialogFrame open={open} wide label="Settings" onClose={onClose}>
@@ -111,11 +142,52 @@ export function SettingsSheet({
       </div>
       <div className="setting-row">
         <div className="setting-copy">
-          <div className="name">Buffer cap</div>
-          <div className="desc">Retained lines per stream, fixed in this build.</div>
+          <div className="name">Buffer limit</div>
+          <div className="desc">
+            Retained lines per stream. Applies live to every stream on this daemon; max 50,000.
+          </div>
         </div>
-        <span className="readout">{formatNumber(bufferCap)} lines</span>
+        <div className="buffer-cap-control">
+          <label className="select-wrap">
+            <select
+              aria-label="Buffer limit preset"
+              value={capChoice}
+              onChange={(event) => {
+                setCapChoice(event.target.value)
+                setCapError('')
+              }}
+            >
+              {PRESETS.map((value) => (
+                <option key={value} value={String(value)}>
+                  {formatNumber(value)} lines
+                </option>
+              ))}
+              <option value="custom">Custom…</option>
+            </select>
+            <Icon name="chevron" />
+          </label>
+          {capChoice === 'custom' ? (
+            <input
+              aria-label="Custom buffer limit"
+              className="buffer-cap-input"
+              type="number"
+              min={1000}
+              max={50000}
+              step={1000}
+              value={customCap}
+              onChange={(event) => {
+                setCustomCap(event.target.value)
+                setCapError('')
+              }}
+            />
+          ) : null}
+        </div>
       </div>
+      {capError === '' ? null : (
+        <p className="guard buffer-cap-error" role="alert">
+          {capError}
+        </p>
+      )}
       <div className="setting-row">
         <div className="setting-copy">
           <div className="name">Daemon port</div>
@@ -127,7 +199,7 @@ export function SettingsSheet({
         <button className="btn" type="button" onClick={onClose}>
           Cancel
         </button>
-        <button className="btn primary" type="button" onClick={() => onSave(draft)}>
+        <button className="btn primary" type="button" onClick={() => void save()}>
           Save settings
         </button>
       </div>

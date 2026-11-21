@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { BUFFER_CAP_DEFAULT } from '../shared/buffer-cap.ts'
 import type { LevelCounts } from '../shared/levels.ts'
 import { parseLine } from '../shared/parse-line.ts'
 import { LogRing } from '../shared/ring-buffer.ts'
@@ -53,6 +54,11 @@ function closeQuietly(socket: WsLike, code: number, reason: string): void {
 export class StreamRegistry {
   private entries = new Map<string, StreamEntry>()
   private listeners = new Set<(event: RegistryEvent) => void>()
+  private bufferCap: number
+
+  constructor(bufferCap = BUFFER_CAP_DEFAULT) {
+    this.bufferCap = bufferCap
+  }
 
   subscribe(listener: (event: RegistryEvent) => void): () => void {
     this.listeners.add(listener)
@@ -94,7 +100,7 @@ export class StreamRegistry {
       status: 'active',
       createdAt: Date.now(),
       token: randomUUID().replace(/-/g, ''),
-      ring: new LogRing(),
+      ring: new LogRing(this.bufferCap),
       ingestSocket: null,
     }
     this.entries.set(entry.id, entry)
@@ -190,6 +196,18 @@ export class StreamRegistry {
 
   closeAllIngest(): void {
     for (const entry of [...this.entries.keys()]) this.closeIngest(entry)
+  }
+
+  setBufferCap(capacity: number): StreamUpdatedPayload[] {
+    this.bufferCap = capacity
+    const updates: StreamUpdatedPayload[] = []
+    for (const entry of this.entries.values()) {
+      entry.ring.resize(capacity)
+      const payload = this.updated(entry)
+      updates.push(payload)
+      this.emit({ type: 'stream:updated', payload })
+    }
+    return updates
   }
 
   dispose(): void {

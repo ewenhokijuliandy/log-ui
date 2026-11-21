@@ -1,6 +1,6 @@
 import { countLevels, emptyLevelCounts, type LevelCounts } from '../../shared/levels.ts'
 import type { LogRecord, StreamMeta, StreamSnapshot, StreamStatus } from '../../shared/types.ts'
-import { BUFFER_CAP, mergeRecords } from '../lib/stream-merge.ts'
+import { mergeRecords } from '../lib/stream-merge.ts'
 import { createEmptyEntry, type StreamEntry } from './stream-entry.ts'
 
 export type StreamUpdate = {
@@ -14,9 +14,10 @@ export type StreamUpdate = {
 export function appendRecords(
   entry: StreamEntry,
   records: readonly LogRecord[],
-  dropped?: number,
+  dropped: number | undefined,
+  cap: number,
 ): StreamEntry {
-  const merged = mergeRecords(entry.records, records)
+  const merged = mergeRecords(entry.records, records, cap)
   return {
     ...entry,
     records: merged,
@@ -62,7 +63,11 @@ export function removeStreamEntry(streams: readonly StreamEntry[], id: string): 
   return streams.filter((item) => item.id !== id)
 }
 
-export function applySnapshot(entry: StreamEntry, snapshot: StreamSnapshot): StreamEntry {
+export function applySnapshot(
+  entry: StreamEntry,
+  snapshot: StreamSnapshot,
+  cap: number,
+): StreamEntry {
   if (snapshot.gap) {
     return {
       ...entry,
@@ -74,7 +79,7 @@ export function applySnapshot(entry: StreamEntry, snapshot: StreamSnapshot): Str
       firstSeq: snapshot.records[0]?.seq ?? null,
     }
   }
-  const merged = mergeRecords(entry.records, snapshot.records)
+  const merged = mergeRecords(entry.records, snapshot.records, cap)
   return {
     ...entry,
     records: merged,
@@ -90,9 +95,9 @@ export function createManualEntry(
   records: readonly LogRecord[],
   totalLines: number,
   meta: StreamMeta,
+  cap: number,
 ): StreamEntry {
-  const kept =
-    records.length > BUFFER_CAP ? records.slice(records.length - BUFFER_CAP) : [...records]
+  const kept = records.length > cap ? records.slice(records.length - cap) : [...records]
   const dropped = Math.max(0, Math.max(totalLines, records.length) - kept.length)
   return {
     ...createEmptyEntry(meta, 'manual'),

@@ -64,19 +64,20 @@ The daemon exits after the idle timeout when there are no active streams and no 
 - **Filters** - multi-select level chips (Error merges fatal+error, Debug merges debug+trace, Unknown separate) with full-buffer counts, relative or custom time ranges, saved presets, and oldest-first sorting by default.
 - **Parsing** - ANSI-stripped lines; ISO or epoch head timestamps plus JSON `time`/`timestamp`/`ts` fields with second-to-nanosecond detection; named or numeric levels (Pino/Bunyan, syslog); JSON bodies and trace/request IDs.
 - **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
-- **Inspect** - click a row (or press Enter) for parsed fields, a Tree/Pretty JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
+- **Inspect** - click a row (or press Enter) for parsed fields, a Pretty (default) or Tree JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
 - **Compare** - open Compare JSON from the sidebar (rail on desktop, bottom bar on phones), paste two JSON documents, and list added, removed and changed paths. Added and removed rows are tinted; changed paths show a red before line and a green after line. Key order is ignored and the diff is copyable. **Pretty** formats both sides in place before comparing.
 - **Pretty** - open Pretty JSON from the sidebar, paste messy JSON, choose 2- or 4-space indentation, format it locally (1 MB limit), and copy the result.
 - **Pause** - freeze the visible rows while ingestion and counts continue; resume to reveal the buffered lines.
 - **Manual mode** - paste text or drop a `.txt`/`.log` file (up to 25 MB) for a client-only tab.
 - **Export** - filtered TXT download or a print-styled PDF through the browser's print dialog.
+- **Settings** - theme, timestamp zone, auto-scroll, word wrap, and the buffer limit (1,000–50,000 lines; applies live and persists).
 - **Themes** - dark, light, or system.
 
 Keyboard: `/` search, `Enter` inspect, `j`/`k` move rows, `Esc` close, `t` theme, `?` shortcuts.
 
 ## Behavior and limits
 
-- Each stream retains the newest 10,000 lines in memory; older lines are counted as dropped.
+- Each stream retains the newest 10,000 lines by default; the limit is configurable from 1,000 to 50,000 in Settings, applies live, and persists. Older lines are counted as dropped.
 - Streams are in-memory only. Restarting the daemon clears them; create new pipes to continue.
 - The daemon binds to `127.0.0.1`, checks same-origin/Host on mutating routes, and requires a per-stream token for ingestion.
 - Browser auto-open happens only when no viewer is already connected.

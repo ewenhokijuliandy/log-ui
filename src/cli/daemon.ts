@@ -111,6 +111,7 @@ export async function runDaemon(
     const server = await startServer({
       port,
       idleTimeoutMs: Math.max(0, Math.round(idleMinutes * 60_000)),
+      stateDir,
       onExit: (code) => {
         void finalize(code)
       },
