@@ -71,7 +71,7 @@ The daemon exits after the idle timeout when there are no active streams and no 
 
 - **Tabs** - one per stream; drag to reorder, double-click or press F2 to rename, close with the tab button.
 - **Search** - plain text or regular expressions (`.*`), with an inline invalid-pattern message.
-- **Filters** - multi-select level chips (Error merges fatal+error, Debug merges debug+trace, Unknown separate) with full-buffer counts, relative or custom time ranges, saved presets, and oldest-first sorting by default.
+- **Filters** - interactive severity bar (Error / Warn / Info / Debug / Unknown) sized by the full-buffer mix; click a segment to solo it, Shift-click to add, click it again or press Esc for All levels. Relative or custom time ranges, saved presets, and oldest-first sorting by default.
 - **Parsing** - ANSI-stripped lines; ISO or epoch head timestamps plus JSON `time`/`timestamp`/`ts` fields with second-to-nanosecond detection; named or numeric levels (Pino/Bunyan, syslog); JSON bodies and trace/request IDs.
 - **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
 - **Inspect** - click a row (or press Enter) for parsed fields, a Pretty (default) or Tree JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.

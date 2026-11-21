@@ -81,7 +81,10 @@ test('pipe flows through search, level filter, inspector, export, and close', as
   await page.getByLabel('Search logs').fill('')
   await expect(page.locator('.log-row')).toHaveCount(3)
 
-  await page.locator('.level-chip').filter({ hasText: 'Error' }).click()
+  await page
+    .locator('.level-bar')
+    .getByRole('button', { name: /^Error:/ })
+    .click()
   await expect(page.locator('.log-row')).toHaveCount(2)
 
   const jsonRow = page.locator('.log-row').filter({ has: page.locator('.json-mark') })
@@ -116,7 +119,7 @@ test('pipe flows through search, level filter, inspector, export, and close', as
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
-test('level chips hide unknown rows and combine levels', async ({ page }) => {
+test('level bar isolates and combines levels', async ({ page }) => {
   await seed(page, 'levels', [
     line(1, 'INFO', 'ready'),
     line(2, 'WARN', 'slow'),
@@ -125,21 +128,29 @@ test('level chips hide unknown rows and combine levels', async ({ page }) => {
   ])
   const consoleWatch = watchConsole(page)
 
-  const unknownChip = page.locator('.level-chip').filter({ hasText: 'Unknown' })
-  await expect(unknownChip.locator('.count')).toHaveText('1')
+  const bar = page.locator('.level-bar')
+  const unknown = bar.getByRole('button', { name: /^Unknown:/ })
+  await expect(unknown).toHaveAttribute('aria-label', 'Unknown: 1 lines')
+  await expect(bar.locator('.level-bar-summary')).toHaveText('4 lines')
 
-  await page.locator('.level-chip').filter({ hasText: 'Info' }).click()
+  await bar.getByRole('button', { name: /^Info:/ }).click()
   await expect(page.locator('.log-row')).toHaveCount(1)
   await expect(page.locator('.log-row').filter({ hasText: 'plain continuation' })).toHaveCount(0)
 
-  await page.locator('.level-chip').filter({ hasText: 'Warn' }).click()
+  await bar.getByRole('button', { name: /^Warn:/ }).click({ modifiers: ['Shift'] })
   await expect(page.locator('.log-row')).toHaveCount(2)
+  await expect(bar.locator('.level-bar-summary')).toHaveText('2 of 4')
 
-  await unknownChip.click()
-  await expect(page.locator('.log-row')).toHaveCount(3)
+  await unknown.click()
+  await expect(page.locator('.log-row')).toHaveCount(1)
   await expect(page.locator('.log-row').filter({ hasText: 'plain continuation' })).toHaveCount(1)
 
-  await page.locator('.level-chip').filter({ hasText: 'All' }).click()
+  await unknown.click()
+  await expect(page.locator('.log-row')).toHaveCount(4)
+
+  await bar.getByRole('button', { name: /^Info:/ }).click()
+  await expect(page.locator('.log-row')).toHaveCount(1)
+  await page.keyboard.press('Escape')
   await expect(page.locator('.log-row')).toHaveCount(4)
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
@@ -215,16 +226,14 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
     await page.waitForTimeout(80)
     const metrics = await page.evaluate(() => {
       const bar = document.querySelector('.toolbar') as HTMLElement
-      const chips = document.querySelector('.level-filters') as HTMLElement
-      const levels = document.querySelector('#levels-trigger') as HTMLElement
+      const levelBar = document.querySelector('.level-bar') as HTMLElement
       const more = document.querySelector('#more-trigger') as HTMLElement
       const visible = (node: HTMLElement) => getComputedStyle(node).display !== 'none'
       return {
         overflow: bar.scrollWidth > bar.clientWidth,
         pageOverflow: document.documentElement.scrollWidth > window.innerWidth,
         height: Math.round(bar.getBoundingClientRect().height),
-        chips: visible(chips),
-        levels: visible(levels),
+        levelBar: visible(levelBar),
         more: visible(more),
         unnamed: Array.from(bar.querySelectorAll('button')).filter((button) => {
           const text = (button.textContent ?? '').trim()
@@ -236,21 +245,16 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
     expect(metrics.overflow, `toolbar overflow at ${String(width)}`).toBe(false)
     expect(metrics.pageOverflow, `page overflow at ${String(width)}`).toBe(false)
     expect(metrics.unnamed, `unnamed toolbar buttons at ${String(width)}`).toBe(0)
+    expect(metrics.levelBar, `level bar at ${String(width)}`).toBe(true)
     if (width === 1440 || width === 1280 || width === 1181) {
-      expect(metrics.chips).toBe(true)
-      expect(metrics.levels).toBe(false)
       expect(metrics.more).toBe(false)
       expect(metrics.height).toBeLessThan(50)
     }
     if (width === 1024) {
-      expect(metrics.chips).toBe(false)
-      expect(metrics.levels).toBe(true)
       expect(metrics.more).toBe(true)
       expect(metrics.height).toBeLessThan(50)
     }
     if (width === 768 || width === 390) {
-      expect(metrics.chips).toBe(true)
-      expect(metrics.levels).toBe(false)
       expect(metrics.more).toBe(true)
       expect(metrics.height).toBeGreaterThan(50)
     }
@@ -258,12 +262,13 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
 
   await page.setViewportSize({ width: 1024, height: 900 })
   await page.waitForTimeout(80)
-  await page.locator('#levels-trigger').click()
-  const levelsMenu = page.getByRole('menu', { name: 'Filter by level' })
-  await expect(levelsMenu).toBeVisible()
-  await levelsMenu.getByRole('menuitemcheckbox', { name: /Info/ }).click()
+  await page
+    .locator('.level-bar')
+    .getByRole('button', { name: /^Info:/ })
+    .click()
   await expect(page.locator('.log-row')).toHaveCount(1)
   await page.keyboard.press('Escape')
+  await expect(page.locator('.log-row')).toHaveCount(2)
 
   await page.setViewportSize({ width: 768, height: 900 })
   await page.waitForTimeout(80)

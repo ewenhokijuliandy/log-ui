@@ -1,7 +1,8 @@
 import type { FilterState, SortKey } from '../lib/filters.ts'
 import type { Preset } from '../lib/presets.ts'
 import { DisplayTools, MoreTools } from './display-tools.tsx'
-import { type ChipCounts, LevelFilters, LevelsMenu, SearchField } from './filter-chips.tsx'
+import { type ChipCounts, SearchField } from './filter-chips.tsx'
+import { LevelBar } from './level-bar.tsx'
 import { PresetsMenu } from './presets-menu.tsx'
 import { RangePicker } from './range-picker.tsx'
 import { SortMenu } from './sort-menu.tsx'
@@ -10,13 +11,7 @@ export function Toolbar(props: ToolbarProps) {
   return (
     <div className="toolbar">
       <SearchField filter={props.filter} onFilter={props.onFilter} />
-      <LevelFilters
-        filter={props.filter}
-        onFilter={props.onFilter}
-        chipCounts={props.chipCounts}
-        totalCount={props.totalCount}
-      />
-      <LevelsMenu
+      <LevelBar
         filter={props.filter}
         onFilter={props.onFilter}
         chipCounts={props.chipCounts}
