@@ -4,6 +4,7 @@ import { DetailSheet } from './detail-sheet.tsx'
 import { HelpSheet } from './help-sheet.tsx'
 import { ManualDialog } from './manual-dialog.tsx'
 import { ParseRulesDialog } from './parse-rules.tsx'
+import { PrettifyDialog } from './prettify.tsx'
 import { PrintSheet } from './print-sheet.tsx'
 import { QuickStart } from './quick.tsx'
 import { SettingsSheet } from './settings-sheet.tsx'
@@ -37,6 +38,8 @@ export function WorkspaceSheets({ sheets }: { sheets: SheetsModel }) {
       <ParseRulesDialog {...sheets.rules} />
 
       <CompareDialog {...sheets.compare} />
+
+      <PrettifyDialog {...sheets.prettify} />
 
       <PrintSheet {...sheets.print} />
     </>

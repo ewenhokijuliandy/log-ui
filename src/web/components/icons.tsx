@@ -31,6 +31,7 @@ const SPRITE_SYMBOLS: readonly string[] = [
   'play',
   'more',
   'diff',
+  'prettify',
   'caret',
 ]
 
@@ -421,6 +422,16 @@ export function Sprite() {
           stroke="currentColor"
           strokeWidth="1.2"
           strokeLinecap="round"
+          fill="none"
+        />
+      </symbol>
+      <symbol id="i-prettify" viewBox="0 0 16 16">
+        <path
+          d="M6.2 2.2c-1.7 0-1.7 2.3-1.7 3.2 0 1.1-.4 1.5-1.5 1.8 1.1.3 1.5.7 1.5 1.8 0 .9 0 4.8 1.7 4.8M9.8 2.2c1.7 0 1.7 2.3 1.7 3.2 0 1.1.4 1.5 1.5 1.8-1.1.3-1.5.7-1.5 1.8 0 .9 0 4.8-1.7 4.8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           fill="none"
         />
       </symbol>

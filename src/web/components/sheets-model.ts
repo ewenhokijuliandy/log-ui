@@ -5,7 +5,7 @@ import type { StreamEntry } from '../app/store.ts'
 import { BUFFER_CAP } from '../app/store.ts'
 import { formatNumber } from '../lib/format-time.ts'
 
-export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | 'compare' | null
+export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | 'compare' | 'prettify' | null
 
 export type PdfState = {
   title: string
@@ -59,6 +59,7 @@ export type SheetsModel = {
     onSave: (next: ParseRules) => void
   }
   compare: { open: boolean; onClose: () => void }
+  prettify: { open: boolean; onClose: () => void }
   print: { open: boolean; title: string; meta: string; pages: string[]; onClose: () => void }
 }
 
@@ -157,6 +158,7 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       onSave: input.onSaveRules,
     },
     compare: { open: input.sheet === 'compare', onClose: input.onCloseSheet },
+    prettify: { open: input.sheet === 'prettify', onClose: input.onCloseSheet },
     print: {
       open: input.pdfState !== null,
       title: input.pdfState?.title ?? '',

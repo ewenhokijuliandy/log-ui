@@ -154,6 +154,28 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
     await copy(diffToText(result.entries))
   }
 
+  function prettifyBoth(): void {
+    const leftSide = parseSide(left)
+    const rightSide = parseSide(right)
+    setLeftError(leftSide.error)
+    setRightError(rightSide.error)
+    if (leftSide.error.length > 0 || rightSide.error.length > 0) {
+      setResult(null)
+      setMessage('Both sides must be valid JSON.')
+      return
+    }
+    if (!leftSide.present || !rightSide.present) {
+      setResult(null)
+      setMessage('Paste JSON into both sides.')
+      return
+    }
+    const formattedLeft = JSON.stringify(leftSide.value, null, 2)
+    const formattedRight = JSON.stringify(rightSide.value, null, 2)
+    setLeft(formattedLeft)
+    setRight(formattedRight)
+    compare(formattedLeft, formattedRight)
+  }
+
   const added =
     result === null ? 0 : result.entries.filter((entry) => entry.kind === 'added').length
   const removed =
@@ -222,6 +244,9 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
       <div className="dialog-actions">
         <button className="btn ghost" type="button" onClick={loadSample}>
           Load sample
+        </button>
+        <button className="btn" type="button" onClick={prettifyBoth}>
+          Pretty
         </button>
         <button className="btn" type="button" onClick={swap}>
           Swap

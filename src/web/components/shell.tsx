@@ -13,6 +13,7 @@ export function Rail({
   onStreams,
   onDetail,
   onCompare,
+  onPretty,
   detailOpen,
 }: RailProps) {
   const streamsOpen = useUi((state) => state.screen === 'stream')
@@ -52,6 +53,16 @@ export function Rail({
       >
         <Icon name="diff" />
         <span className="rail-label">Compare</span>
+      </button>
+      <button
+        className="rail-btn"
+        type="button"
+        title="Pretty JSON"
+        aria-label="Pretty JSON"
+        onClick={onPretty}
+      >
+        <Icon name="prettify" />
+        <span className="rail-label">Pretty</span>
       </button>
       <button
         className="rail-btn"
@@ -107,6 +118,7 @@ export type RailProps = {
   onStreams: () => void
   onDetail: () => void
   onCompare: () => void
+  onPretty: () => void
   detailOpen: boolean
 }
 

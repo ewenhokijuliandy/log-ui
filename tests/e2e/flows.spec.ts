@@ -295,7 +295,14 @@ test('compare JSON reports differences and validates both sides', async ({ page 
   await expect(changed.locator('.compare-before')).toBeVisible()
   await expect(changed.locator('.compare-after')).toBeVisible()
 
+  await dialog.getByRole('button', { name: 'Pretty' }).click()
+  await expect(page.getByLabel('A · before')).toHaveValue(/\n {2}"order_id"/)
+  await expect(page.getByLabel('B · after')).toHaveValue(/\n {2}"status"/)
+  await expect(dialog.locator('.compare-row')).toHaveCount(5)
+
   await page.getByLabel('A · before').fill('{')
+  await dialog.getByRole('button', { name: 'Pretty' }).click()
+  await expect(dialog.getByText('This side is not valid JSON.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Compare' }).click()
   await expect(dialog.getByText('This side is not valid JSON.')).toBeVisible()
   await expect(dialog.locator('.compare-row')).toHaveCount(0)
@@ -313,6 +320,44 @@ test('compare JSON reports differences and validates both sides', async ({ page 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(80)
   await expect(page.getByRole('button', { name: 'Compare JSON' })).toBeVisible()
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  )
+  expect(overflow).toBe(false)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
+test('prettify JSON formats from the rail menu', async ({ page }) => {
+  await seed(page, 'pretty', [line(1)])
+  const consoleWatch = watchConsole(page)
+
+  await page.getByRole('button', { name: 'Pretty JSON' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Prettify JSON' })
+  await expect(dialog).toBeVisible()
+
+  await dialog.getByRole('button', { name: 'Load sample' }).click()
+  await dialog.getByRole('button', { name: 'Prettify' }).click()
+  const output = dialog.getByLabel('Formatted JSON')
+  await expect(output).toContainText('"order_id": "ord_8841"')
+  await expect(output).toContainText(/\n {2}"status"/)
+
+  await dialog.getByRole('button', { name: '4 spaces' }).click()
+  await expect(output).toContainText(/\n {4}"status"/)
+
+  await dialog.getByLabel('JSON in').fill('{"a":}')
+  await dialog.getByRole('button', { name: 'Prettify' }).click()
+  await expect(dialog.getByText('This is not valid JSON.')).toBeVisible()
+
+  await dialog.getByRole('button', { name: 'Clear' }).click()
+  await expect(output).toContainText('Formatted JSON appears here.')
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).not.toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.waitForTimeout(80)
+  await expect(page.getByRole('button', { name: 'Pretty JSON' })).toBeVisible()
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   )

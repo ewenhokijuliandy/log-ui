@@ -66,6 +66,7 @@ export type Workspace = {
     onStreams: () => void
     onDetail: () => void
     onCompare: () => void
+    onPretty: () => void
     detailOpen: boolean
   }
   topBar: {
@@ -388,6 +389,7 @@ export function useWorkspace(): Workspace {
       onStreams: () => setScreen('stream'),
       onDetail: toggleDetail,
       onCompare: () => setSheet('compare'),
+      onPretty: () => setSheet('prettify'),
       detailOpen: inspectorOpen && selectedRecord !== null,
     },
     topBar: {
