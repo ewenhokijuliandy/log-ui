@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import type { LogRecord } from '../../shared/types.ts'
 import {
   DEFAULT_FILTER,
+  DEFAULT_SORT,
   type FilterState,
   filterError,
   filtersActive,
@@ -179,6 +180,13 @@ describe('filter state', () => {
     expect(filtersActive({ ...DEFAULT_FILTER, query: 'x' }, null)).toBe(true)
     expect(filtersActive({ ...DEFAULT_FILTER, range: 'custom' }, null)).toBe(true)
     expect(filtersActive(DEFAULT_FILTER, 'trace-id')).toBe(true)
+  })
+
+  test('defaults to oldest-first', () => {
+    expect(DEFAULT_SORT).toBe('oldest')
+    expect(
+      orderRecords([record(1), record(2), record(3)], DEFAULT_SORT).map((item) => item.seq),
+    ).toEqual([1, 2, 3])
   })
 
   test('orders newest first by reversing ingestion order', () => {

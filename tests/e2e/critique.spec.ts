@@ -187,7 +187,7 @@ test('the detail sheet opens at 768 from a row, Enter, and the rail', async ({ p
   const consoleWatch = watchConsole(page)
   await page.setViewportSize({ width: 768, height: 900 })
 
-  const row = page.locator('.log-row').first()
+  const row = page.locator('.log-row').last()
   await row.click()
   const sheet = page.getByRole('dialog', { name: /Line \d/ })
   await expect(sheet).toBeVisible()

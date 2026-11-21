@@ -329,7 +329,7 @@ test('pause freezes the rows while counts and buffers keep moving', async ({ pag
   )
   const consoleWatch = watchConsole(page)
 
-  const newest = page.locator('.log-row .seq').first()
+  const newest = page.locator('.log-row .seq').last()
   await expect(newest).toHaveText('5')
   await page.getByRole('button', { name: 'Pause', exact: true }).click()
   await expect(page.locator('.pause-banner')).toContainText('Paused')
@@ -341,7 +341,7 @@ test('pause freezes the rows while counts and buffers keep moving', async ({ pag
 
   await page.locator('.pause-banner .link').click()
   await expect(page.locator('.pause-banner')).toHaveCount(0)
-  await expect(page.locator('.log-row .seq').first()).toHaveText('8')
+  await expect(page.locator('.log-row .seq').last()).toHaveText('8')
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })

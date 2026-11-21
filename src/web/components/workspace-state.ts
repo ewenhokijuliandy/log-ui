@@ -18,6 +18,7 @@ import { usePrefsEffects } from '../app/use-prefs-effects.ts'
 import { usePresetActions } from '../app/use-preset-actions.ts'
 import {
   DEFAULT_FILTER,
+  DEFAULT_SORT,
   type FilterState,
   filterError,
   filtersActive,
@@ -117,7 +118,7 @@ export function useWorkspace(): Workspace {
   )
 
   const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
-  const [sort, setSort] = useState<SortKey>('newest')
+  const [sort, setSort] = useState<SortKey>(DEFAULT_SORT)
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets(window.localStorage))
   const [sheet, setSheet] = useState<SheetName>(null)
   const [rules, setRules] = useState<ParseRules>(() => loadParseRules())

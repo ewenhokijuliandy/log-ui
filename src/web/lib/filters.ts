@@ -22,6 +22,8 @@ export const RANGE_MS: Record<RelativeRangeKey, number> = {
 
 export type SortKey = 'newest' | 'oldest'
 
+export const DEFAULT_SORT: SortKey = 'oldest'
+
 export const SORT_LABELS: Record<SortKey, string> = {
   newest: 'Newest first',
   oldest: 'Oldest first',
