@@ -5,7 +5,6 @@ import {
   loadPresets,
   PRESETS_KEY,
   type PresetStorage,
-  SEED_PRESETS,
   savePresets,
 } from './presets.ts'
 
@@ -23,20 +22,24 @@ function fakeStorage(
 }
 
 describe('filter presets', () => {
-  test('seeds the design presets on first run and persists them', () => {
+  test('starts with no presets when storage is empty', () => {
     const storage = fakeStorage()
+    expect(loadPresets(storage)).toEqual([])
+    expect(storage.data.has(PRESETS_KEY)).toBe(false)
+  })
+
+  test('drops the retired seed presets from existing storage', () => {
+    const storage = fakeStorage({
+      [PRESETS_KEY]: JSON.stringify([
+        { id: 'payments-5xx', name: 'payments 5xx' },
+        { id: 'checkout-slow', name: 'checkout slow' },
+        { id: 'trace-5b8e', name: 'trace 5b8e' },
+        { id: 'custom', name: 'mine' },
+      ]),
+    })
     const presets = loadPresets(storage)
-    expect(presets.map((preset) => preset.name)).toEqual([
-      'payments 5xx',
-      'checkout slow',
-      'trace 5b8e',
-    ])
-    expect(presets[0]).toMatchObject({ query: 'payments', levels: ['error'], range: '15m' })
-    expect(presets[1]).toMatchObject({ query: 'checkout|latency', regex: true, levels: ['warn'] })
-    expect(presets[2]).toMatchObject({ levels: [], range: 'all' })
-    expect(presets[2]?.trace).toBe('5b8e1f0c9a2d4e7f8b1c3d5e7a9f0b2d')
-    expect(storage.data.has(PRESETS_KEY)).toBe(true)
-    expect(loadPresets(storage)).toHaveLength(SEED_PRESETS.length)
+    expect(presets.map((preset) => preset.id)).toEqual(['custom'])
+    expect(JSON.parse(storage.data.get(PRESETS_KEY) ?? '[]')).toHaveLength(1)
   })
 
   test('does not reseed after the user deletes every preset', () => {

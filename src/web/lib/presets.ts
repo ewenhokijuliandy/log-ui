@@ -22,49 +22,10 @@ export type PresetStorage = {
 
 export const PRESETS_KEY = 'logdeck.presets'
 
-const DESIGN_TRACE_ID = '5b8e1f0c9a2d4e7f8b1c3d5e7a9f0b2d'
+const RETIRED_SEED_IDS = new Set(['payments-5xx', 'checkout-slow', 'trace-5b8e'])
 
 const LEVEL_KEYS: readonly LevelChipKey[] = ['all', 'error', 'warn', 'info', 'debug', 'unknown']
 const RANGE_KEYS: readonly RangeKey[] = ['5m', '15m', '1h', 'all', 'custom']
-
-export const SEED_PRESETS: readonly Preset[] = [
-  {
-    id: 'payments-5xx',
-    name: 'payments 5xx',
-    query: 'payments',
-    regex: false,
-    levels: ['error'],
-    range: '15m',
-    sort: 'newest',
-    trace: null,
-    from: null,
-    to: null,
-  },
-  {
-    id: 'checkout-slow',
-    name: 'checkout slow',
-    query: 'checkout|latency',
-    regex: true,
-    levels: ['warn'],
-    range: 'all',
-    sort: 'newest',
-    trace: null,
-    from: null,
-    to: null,
-  },
-  {
-    id: 'trace-5b8e',
-    name: 'trace 5b8e',
-    query: '',
-    regex: false,
-    levels: [],
-    range: 'all',
-    sort: 'newest',
-    trace: DESIGN_TRACE_ID,
-    from: null,
-    to: null,
-  },
-]
 
 export function createPreset(
   id: string,
@@ -94,19 +55,16 @@ export function loadPresets(storage: PresetStorage): Preset[] {
   } catch {
     raw = null
   }
-  if (raw === null) {
-    const seeded = SEED_PRESETS.map((preset) => ({ ...preset }))
-    savePresets(storage, seeded)
-    return seeded
-  }
+  if (raw === null) return []
   try {
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     const presets: Preset[] = []
     for (const entry of parsed) {
       const preset = normalizePreset(entry)
-      if (preset !== null) presets.push(preset)
+      if (preset !== null && !RETIRED_SEED_IDS.has(preset.id)) presets.push(preset)
     }
+    if (presets.length !== parsed.length) savePresets(storage, presets)
     return presets
   } catch {
     return []
