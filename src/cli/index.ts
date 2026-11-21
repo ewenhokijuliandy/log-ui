@@ -58,8 +58,10 @@ program.action(async (flags) => {
   const openInBrowser: boolean = flags.open !== false
   const status = createStatus(flags.quiet === true)
 
+  let daemonStarted = false
   try {
-    await ensureDaemon(port)
+    const daemon = await ensureDaemon(port)
+    daemonStarted = daemon.started
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error))
   }
@@ -73,7 +75,13 @@ program.action(async (flags) => {
     return
   }
 
-  const pipeOptions: PipeOptions = { port, name, openInBrowser, status }
+  const pipeOptions: PipeOptions = {
+    port,
+    name,
+    openInBrowser,
+    status,
+    daemonState: daemonStarted ? 'started' : 'running',
+  }
   void runPipe(pipeOptions).catch((error) => {
     fail(error instanceof Error ? error.message : String(error))
   })

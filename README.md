@@ -48,8 +48,18 @@ logdeck stop --port 3333
 
 Status lines go to **stderr** and are shown only when stderr is a terminal: the startup banner, the stream-end summary and the `logdeck stop` confirmation. `--quiet` suppresses them. stdout is never used for status, so `cmd | logdeck | tee out.log` stays clean.
 
+On a TTY the stream banner is four lines (three below 62 columns; ASCII `|`/`-` fallbacks when Unicode is unavailable):
+
 ```text
-logdeck: streaming "api" on http://127.0.0.1:3333 — Ctrl+C to stop
+▌ logdeck  api
+  streaming   http://127.0.0.1:3333
+  daemon      already running on port 3333
+  stop        Ctrl+C this stream  ·  logdeck stop all
+```
+
+The end summary is unchanged:
+
+```text
 logdeck: "api" ended — 1,234 lines sent in 18.4s
 ```
 

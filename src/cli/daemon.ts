@@ -41,7 +41,12 @@ export function cliScriptPath(): string {
   return fileURLToPath(new URL('../../dist/cli.js', import.meta.url))
 }
 
-export async function ensureDaemon(port: number): Promise<HealthPayload> {
+export type EnsureDaemonResult = {
+  health: HealthPayload
+  started: boolean
+}
+
+export async function ensureDaemon(port: number): Promise<EnsureDaemonResult> {
   const existing = await probeHealth(port)
   if (existing !== null) {
     const ours = readVersion()
@@ -50,7 +55,7 @@ export async function ensureDaemon(port: number): Promise<HealthPayload> {
         `logdeck: daemon on port ${port} is v${existing.version} while the CLI is v${ours} — run "logdeck stop" to refresh\n`,
       )
     }
-    return existing
+    return { health: existing, started: false }
   }
 
   spawn(process.execPath, [cliScriptPath(), '__daemon', `--port=${String(port)}`], {
@@ -61,7 +66,7 @@ export async function ensureDaemon(port: number): Promise<HealthPayload> {
   const deadline = Date.now() + READY_WAIT_MS
   for (;;) {
     const health = await probeHealth(port)
-    if (health !== null) return health
+    if (health !== null) return { health, started: true }
     if (Date.now() > deadline) {
       throw new Error(
         `daemon failed to start on port ${port} — is another process holding the port?`,

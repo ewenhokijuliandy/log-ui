@@ -1,4 +1,11 @@
 import { createInterface } from 'node:readline'
+import type { DaemonState } from './banner.ts'
+import {
+  detectBannerColor,
+  detectBannerColumns,
+  detectBannerUnicode,
+  formatStreamBanner,
+} from './banner.ts'
 import { openBrowser } from './browser.ts'
 import { connectIngestSocket } from './ingest-socket.ts'
 import { createLineBatcher } from './line-batcher.ts'
@@ -46,6 +53,7 @@ export type PipeOptions = {
   name: string | null
   openInBrowser: boolean
   status: CliStatus
+  daemonState: DaemonState
 }
 
 function formatDuration(startedAt: number): string {
@@ -70,9 +78,22 @@ export async function runPipe(options: PipeOptions): Promise<void> {
     CONNECT_TIMEOUT_MS,
   )
 
-  options.status.info(
-    `streaming "${created.name}" on http://127.0.0.1:${String(options.port)} — Ctrl+C to stop`,
-  )
+  if (options.status.tty) {
+    options.status.block(
+      formatStreamBanner({
+        name: created.name,
+        port: options.port,
+        daemonState: options.daemonState,
+        columns: detectBannerColumns(),
+        unicode: detectBannerUnicode(),
+        color: detectBannerColor(),
+      }),
+    )
+  } else {
+    options.status.info(
+      `streaming "${created.name}" on http://127.0.0.1:${String(options.port)} — Ctrl+C to stop`,
+    )
+  }
 
   let running = true
   let lineCount = 0
