@@ -3,6 +3,7 @@ import { useUi } from '../app/ui.ts'
 import { type PrettifyIndent, prettifyJsonText } from '../lib/json-format.ts'
 import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
 import { Segment } from './dialog-frame.tsx'
+import { Icon } from './icons.tsx'
 import { ToolView } from './tool-view.tsx'
 
 const SAMPLE =
@@ -18,9 +19,11 @@ export function PrettyView() {
   const { copied, copy } = useCopyFeedback()
   const setPrettyStats = useUi((state) => state.setPrettyStats)
 
+  const outputLines = output === '' ? 0 : output.split('\n').length
+
   useEffect(() => {
-    setPrettyStats({ lines: output === '' ? 0 : output.split('\n').length })
-  }, [output, setPrettyStats])
+    setPrettyStats({ lines: outputLines })
+  }, [outputLines, setPrettyStats])
 
   function options(pretty: boolean, spaces: PrettifyIndent, sorted: boolean) {
     return { indent: spaces, minify: !pretty, sortKeys: sorted }
@@ -89,75 +92,115 @@ export function PrettyView() {
         />
       }
     >
-      <div className="prettify-grid">
-        <label className="field">
-          <span className="field-label">JSON in</span>
-          <textarea
-            className="paste"
-            placeholder='{"order_id": "ord_8841"}'
-            spellCheck={false}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-          />
-          <p className="guard" role={error.length > 0 ? 'alert' : undefined}>
-            {error}
-          </p>
-        </label>
-        <div className="field">
-          <span className="field-label">JSON out</span>
-          <output
-            className={`prettify-out${output === '' ? ' empty' : ''}`}
-            aria-label="Formatted JSON"
-          >
-            {output === '' ? 'Formatted JSON appears here.' : output}
-          </output>
+      <div className="diff-panes diff-panes-input">
+        <div className="diff-heads">
+          <div className="diff-head">
+            <span>JSON IN</span>
+            <button
+              className="diff-head-copy"
+              type="button"
+              aria-label="Copy the input"
+              title="Copy the input"
+              onClick={() => void copy(input)}
+            >
+              <Icon name="copy" />
+            </button>
+          </div>
+          <div className="diff-head right-head">
+            <span>JSON OUT</span>
+            <button
+              className="diff-head-copy"
+              type="button"
+              aria-label="Copy the output"
+              title="Copy the output"
+              disabled={output.length === 0}
+              onClick={() => void copy(output)}
+            >
+              <Icon name="copy" />
+            </button>
+          </div>
+        </div>
+        <div className="diff-inputs">
+          <label className="diff-input-card" data-side="JSON IN">
+            <textarea
+              className="diff-textarea"
+              aria-label="JSON in"
+              placeholder='{"order_id": "ord_8841"}'
+              spellCheck={false}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+            />
+            {error.length === 0 ? null : (
+              <p className="diff-input-error" role="alert">
+                {error}
+              </p>
+            )}
+          </label>
+          <div className="diff-input-card" data-side="JSON OUT">
+            <output
+              className={`diff-textarea diff-output${output === '' ? ' empty' : ''}`}
+              aria-label="Formatted JSON"
+            >
+              {output === '' ? 'Formatted JSON appears here.' : output}
+            </output>
+          </div>
         </div>
       </div>
-      <p className="prettify-note">Up to 1 MB · parsed in this browser.</p>
-      <div className="prettify-footer">
-        <div className="prettify-tools">
-          {mode === 'pretty' ? (
-            <div className="prettify-indent">
-              <span>Indent</span>
-              <Segment
-                label="Indent"
-                value={String(indent)}
-                options={[
-                  { value: '2', label: '2 spaces' },
-                  { value: '4', label: '4 spaces' },
-                ]}
-                onChange={changeIndent}
-              />
-            </div>
-          ) : null}
-          <button
-            className="btn ghost"
-            type="button"
-            aria-pressed={sortKeys}
-            onClick={toggleSortKeys}
-          >
-            Sort keys
-          </button>
-          <button className="btn ghost" type="button" onClick={loadSample}>
-            Load sample
-          </button>
-        </div>
-        <div className="dialog-actions">
-          <button className="btn" type="button" onClick={clear}>
-            Clear
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={output.length === 0}
-            onClick={() => void copy(output)}
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          <button className="btn primary" type="button" onClick={runPrettify}>
-            Prettify
-          </button>
-        </div>
+
+      <div className="diff-summary" role="status">
+        {output === '' ? (
+          <span>{error === '' ? 'Paste JSON, then press Prettify.' : error}</span>
+        ) : (
+          <>
+            <span className="changed">{outputLines} lines</span>
+            <span className="note">
+              {mode === 'pretty' ? `${String(indent)}-space indent` : 'minified'}
+              {sortKeys ? ' · keys sorted' : ''}
+            </span>
+          </>
+        )}
+        <span className="spacer" />
+        <span className="note">Up to 1 MB · parsed in this browser</span>
+      </div>
+
+      <div className="diff-actions">
+        <button className="btn ghost" type="button" onClick={loadSample}>
+          Load sample
+        </button>
+        <button
+          className="btn ghost"
+          type="button"
+          aria-pressed={sortKeys}
+          onClick={toggleSortKeys}
+        >
+          Sort keys
+        </button>
+        {mode === 'pretty' ? (
+          <Segment
+            label="Indent"
+            value={String(indent)}
+            options={[
+              { value: '2', label: '2 spaces' },
+              { value: '4', label: '4 spaces' },
+            ]}
+            onChange={changeIndent}
+          />
+        ) : null}
+        <button className="btn" type="button" onClick={clear}>
+          Clear
+        </button>
+        <button
+          className="btn"
+          type="button"
+          disabled={output.length === 0}
+          onClick={() => void copy(output)}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+        <span className="spacer" />
+        <button className="btn primary" type="button" onClick={runPrettify}>
+          Prettify
+        </button>
       </div>
     </ToolView>
   )

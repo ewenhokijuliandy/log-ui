@@ -3449,89 +3449,20 @@ dialog.quick-dialog {
   font-size: var(--fs-meta);
 }
 
-.prettify-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.prettify-grid .field {
-  margin-top: 0;
-}
-
-.prettify-grid textarea.paste {
-  height: 180px;
-}
-
-.prettify-out {
+.diff-output {
   display: block;
-  height: 180px;
   margin: 0;
-  padding: 9px 11px;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: var(--raised);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  line-height: 1.5;
   white-space: pre;
 }
 
-.prettify-out.empty {
+.diff-output.empty {
   color: var(--faint);
 }
 
-.prettify-note {
-  margin-top: 8px;
-  color: var(--faint);
-  font-size: var(--fs-meta);
-}
-
-.prettify-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.prettify-footer .dialog-actions {
-  margin-top: 0;
-}
-
-.prettify-tools {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.prettify-tools .btn.ghost[aria-pressed="true"] {
-  background: var(--raised);
-  color: var(--text);
-}
-
-.prettify-indent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: var(--fs-meta);
-}
-
-@media (max-width: 720px) {
-  .prettify-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .prettify-footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+.diff-head-copy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 @media (max-width: 720px) {
@@ -3650,10 +3581,11 @@ dialog.quick-dialog {
 
   .diff-inputs {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
   .diff-input-card {
-    min-height: 200px;
+    min-height: 180px;
   }
 
   .diff-panes-input .diff-heads {

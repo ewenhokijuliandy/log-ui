@@ -372,7 +372,7 @@ test('pretty JSON formats from the rail as a full view', async ({ page }) => {
 
   await view.getByLabel('JSON in').fill('{"a":}')
   await view.getByRole('button', { name: 'Prettify' }).click()
-  await expect(view.getByText('This is not valid JSON.')).toBeVisible()
+  await expect(view.getByRole('alert')).toContainText('This is not valid JSON.')
 
   await view.getByRole('button', { name: 'Clear' }).click()
   await expect(output).toContainText('Formatted JSON appears here.')
