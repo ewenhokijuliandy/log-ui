@@ -225,7 +225,7 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
     await page.setViewportSize({ width, height: 900 })
     await page.waitForTimeout(80)
     const metrics = await page.evaluate(() => {
-      const bar = document.querySelector('.toolbar') as HTMLElement
+      const bar = document.querySelector('.view-slot:not([hidden]) .toolbar') as HTMLElement
       const levelBar = document.querySelector('.level-bar') as HTMLElement
       const more = document.querySelector('#more-trigger') as HTMLElement
       const visible = (node: HTMLElement) => getComputedStyle(node).display !== 'none'
@@ -276,7 +276,7 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
   const moreMenu = page.getByRole('menu', { name: 'More tools' })
   await expect(moreMenu).toBeVisible()
   await moreMenu.getByRole('menuitem', { name: /Word wrap/ }).click()
-  await expect(page.locator('.log-list')).toHaveClass(/wrap/)
+  await expect(page.locator('.view-slot:not([hidden]) .log-list')).toHaveClass(/wrap/)
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })

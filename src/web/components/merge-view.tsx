@@ -19,6 +19,7 @@ import { Icon } from './icons.tsx'
 import { Inspector } from './inspector.tsx'
 import { LevelBar } from './level-bar.tsx'
 import { MergeSelector } from './merge-selector.tsx'
+import { SignalStrip } from './signal.tsx'
 import { ToolView } from './tool-view.tsx'
 
 export function MergeView() {
@@ -88,6 +89,7 @@ export function MergeView() {
   }
   const totalCount = frozen.length
   const pending = pausedKeys === null ? 0 : merged.rows.length - pausedKeys.size
+  const paused = pausedKeys !== null
 
   function togglePause(): void {
     if (pausedKeys !== null) {
@@ -147,7 +149,7 @@ export function MergeView() {
         <span className="merge-chips-count">{selectedIds.length} selected</span>
       </div>
 
-      <div className="merge-toolbar">
+      <div className="toolbar">
         <label className="search">
           <Icon name="search" />
           <input
@@ -164,40 +166,79 @@ export function MergeView() {
           chipCounts={chipCounts}
           totalCount={totalCount}
         />
-        <span className="spacer" />
-        <button
-          className="btn ghost"
-          type="button"
-          aria-pressed={wrap}
-          onClick={() => setWrap(!wrap)}
-        >
-          Wrap
-        </button>
-        <button
-          className="btn ghost"
-          type="button"
-          aria-pressed={pausedKeys !== null}
-          onClick={togglePause}
-        >
-          {pausedKeys === null ? 'Pause' : `Resume (${formatNumber(pending)})`}
-        </button>
-        <button className="btn ghost" type="button" onClick={exportTxt}>
-          Export
-        </button>
+        <div className="tools">
+          <button
+            className="tool"
+            type="button"
+            aria-pressed={wrap}
+            title="Wrap long lines"
+            aria-label="Wrap long lines"
+            onClick={() => setWrap(!wrap)}
+          >
+            <Icon name="wrap" />
+            <span className="label">Wrap</span>
+          </button>
+          <button
+            className="tool"
+            type="button"
+            aria-pressed={paused}
+            title={paused ? 'Resume the merged view' : 'Pause the merged view'}
+            aria-label={paused ? 'Resume the merged view' : 'Pause the merged view'}
+            onClick={togglePause}
+          >
+            <Icon name={paused ? 'play' : 'pause'} />
+            <span className="label">{paused ? `Resume ${formatNumber(pending)}` : 'Pause'}</span>
+          </button>
+          <button
+            className="tool"
+            type="button"
+            title="Export the merged view as text"
+            aria-label="Export the merged view as text"
+            onClick={exportTxt}
+          >
+            <Icon name="download" />
+            <span className="label">Export</span>
+          </button>
+        </div>
       </div>
 
-      <div className="merge-shell">
-        <div className="merge-list-wrap">
-          <div className="merge-head" aria-hidden="true">
-            <span>seq</span>
+      <SignalStrip records={frozen.map((row) => row.record)} zone="utc" />
+
+      <div className="log-shell">
+        <section className="log-panel" aria-label="Merged lines">
+          {isolateTrace === null ? null : (
+            <div className="isolate-banner open">
+              <Icon name="isolate" />
+              <span>Isolated trace</span>
+              <span className="trace-chip">{isolateTrace.slice(0, 8)}</span>
+              <span>{formatNumber(visible.length)} lines</span>
+              <button className="link" type="button" onClick={() => setIsolate(null)}>
+                Clear isolation
+              </button>
+            </div>
+          )}
+          {paused ? (
+            <div className="pause-banner" role="status">
+              <Icon name="pause" />
+              <span>Paused</span> <span className="badge">{formatNumber(pending)}</span>{' '}
+              <span>new {pending === 1 ? 'line' : 'lines'} buffered</span>{' '}
+              <button className="link" type="button" onClick={togglePause}>
+                Resume
+              </button>
+            </div>
+          ) : null}
+          <div className="log-head merge-head" aria-hidden="true">
+            <span />
+            <span className="h-seq">seq</span>
             <span>time</span>
             <span>stream</span>
             <span>level</span>
             <span>message</span>
+            <span className="h-ids">ids</span>
           </div>
-          <ul className={`merge-list${wrap ? ' wrap' : ''}`} aria-label="Merged lines">
+          <ul className={`log-list merge-list${wrap ? ' wrap' : ''}`}>
             {visible.length === 0 ? (
-              <p className="diff-empty">{emptyText}</p>
+              <p className="log-empty open">{emptyText}</p>
             ) : (
               visible.map((row) => (
                 <MergedRowView
@@ -209,7 +250,7 @@ export function MergeView() {
               ))
             )}
           </ul>
-        </div>
+        </section>
         <Inspector
           record={selectedRow === null ? null : selectedRow.record}
           zone="utc"
@@ -219,17 +260,6 @@ export function MergeView() {
           onResetWidth={() => undefined}
         />
       </div>
-
-      {isolateTrace === null ? null : (
-        <div className="isolate-banner open">
-          <Icon name="isolate" />
-          <span>Isolated trace</span>
-          <span>{formatNumber(visible.length)} lines</span>
-          <button className="link" type="button" onClick={() => setIsolate(null)}>
-            Clear isolation
-          </button>
-        </div>
-      )}
 
       <MergeSelector
         open={selectorOpen}
@@ -254,7 +284,7 @@ function MergedRowView({
   const record: LogRecord = row.record
   return (
     <li
-      className="merge-row"
+      className="log-row merge-row"
       tabIndex={selected ? 0 : -1}
       aria-current={selected ? 'true' : undefined}
       onClick={onSelect}
@@ -264,6 +294,7 @@ function MergedRowView({
         onSelect()
       }}
     >
+      <span className="thread" aria-hidden="true" />
       <span className="seq">{formatNumber(record.seq)}</span>
       <span className="time">{formatTime(record.ts, 'utc')}</span>
       <span className="source">
@@ -274,7 +305,16 @@ function MergedRowView({
         <span className="dot" />
         {record.level.toUpperCase()}
       </span>
-      <span className="msg">{record.message}</span>
+      <span className="msg">
+        <span className="msg-text">{record.message}</span>
+      </span>
+      <span className="ids">
+        {record.ids.slice(0, 2).map((id) => (
+          <span className="trace-chip" key={id}>
+            {id.slice(0, 8)}
+          </span>
+        ))}
+      </span>
     </li>
   )
 }

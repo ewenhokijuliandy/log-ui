@@ -144,7 +144,9 @@ test('invalid regex is explained next to the search field', async ({ page }) => 
   const searchError = page.locator('.search-error')
   await expect(searchError).toBeVisible()
   await expect(searchError).toContainText('Invalid regular expression')
-  await expect(page.locator('.log-empty')).toContainText(/not a valid regular expression/i)
+  await expect(page.locator('.view-slot:not([hidden]) .log-empty')).toContainText(
+    /not a valid regular expression/i,
+  )
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
@@ -245,7 +247,7 @@ test('log rows expose list semantics and one roving tab stop', async ({ page }) 
   const pipe = await seed(page, 'rows', 20)
   const consoleWatch = watchConsole(page)
 
-  await expect(page.locator('.log-list')).toHaveAttribute('role', 'list')
+  await expect(page.locator('.view-slot:not([hidden]) .log-list')).toHaveAttribute('role', 'list')
   const selected = page.locator('.log-row[aria-current="true"]')
   await expect(selected).toHaveCount(1)
   await expect(selected).toHaveAttribute('tabindex', '0')
