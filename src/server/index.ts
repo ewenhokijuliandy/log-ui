@@ -62,6 +62,7 @@ export async function startServer(options: ServerOptions): Promise<StartedServer
       pid: process.pid,
       version: readVersion(),
       startedAt: Date.now(),
+      node: process.version,
       portProvider: () => port,
     },
     webRoot: resolveWebRoot(options.webRoot),
