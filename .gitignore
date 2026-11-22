@@ -11,3 +11,10 @@ playwright-report
 .commandcode
 *.log
 .DS_Store
+
+# DSH project skills: impeccable engine cache
+.dsh
+
+# Docs stay local; only README.md is tracked
+*.md
+!README.md
