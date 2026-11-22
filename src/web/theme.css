@@ -273,6 +273,10 @@ dialog:focus-visible {
   background: var(--border);
 }
 
+.rail-btn-phone {
+  display: none;
+}
+
 .rail .bottom {
   display: grid;
   gap: 4px;
@@ -4087,6 +4091,10 @@ textarea.paste::placeholder {
 
   .rail-btn[data-rail="theme"] {
     display: none;
+  }
+
+  .rail-btn-phone {
+    display: grid;
   }
 
   .topbar {

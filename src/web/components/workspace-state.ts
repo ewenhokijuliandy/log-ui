@@ -35,7 +35,6 @@ import { buildSheets, type PdfState, type SheetName, type SheetsModel } from './
 import type { StreamActions, StreamData } from './stream-view.tsx'
 import {
   flippedTheme,
-  selectNewest,
   useBootEffect,
   useDerivedCounts,
   useDerivedRecords,
@@ -68,10 +67,8 @@ export type Workspace = {
     toggleTheme: () => void
     onStreams: () => void
     onMerge: () => void
-    onDetail: () => void
     onCompare: () => void
     onPretty: () => void
-    detailOpen: boolean
     workspaceView: WorkspaceView
   }
   topBar: {
@@ -191,26 +188,6 @@ export function useWorkspace(): Workspace {
   const togglePause = (): void => {
     if (active === null) return
     setPaused(active.id, active.pausedAt === null)
-  }
-
-  const openDetail = (): void => {
-    if (active !== null) {
-      const current = useUi.getState().selectedSeq[active.id]
-      const valid =
-        current !== undefined &&
-        current !== null &&
-        derivedRecords.some((record) => record.seq === current)
-      if (!valid) selectNewest(active.id, derivedRecords)
-    }
-    setInspectorOpen(true)
-  }
-
-  const toggleDetail = (): void => {
-    if (inspectorOpen) {
-      setInspectorOpen(false)
-      return
-    }
-    openDetail()
   }
 
   const updateInspectorWidth = (next: number): void => {
@@ -422,10 +399,8 @@ export function useWorkspace(): Workspace {
       toggleTheme,
       onStreams: () => setWorkspaceView('stream'),
       onMerge: () => setWorkspaceView('merge'),
-      onDetail: toggleDetail,
       onCompare: () => setWorkspaceView('compare'),
       onPretty: () => setWorkspaceView('prettify'),
-      detailOpen: inspectorOpen && selectedRecord !== null,
       workspaceView,
     },
     topBar: {

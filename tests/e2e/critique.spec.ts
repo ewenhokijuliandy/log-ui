@@ -203,10 +203,6 @@ test('the detail sheet opens at 768 from a row, Enter, and the rail', async ({ p
   await expect(sheet).toBeVisible()
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'Line detail' }).click()
-  await expect(sheet).toBeVisible()
-  await page.keyboard.press('Escape')
-
   pipe.end()
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })

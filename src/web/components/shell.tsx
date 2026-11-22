@@ -14,10 +14,8 @@ export function Rail({
   toggleTheme,
   onStreams,
   onMerge,
-  onDetail,
   onCompare,
   onPretty,
-  detailOpen,
   workspaceView,
 }: RailProps) {
   const streamsOpen = workspaceView === 'stream'
@@ -51,17 +49,6 @@ export function Rail({
       <button
         className="rail-btn"
         type="button"
-        title="Line detail"
-        aria-label="Line detail"
-        aria-pressed={detailOpen}
-        onClick={onDetail}
-      >
-        <Icon name="panel" />
-        <span className="rail-label">Detail</span>
-      </button>
-      <button
-        className="rail-btn"
-        type="button"
         title="Compare JSON"
         aria-label="Compare JSON"
         aria-current={workspaceView === 'compare' ? 'page' : undefined}
@@ -82,7 +69,7 @@ export function Rail({
         <span className="rail-label">Pretty</span>
       </button>
       <button
-        className="rail-btn"
+        className="rail-btn rail-btn-phone"
         type="button"
         title="Manual mode"
         aria-label="Manual mode"
@@ -134,10 +121,8 @@ export type RailProps = {
   toggleTheme: () => void
   onStreams: () => void
   onMerge: () => void
-  onDetail: () => void
   onCompare: () => void
   onPretty: () => void
-  detailOpen: boolean
   workspaceView: WorkspaceView
 }
 
