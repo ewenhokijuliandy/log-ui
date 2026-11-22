@@ -21,8 +21,6 @@ import { LevelBar } from './level-bar.tsx'
 import { MergeSelector } from './merge-selector.tsx'
 import { ToolView } from './tool-view.tsx'
 
-const MAX_STREAMS = 8
-
 export function MergeView() {
   const streams = useStreams((state) => state.streams)
   const bufferCap = useStreams((state) => state.bufferCap)
@@ -141,9 +139,12 @@ export function MergeView() {
           + Add stream
         </button>
         <span className="spacer" />
-        <span className="merge-chips-count">
-          {selectedIds.length} of {MAX_STREAMS}
-        </span>
+        {merged.truncated ? (
+          <span className="merge-chips-note">
+            Showing the newest {formatNumber(bufferCap)} lines
+          </span>
+        ) : null}
+        <span className="merge-chips-count">{selectedIds.length} selected</span>
       </div>
 
       <div className="merge-toolbar">
@@ -234,7 +235,6 @@ export function MergeView() {
         open={selectorOpen}
         streams={streams}
         selectedIds={selectedIds}
-        max={MAX_STREAMS}
         onChange={setSelectedIds}
         onClose={() => setSelectorOpen(false)}
       />

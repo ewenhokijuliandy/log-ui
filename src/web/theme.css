@@ -2716,6 +2716,8 @@ dialog.quick-dialog {
   align-items: center;
   gap: 8px;
   flex: none;
+  flex-wrap: wrap;
+  row-gap: 6px;
   padding-bottom: 10px;
 }
 
@@ -2728,6 +2730,7 @@ dialog.quick-dialog {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 190px;
   height: 22px;
   padding: 0 6px 0 8px;
   border: 1px solid var(--control);
@@ -2741,8 +2744,16 @@ dialog.quick-dialog {
 .merge-chip .dot {
   width: 5px;
   height: 5px;
+  flex: none;
   border-radius: 50%;
   background: var(--positive);
+}
+
+.merge-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .merge-chip button {
@@ -2763,6 +2774,12 @@ dialog.quick-dialog {
 
 .merge-chips-count {
   color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+}
+
+.merge-chips-note {
+  color: var(--warning);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
 }
@@ -2961,11 +2978,6 @@ dialog.quick-dialog {
 
 .merge-selector-item:hover {
   background: var(--raised);
-}
-
-.merge-selector-item.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .merge-selector-item .dot {
