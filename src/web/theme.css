@@ -3393,6 +3393,10 @@ dialog.quick-dialog {
   border-top: 1px solid var(--border);
 }
 
+.diff-actions > .btn:first-child {
+  margin-left: -14px;
+}
+
 .diff-actions .spacer {
   flex: 1;
 }
@@ -3623,6 +3627,10 @@ dialog.quick-dialog {
     flex: 1 1 auto;
     min-width: 0;
     padding: 0 10px;
+  }
+
+  .diff-actions > .btn:first-child {
+    margin-left: -23px;
   }
 
   .diff-actions .btn.primary {
