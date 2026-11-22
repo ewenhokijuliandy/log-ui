@@ -4,7 +4,6 @@ import { type StreamEntry, useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { Icon } from './icons.tsx'
-import { PopoverPanel, usePopover } from './popover.tsx'
 import { TabFinder } from './tab-finder.tsx'
 
 export function StreamTabs({
@@ -31,7 +30,6 @@ export function StreamTabs({
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [finderOpen, setFinderOpen] = useState(false)
-  const menu = usePopover()
 
   useEffect(() => {
     if (editingId === null) return
@@ -255,46 +253,15 @@ export function StreamTabs({
         <span className="tab-tool-count">{formatNumber(streams.length)}</span>
       </button>
       <button
-        className="tab-tool"
+        className="tab-tool tab-tool-danger"
         type="button"
-        ref={menu.bindTrigger}
-        aria-haspopup="menu"
-        aria-expanded={menu.open}
-        aria-label="Tab actions"
-        title="Tab actions"
-        onClick={() => menu.setOpen(!menu.open)}
+        aria-label="Close all tabs"
+        title="Close all tabs"
+        disabled={streams.length === 0}
+        onClick={onCloseAll}
       >
-        <Icon name="more" />
+        <Icon name="trash" />
       </button>
-      <PopoverPanel control={menu} label="Tab actions">
-        <button
-          className="menu-item"
-          type="button"
-          role="menuitem"
-          onClick={() => {
-            menu.close()
-            setFinderOpen(true)
-          }}
-        >
-          <Icon name="search" />
-          <span className="grow">Find a tab…</span>
-          <span className="note">⌘K</span>
-        </button>
-        <button
-          className="menu-item danger"
-          type="button"
-          role="menuitem"
-          disabled={streams.length === 0}
-          onClick={() => {
-            menu.close()
-            onCloseAll()
-          }}
-        >
-          <Icon name="trash" />
-          <span className="grow">Close all tabs</span>
-          <span className="note">{formatNumber(streams.length)}</span>
-        </button>
-      </PopoverPanel>
       <button
         className="tab-add"
         type="button"

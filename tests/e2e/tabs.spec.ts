@@ -80,8 +80,7 @@ test('close all tabs confirms and empties the workspace', async ({ page }) => {
   await seedTabs(page)
   const consoleWatch = watchConsole(page)
 
-  await page.getByRole('button', { name: 'Tab actions' }).click()
-  await page.getByRole('menuitem', { name: /Close all tabs/ }).click()
+  await page.getByRole('button', { name: 'Close all tabs' }).click()
 
   const confirm = page.getByRole('dialog', { name: /Close all 3 tabs/ })
   await expect(confirm).toBeVisible()
@@ -96,8 +95,7 @@ test('close all tabs confirms and empties the workspace', async ({ page }) => {
 
 test('cancelling close all keeps every tab', async ({ page }) => {
   await seedTabs(page)
-  await page.getByRole('button', { name: 'Tab actions' }).click()
-  await page.getByRole('menuitem', { name: /Close all tabs/ }).click()
+  await page.getByRole('button', { name: 'Close all tabs' }).click()
   const confirm = page.getByRole('dialog', { name: /Close all 3 tabs/ })
   await confirm.getByRole('button', { name: 'Keep open' }).click()
   await expect(page.locator('.stream-tab')).toHaveCount(3)
@@ -108,7 +106,7 @@ test('the tab strip keeps its controls visible at 390', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(120)
   await expect(page.getByRole('button', { name: 'Find a tab' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Tab actions' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Close all tabs' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open quick start' })).toBeVisible()
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

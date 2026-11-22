@@ -2570,6 +2570,26 @@ dialog.quick-dialog {
   font-size: var(--fs-meta);
 }
 
+.tab-tool-danger {
+  color: var(--negative);
+}
+
+.tab-tool-danger:hover {
+  background: var(--pill-neg-bg);
+  color: var(--negative);
+}
+
+.tab-tool-danger:disabled {
+  color: var(--faint);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tab-tool-danger:disabled:hover {
+  background: transparent;
+  color: var(--faint);
+}
+
 .tab-finder {
   width: min(420px, calc(100vw - 32px));
   padding: 0;
