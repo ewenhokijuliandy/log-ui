@@ -70,21 +70,24 @@ The daemon exits after the idle timeout when there are no active streams and no 
 
 ## Viewer
 
-- **Tabs** - one per stream; drag to reorder, double-click or press F2 to rename, close with the tab button.
+- **Tabs** - one per stream; drag to reorder, double-click or press F2 to rename, close with the tab button. The magnifier (or `Cmd/Ctrl+K`) finds a tab by name when many are open, and the `⋯` menu closes every tab at once after a confirmation.
 - **Search** - plain text or regular expressions (`.*`), with an inline invalid-pattern message.
 - **Filters** - interactive severity bar (Error / Warn / Info / Debug / Unknown) sized by the full-buffer mix; click a segment to solo it, Shift-click to add, click it again or press Esc for All levels. Relative or custom time ranges, saved presets, and oldest-first sorting by default.
 - **Parsing** - ANSI-stripped lines; ISO or epoch head timestamps plus JSON `time`/`timestamp`/`ts` fields with second-to-nanosecond detection; named or numeric levels (Pino/Bunyan, syslog); JSON bodies and trace/request IDs.
 - **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
 - **Inspect** - click a row (or press Enter) for parsed fields, a Pretty (default) or Tree JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
-- **Compare** - open Compare JSON from the sidebar (rail on desktop, bottom bar on phones), paste two JSON documents, and list added, removed and changed paths. Added and removed rows are tinted; changed paths show a red before line and a green after line. Key order is ignored and the diff is copyable. **Pretty** formats both sides in place before comparing.
-- **Pretty** - open Pretty JSON from the sidebar, paste messy JSON, choose Pretty (2- or 4-space indent) or Minify, optionally sort keys, format it locally (1 MB limit), and copy the result.
+- **Compare** - Compare JSON opens as a full workspace view, not a dialog. Paste two JSON documents and read a side-by-side line diff with line numbers in both gutters and a centre gutter marking added (`→`), removed (`←`) and changed (`↔`) lines. Added, removed and changed rows are tinted, and every row also carries its sign so the diff reads without colour. Key order is ignored; the diff is copyable. **Pretty** formats both sides in place.
+- **Pretty** - Pretty JSON also opens as a full workspace view. Paste messy JSON, choose Pretty (2- or 4-space indent) or Minify, optionally sort keys, format it locally (1 MB limit), and copy the result.
+- **Merge** - Merge log sits directly below Streams. Pick two to eight existing streams and read them on one timeline; each row names the stream it came from in a **stream** column between time and level. Search matches the stream name too, and the level bar, wrap, pause, inspector and export all work on the merged set. One merged view at a time; change the selection to see another.
 - **Pause** - freeze the visible rows while ingestion and counts continue; resume to reveal the buffered lines.
 - **Manual mode** - paste text or drop a `.txt`/`.log` file (up to 25 MB) for a client-only tab.
 - **Export** - filtered TXT download or a print-styled PDF through the browser's print dialog.
-- **Settings** - theme, timestamp zone, auto-scroll, word wrap, and the buffer limit (1,000–50,000 lines; applies live and persists).
+- **Settings** - theme, timestamp zone, auto-scroll, word wrap, the buffer limit (1,000–50,000 lines; applies live and persists), and the running daemon's version, pid and uptime.
 - **Themes** - dark, light, or system.
 
-Keyboard: `/` search, `Enter` inspect, `j`/`k` move rows, `Esc` close, `t` theme, `?` shortcuts.
+- **Help** - pipe examples, a level-filter tutorial, the keyboard shortcuts, the CLI flags and the daemon's version and uptime.
+
+Keyboard: `/` search, `Cmd/Ctrl+K` find a tab, `Enter` inspect, `j`/`k` move rows, `Esc` close a sheet or return to the logs, `t` theme, `?` shortcuts.
 
 ## Behavior and limits
 
