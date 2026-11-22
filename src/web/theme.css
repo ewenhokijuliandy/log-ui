@@ -1366,9 +1366,12 @@ h1 {
 .log-list {
   flex: 1;
   min-height: 0;
+  margin: 0;
+  padding: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overflow-anchor: none;
+  list-style: none;
 }
 
 .log-panel.is-empty .log-list {
