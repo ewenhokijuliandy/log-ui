@@ -500,7 +500,9 @@ route, no new persistence.
 - `Cmd/Ctrl+K` opens the finder from any view. It calls `preventDefault()`; the
   browser's own search shortcut is not otherwise used by this app.
 - Tab strip gains two controls before `+`: a finder button (magnifier, with the
-  tab count) and a `⋯` menu with "Close all tabs".
+  tab count) and a red trash button that closes all tabs. There is **no `⋯`
+  menu** — the finder is the only way to find a tab, and close-all is a direct
+  action rather than a menu item.
 - New store action `closeAllStreams()`. **`deleteStream` must change first:**
   today it is `await fetch(...)` with no `response.ok` check (`api.ts:50-52`),
   so a 404/500 resolves as fulfilled and `Promise.allSettled` would report
@@ -550,7 +552,7 @@ Create **`05 · Proposals · v1.3`** so page 04 stays the round-2 record.
 | Proposal · Tab finder | 1440×900 | 32 tabs, query `ms-user`, results |
 | Proposal · Tab finder · no matches | 1440×900 | Empty result with a reset action |
 | Proposal · Tab finder · mobile | 390×844 | Full-width dialog |
-| Proposal · Close all tabs · menu | 1440×900 | Tab-strip menu open, disabled with zero tabs |
+| Proposal · Close all tabs · button | 1440×900 | Red trash button, disabled with zero tabs |
 | Proposal · Close all tabs · confirm | 440×180 | Mixed pipe + manual copy |
 | Proposal · Close all tabs · states | 1440×900 | In-flight, partial failure, post-close empty state |
 | Proposal · Merge log · empty | 1440×900 | No streams; fewer than two selected |
@@ -588,8 +590,8 @@ Create **`05 · Proposals · v1.3`** so page 04 stays the round-2 record.
 ### 5.3 Canonical updates after approval
 
 - `01 · Workspace` frames 3509 (dark), 3839 (light), 4169 (inspector), 4661
-  (mobile): add the Merge rail item (nine rail items), the tab finder and `⋯`
-  controls, and the 8-item mobile bar.
+  (mobile): add the Merge rail item (nine rail items), the tab finder and the
+  close-all trash button, and the 8-item mobile bar.
 - `03 · Key states`: Compare 5543 and Prettify 11530 become full-workspace
   views. Add the new canonical frames and mark the old modal frames as
   superseded (rename with a `superseded` prefix or hide them) so the document
@@ -822,7 +824,7 @@ no bulk action.
 
 **Desired behavior.**
 
-- A `⋯` menu in the tab strip with "Close all tabs" (danger).
+- A red trash button in the tab strip that closes all tabs directly (no menu).
 - Confirmation with the tab count and the consequences for pipe and manual
   tabs.
 - Closing all frees buffers, ends live streams, removes manual tabs, clears the
@@ -836,7 +838,7 @@ no bulk action.
 
 - `store.ts`: `closeAllStreams()` with `Promise.allSettled`; manual tabs
   removed locally; pipe tabs deleted through the API; `lastError` on failure.
-- `tabs.tsx`: `⋯` menu with `MenuItem`/`PopoverPanel`; `onCloseAll` prop.
+- `tabs.tsx`: finder button and a red close-all trash button; `onCloseAll` prop.
 - `sheets-model.ts`: `closeAll` confirm model + `closeAllBody(streams)` helper.
 - `workspace-state.ts`: `closeAllOpen` state and handlers.
 - `workspace-sheets.tsx`: render the confirm.
@@ -844,7 +846,7 @@ no bulk action.
 
 **Acceptance criteria.**
 
-- [ ] The `⋯` menu offers "Close all tabs" and is disabled with zero tabs.
+- [ ] The close-all trash button is red and disabled with zero tabs.
 - [ ] The confirm names the count and explains pipe vs. manual consequences.
 - [ ] Confirming closes every tab, deletes every pipe stream, and shows the
       empty state.
@@ -1094,7 +1096,7 @@ Existing tests that assume modals must change in the same item, not later:
 | `critique.spec.ts` › log rows expose list semantics and one roving tab stop | Exactly one `.log-row[aria-current="true"]` with `tabindex="0"` | At risk from the `LogRow`/`LogList` variant change; assert the roving tab stop survives in both variants |
 | `critique.spec.ts` › phone targets meet the 24px minimum | Measures `.stream-tab .close` at 390 px | At risk from the two new tab-strip controls; assert the close target stays ≥24 px |
 | `flows.spec.ts` › toolbar stays on one row or a compact two-row layout without overflow | Stream toolbar | Add the merged toolbar at 1440/1181/1024/768/390 |
-| `critique.spec.ts` › tabs use arrow keys and the add button stays visible at 390 | `+` button | Add the finder and `⋯` controls; assert no overflow with 8 rail items |
+| `critique.spec.ts` › tabs use arrow keys and the add button stays visible at 390 | `+` button | Add the finder and close-all controls; assert no overflow with 8 rail items |
 
 New suites:
 
@@ -1201,10 +1203,9 @@ sample, Clear, Copy, Prettify.
 Search field with `ms-user` typed and a caret, `4 of 32` count, four result rows
 (status dot, mono name, line count), the current tab checked, footer hint
 `↑↓ move · Enter open · Esc close` and `⌘K`. The tab strip shows the new
-magnifier and `⋯` controls before `+`.
+magnifier and close-all trash button before `+`.
 
-**Close all (13013, 13005).** `⋯` menu with `Find a tab… ⌘K` and a red
-`Close all tabs` with its count and `Asks before closing`. Confirm dialog:
+**Close all (13005).** A red trash button in the tab strip. Confirm dialog:
 `Close all 4 tabs?` with the mixed-set copy from §4.5 and a red primary.
 
 **Merge log (12243, 13236, 12707, 13020).** Rail gains **Merge** directly below
