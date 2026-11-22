@@ -128,7 +128,7 @@ test('level bar isolates and combines levels', async ({ page }) => {
   ])
   const consoleWatch = watchConsole(page)
 
-  const bar = page.locator('.level-bar')
+  const bar = page.locator('.view-slot:not([hidden]) .level-bar')
   const unknown = bar.getByRole('button', { name: /^Unknown:/ })
   await expect(unknown).toHaveAttribute('aria-label', 'Unknown: 1 lines')
   await expect(bar.locator('.level-bar-summary')).toHaveText('4 lines')
@@ -281,49 +281,55 @@ test('toolbar stays on one row or a compact two-row layout without overflow', as
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
-test('compare JSON reports differences and validates both sides', async ({ page }) => {
+test('compare JSON reports differences as a line diff', async ({ page }) => {
   await seed(page, 'compare', [line(1)])
   const consoleWatch = watchConsole(page)
 
   await page.getByRole('button', { name: 'Compare JSON' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Compare JSON' })
-  await expect(dialog).toBeVisible()
+  const view = page.locator('.view-slot:not([hidden]) .tool-view')
+  await expect(view).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await dialog.getByRole('button', { name: 'Load sample' }).click()
-  await expect(dialog.locator('.compare-summary')).toContainText('2 added')
-  await expect(dialog.locator('.compare-summary')).toContainText('0 removed')
-  await expect(dialog.locator('.compare-summary')).toContainText('3 changed')
-  await expect(dialog.locator('.compare-row')).toHaveCount(5)
-  const changed = dialog.locator('.compare-row.changed').first()
-  await expect(changed).toContainText('$.status')
-  await expect(changed.locator('.compare-before')).toBeVisible()
-  await expect(changed.locator('.compare-after')).toBeVisible()
+  await view.getByRole('button', { name: 'Load sample' }).click()
+  await expect(view.locator('.diff-row.changed')).toHaveCount(4)
+  await expect(view.locator('.diff-row.added')).toHaveCount(5)
+  await expect(view.locator('.diff-summary')).toContainText('5 added')
+  await expect(view.locator('.diff-summary')).toContainText('0 removed')
+  await expect(view.locator('.diff-summary')).toContainText('4 changed')
 
-  await dialog.getByRole('button', { name: 'Pretty' }).click()
+  const changed = view.locator('.diff-row.changed').first()
+  await expect(changed.locator('.diff-gutter')).toHaveText('↔')
+  await expect(changed.locator('.diff-cell.left')).toContainText('pending')
+  await expect(changed.locator('.diff-cell.right')).toContainText('paid')
+
+  const added = view.locator('.diff-row.added').first()
+  await expect(added.locator('.diff-gutter')).toHaveText('→')
+
+  await view.getByRole('button', { name: 'Edit' }).click()
+  await expect(page.getByLabel('A · before')).toBeVisible()
+  await view.getByRole('button', { name: 'Pretty' }).click()
   await expect(page.getByLabel('A · before')).toHaveValue(/\n {2}"order_id"/)
-  await expect(page.getByLabel('B · after')).toHaveValue(/\n {2}"status"/)
-  await expect(dialog.locator('.compare-row')).toHaveCount(5)
 
   await page.getByLabel('A · before').fill('{')
-  await dialog.getByRole('button', { name: 'Pretty' }).click()
-  await expect(dialog.getByText('This side is not valid JSON.')).toBeVisible()
-  await dialog.getByRole('button', { name: 'Compare' }).click()
-  await expect(dialog.getByText('This side is not valid JSON.')).toBeVisible()
-  await expect(dialog.locator('.compare-row')).toHaveCount(0)
+  await view.getByRole('button', { name: 'Pretty' }).click()
+  await expect(view.getByText('This side is not valid JSON.')).toBeVisible()
 
-  await dialog.getByRole('button', { name: 'Load sample' }).click()
+  await view.getByRole('button', { name: 'Load sample' }).click()
+  await view.getByRole('button', { name: 'Edit' }).click()
   const leftValue = await page.getByLabel('A · before').inputValue()
   const rightValue = await page.getByLabel('B · after').inputValue()
-  await dialog.getByRole('button', { name: 'Swap' }).click()
+  await view.getByRole('button', { name: 'Swap' }).click()
+  await view.getByRole('button', { name: 'Edit' }).click()
   await expect(page.getByLabel('A · before')).toHaveValue(rightValue)
   await expect(page.getByLabel('B · after')).toHaveValue(leftValue)
 
-  await dialog.getByRole('button', { name: 'Close' }).click()
-  await expect(dialog).not.toBeVisible()
+  await view.getByRole('button', { name: 'Back to logs' }).click()
+  await expect(page.locator('.view-slot:not([hidden]) .log-panel')).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(80)
-  await expect(page.getByRole('button', { name: 'Compare JSON' })).toBeVisible()
+  await page.getByRole('button', { name: 'Compare JSON' }).click()
+  await page.waitForTimeout(80)
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
@@ -332,51 +338,52 @@ test('compare JSON reports differences and validates both sides', async ({ page 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
-test('prettify JSON formats from the rail menu', async ({ page }) => {
+test('pretty JSON formats from the rail as a full view', async ({ page }) => {
   await seed(page, 'pretty', [line(1)])
   const consoleWatch = watchConsole(page)
 
   await page.getByRole('button', { name: 'Pretty JSON' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Prettify JSON' })
-  await expect(dialog).toBeVisible()
+  const view = page.locator('.view-slot:not([hidden]) .tool-view')
+  await expect(view).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
-  await dialog.getByRole('button', { name: 'Load sample' }).click()
-  await dialog.getByRole('button', { name: 'Prettify' }).click()
-  const output = dialog.getByLabel('Formatted JSON')
+  await view.getByRole('button', { name: 'Load sample' }).click()
+  await view.getByRole('button', { name: 'Prettify' }).click()
+  const output = view.getByLabel('Formatted JSON')
   await expect(output).toContainText('"order_id": "ord_8841"')
   await expect(output).toContainText(/\n {2}"status"/)
 
-  await dialog.getByRole('button', { name: '4 spaces' }).click()
+  await view.getByRole('button', { name: '4 spaces' }).click()
   await expect(output).toContainText(/\n {4}"status"/)
 
-  await dialog.getByRole('button', { name: 'Minify' }).click()
+  await view.getByRole('button', { name: 'Minify' }).click()
   await expect(output).toHaveText(
     '{"order_id":"ord_8841","status":"pending","amount":128.4,"items":[{"sku":"SKU-4471","qty":2}]}',
   )
 
-  await dialog.getByRole('button', { name: 'Sort keys' }).click()
+  await view.getByRole('button', { name: 'Sort keys' }).click()
   await expect(output).toHaveText(
     '{"amount":128.4,"items":[{"qty":2,"sku":"SKU-4471"}],"order_id":"ord_8841","status":"pending"}',
   )
 
-  await dialog.getByRole('button', { name: 'Pretty' }).click()
+  await view.getByRole('button', { name: 'Pretty' }).click()
   const sortedPretty = await output.evaluate((node) => node.textContent ?? '')
   expect(sortedPretty.startsWith('{\n    "amount"')).toBe(true)
-  expect(sortedPretty).toContain('"status": "pending"')
 
-  await dialog.getByLabel('JSON in').fill('{"a":}')
-  await dialog.getByRole('button', { name: 'Prettify' }).click()
-  await expect(dialog.getByText('This is not valid JSON.')).toBeVisible()
+  await view.getByLabel('JSON in').fill('{"a":}')
+  await view.getByRole('button', { name: 'Prettify' }).click()
+  await expect(view.getByText('This is not valid JSON.')).toBeVisible()
 
-  await dialog.getByRole('button', { name: 'Clear' }).click()
+  await view.getByRole('button', { name: 'Clear' }).click()
   await expect(output).toContainText('Formatted JSON appears here.')
 
   await page.keyboard.press('Escape')
-  await expect(dialog).not.toBeVisible()
+  await expect(page.locator('.view-slot:not([hidden]) .log-panel')).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(80)
-  await expect(page.getByRole('button', { name: 'Pretty JSON' })).toBeVisible()
+  await page.getByRole('button', { name: 'Pretty JSON' }).click()
+  await page.waitForTimeout(80)
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   )

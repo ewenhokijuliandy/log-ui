@@ -181,7 +181,9 @@ export function CompareView({ onBack }: { onBack: () => void }) {
     const formattedRight = JSON.stringify(rightSide.value, null, 2)
     setLeft(formattedLeft)
     setRight(formattedRight)
-    compare(formattedLeft, formattedRight)
+    setRows([])
+    setMessage('Both sides formatted. Press Compare to diff them.')
+    setMode('input')
   }
 
   const modeSwitch = (

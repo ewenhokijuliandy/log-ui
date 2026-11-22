@@ -162,7 +162,7 @@ test('manual mode rejects unsupported files with an alert', async ({ page }) => 
     buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   })
 
-  const guard = page.locator('.guard')
+  const guard = page.locator('dialog .guard[role="alert"]')
   await expect(guard).toContainText('accepts .txt and .log files')
   await expect(guard).toHaveAttribute('role', 'alert')
 

@@ -40,6 +40,8 @@ export function useKeyboardShortcuts({
   toggleTheme,
 }: KeyboardShortcuts): void {
   const select = useUi((state) => state.select)
+  const workspaceView = useUi((state) => state.workspaceView)
+  const setWorkspaceView = useUi((state) => state.setWorkspaceView)
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -51,6 +53,15 @@ export function useKeyboardShortcuts({
       const target = event.target as HTMLElement | null
       const typing =
         target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')
+      if (event.key === 'Escape' && workspaceView !== 'stream') {
+        if (typing) {
+          target?.blur()
+          return
+        }
+        event.preventDefault()
+        setWorkspaceView('stream')
+        return
+      }
       if (typing) return
       if (event.key === '/') {
         event.preventDefault()
@@ -94,5 +105,7 @@ export function useKeyboardShortcuts({
     sheetOpen,
     toggleTheme,
     visible,
+    workspaceView,
+    setWorkspaceView,
   ])
 }
