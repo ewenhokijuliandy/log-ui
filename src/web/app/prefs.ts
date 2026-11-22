@@ -8,6 +8,7 @@ export type Prefs = {
   zone: Zone
   autoscroll: boolean
   wrap: boolean
+  railExpanded: boolean
 }
 
 const PREFS_KEY = 'logdeck.prefs'
@@ -22,6 +23,7 @@ export const DEFAULT_PREFS: Prefs = {
   zone: 'utc',
   autoscroll: true,
   wrap: false,
+  railExpanded: true,
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -43,6 +45,7 @@ export function loadPrefs(): Prefs {
     zone: stored.zone === 'local' ? 'local' : 'utc',
     autoscroll: stored.autoscroll !== false,
     wrap: stored.wrap === true,
+    railExpanded: stored.railExpanded !== false,
   }
 }
 

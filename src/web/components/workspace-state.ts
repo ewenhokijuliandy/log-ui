@@ -70,6 +70,8 @@ export type Workspace = {
     onCompare: () => void
     onPretty: () => void
     workspaceView: WorkspaceView
+    expanded: boolean
+    onToggleExpanded: () => void
   }
   topBar: {
     openSheet: (target: SheetName) => void
@@ -402,6 +404,8 @@ export function useWorkspace(): Workspace {
       onCompare: () => setWorkspaceView('compare'),
       onPretty: () => setWorkspaceView('prettify'),
       workspaceView,
+      expanded: prefs.railExpanded,
+      onToggleExpanded: () => setPrefs({ ...prefs, railExpanded: !prefs.railExpanded }),
     },
     topBar: {
       openSheet: setSheet,

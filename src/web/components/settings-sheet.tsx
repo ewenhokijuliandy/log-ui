@@ -10,6 +10,7 @@ type SettingsPrefs = {
   zone: 'utc' | 'local'
   autoscroll: boolean
   wrap: boolean
+  railExpanded: boolean
 }
 
 const PRESETS = [5_000, 10_000, 25_000, 50_000]
@@ -133,6 +134,23 @@ export function SettingsSheet({
             { value: 'off', label: 'Off' },
           ]}
           onChange={(value) => setDraft({ ...draft, wrap: value === 'on' })}
+        />
+      </div>
+      <div className="setting-row">
+        <div className="setting-copy">
+          <div className="name">Sidebar labels</div>
+          <div className="desc">
+            Expanded shows a text label beside every icon. Collapsed keeps the 50px rail.
+          </div>
+        </div>
+        <Segment
+          label="Sidebar labels"
+          value={draft.railExpanded ? 'expanded' : 'collapsed'}
+          options={[
+            { value: 'expanded', label: 'Expanded' },
+            { value: 'collapsed', label: 'Collapsed' },
+          ]}
+          onChange={(value) => setDraft({ ...draft, railExpanded: value === 'expanded' })}
         />
       </div>
       <div className="setting-row">

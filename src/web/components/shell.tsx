@@ -17,81 +17,98 @@ export function Rail({
   onCompare,
   onPretty,
   workspaceView,
+  expanded,
+  onToggleExpanded,
 }: RailProps) {
   const streamsOpen = workspaceView === 'stream'
   return (
-    <aside className="rail" aria-label="Workspace">
-      <span className="rail-mark">
-        <Icon name="mark" />
-      </span>
-      <button
-        className="rail-btn"
-        type="button"
-        aria-current={streamsOpen ? 'page' : undefined}
-        title="Streams"
-        aria-label="Streams"
-        onClick={onStreams}
-      >
-        <Icon name="list" />
-        <span className="rail-label">Streams</span>
-      </button>
-      <button
-        className="rail-btn"
-        type="button"
-        aria-current={workspaceView === 'merge' ? 'page' : undefined}
-        title="Merge log"
-        aria-label="Merge log"
-        onClick={onMerge}
-      >
-        <Icon name="merge" />
-        <span className="rail-label">Merge</span>
-      </button>
-      <button
-        className="rail-btn"
-        type="button"
-        title="Compare JSON"
-        aria-label="Compare JSON"
-        aria-current={workspaceView === 'compare' ? 'page' : undefined}
-        onClick={onCompare}
-      >
-        <Icon name="diff" />
-        <span className="rail-label">Compare</span>
-      </button>
-      <button
-        className="rail-btn"
-        type="button"
-        title="Pretty JSON"
-        aria-label="Pretty JSON"
-        aria-current={workspaceView === 'prettify' ? 'page' : undefined}
-        onClick={onPretty}
-      >
-        <Icon name="prettify" />
-        <span className="rail-label">Pretty</span>
-      </button>
-      <button
-        className="rail-btn rail-btn-phone"
-        type="button"
-        title="Manual mode"
-        aria-label="Manual mode"
-        onClick={() => openSheet('manual')}
-      >
-        <Icon name="terminal" />
-        <span className="rail-label">Manual</span>
-      </button>
-      <span className="rail-divider" />
-      <button
-        className="rail-btn"
-        type="button"
-        title="Settings"
-        aria-label="Settings"
-        onClick={() => openSheet('settings')}
-      >
-        <Icon name="settings" />
-        <span className="rail-label">Settings</span>
-      </button>
-      <div className="bottom">
+    <aside className={`rail${expanded ? ' rail-expanded' : ''}`} aria-label="Workspace">
+      <div className="rail-head">
+        <span className="rail-mark">
+          <Icon name="mark" />
+        </span>
+        <button
+          className="rail-toggle"
+          type="button"
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Collapse the sidebar' : 'Expand the sidebar'}
+          title={expanded ? 'Collapse the sidebar' : 'Expand the sidebar'}
+          onClick={onToggleExpanded}
+        >
+          <Icon name="panel" />
+        </button>
+      </div>
+      <nav className="rail-nav" aria-label="Views">
+        <span className="rail-group-label">Views</span>
         <button
           className="rail-btn"
+          type="button"
+          aria-current={streamsOpen ? 'page' : undefined}
+          title="Streams"
+          aria-label="Streams"
+          onClick={onStreams}
+        >
+          <Icon name="list" />
+          <span className="rail-label">Streams</span>
+        </button>
+        <button
+          className="rail-btn"
+          type="button"
+          aria-current={workspaceView === 'merge' ? 'page' : undefined}
+          title="Merge log"
+          aria-label="Merge log"
+          onClick={onMerge}
+        >
+          <Icon name="merge" />
+          <span className="rail-label">Merge</span>
+        </button>
+        <button
+          className="rail-btn"
+          type="button"
+          title="Compare JSON"
+          aria-label="Compare JSON"
+          aria-current={workspaceView === 'compare' ? 'page' : undefined}
+          onClick={onCompare}
+        >
+          <Icon name="diff" />
+          <span className="rail-label">Compare</span>
+        </button>
+        <button
+          className="rail-btn"
+          type="button"
+          title="Pretty JSON"
+          aria-label="Pretty JSON"
+          aria-current={workspaceView === 'prettify' ? 'page' : undefined}
+          onClick={onPretty}
+        >
+          <Icon name="prettify" />
+          <span className="rail-label">Pretty</span>
+        </button>
+      </nav>
+      <nav className="rail-nav rail-nav-app" aria-label="Application">
+        <span className="rail-group-label">App</span>
+        <button
+          className="rail-btn rail-btn-phone"
+          type="button"
+          title="Manual mode"
+          aria-label="Manual mode"
+          onClick={() => openSheet('manual')}
+        >
+          <Icon name="terminal" />
+          <span className="rail-label">Manual</span>
+        </button>
+        <button
+          className="rail-btn rail-btn-app"
+          type="button"
+          title="Settings"
+          aria-label="Settings"
+          onClick={() => openSheet('settings')}
+        >
+          <Icon name="settings" />
+          <span className="rail-label">Settings</span>
+        </button>
+        <button
+          className="rail-btn rail-btn-app"
           type="button"
           title="Help and shortcuts"
           aria-label="Help and shortcuts"
@@ -111,7 +128,7 @@ export function Rail({
           <ThemeGlyph />
           <span className="rail-label">Theme</span>
         </button>
-      </div>
+      </nav>
     </aside>
   )
 }
@@ -124,6 +141,8 @@ export type RailProps = {
   onCompare: () => void
   onPretty: () => void
   workspaceView: WorkspaceView
+  expanded: boolean
+  onToggleExpanded: () => void
 }
 
 function ThemeGlyph() {
