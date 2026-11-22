@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useUi } from '../app/ui.ts'
 import {
-  type DiffEntry,
-  type DiffResult,
-  diffJson,
-  diffToText,
-  diffValueText,
-} from '../lib/json-diff.ts'
+  type DiffRow,
+  diffLines,
+  diffRowsToText,
+  diffStats,
+  pairChanged,
+  prettyLines,
+} from '../lib/json-line-diff.ts'
 import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
-import { DialogFrame } from './dialog-frame.tsx'
+import { Icon } from './icons.tsx'
+import { ToolView } from './tool-view.tsx'
 
 const MAX_SIDE_BYTES = 1_000_000
 
@@ -57,50 +60,53 @@ function parseSide(text: string): ParsedSide {
   }
 }
 
-function CompareRow({ entry }: { entry: DiffEntry }) {
-  if (entry.kind === 'changed') {
-    return (
-      <div className="compare-row changed">
-        <span className="compare-sign">~</span>
-        <div>
-          <div className="compare-path">{entry.path}</div>
-          <div className="compare-line compare-before">
-            <span className="compare-line-sign">−</span>
-            {diffValueText(entry.before)}
-          </div>
-          <div className="compare-line compare-after">
-            <span className="compare-line-sign">+</span>
-            {diffValueText(entry.after)}
-          </div>
-        </div>
-      </div>
-    )
-  }
-  const sign = entry.kind === 'added' ? '+' : '−'
-  const value = entry.kind === 'added' ? entry.after : entry.before
+function gutterSign(kind: DiffRow['kind']): string {
+  if (kind === 'added') return '→'
+  if (kind === 'removed') return '←'
+  if (kind === 'changed') return '↔'
+  return ''
+}
+
+function DiffRowView({ row }: { row: DiffRow }) {
   return (
-    <div className={`compare-row ${entry.kind}`}>
-      <span className="compare-sign">{sign}</span>
-      <div>
-        <div className="compare-path">{entry.path}</div>
-        <div
-          className={`compare-line ${entry.kind === 'added' ? 'compare-after' : 'compare-before'}`}
-        >
-          {diffValueText(value)}
-        </div>
-      </div>
+    <div className={`diff-row ${row.kind}`}>
+      <span className="diff-no left-no">{row.leftNo ?? ''}</span>
+      <span className="diff-cell left">{row.leftText ?? ''}</span>
+      <span className="diff-gutter" aria-hidden="true">
+        {gutterSign(row.kind)}
+      </span>
+      <span className="diff-no right-no">{row.rightNo ?? ''}</span>
+      <span className="diff-cell right">{row.rightText ?? ''}</span>
     </div>
   )
 }
 
-export function CompareDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CompareView({ onBack }: { onBack: () => void }) {
   const [left, setLeft] = useState('')
   const [right, setRight] = useState('')
   const [leftError, setLeftError] = useState('')
   const [rightError, setRightError] = useState('')
-  const [result, setResult] = useState<DiffResult | null>(null)
+  const [rows, setRows] = useState<DiffRow[]>([])
   const [message, setMessage] = useState('Paste JSON into both sides, or load the sample.')
+  const [mode, setMode] = useState<'input' | 'diff'>('input')
+  const [wrap, setWrap] = useState(true)
   const { copied, copy } = useCopyFeedback()
+  const setCompareStats = useUi((state) => state.setCompareStats)
+
+  const stats = diffStats(rows)
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setCompareStats(null)
+      return
+    }
+    setCompareStats({
+      added: stats.added,
+      removed: stats.removed,
+      changed: stats.changed,
+      total: rows.length,
+    })
+  }, [rows, stats.added, stats.removed, stats.changed, setCompareStats])
 
   function compare(leftText: string, rightText: string): void {
     const leftSide = parseSide(leftText)
@@ -108,18 +114,19 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
     setLeftError(leftSide.error)
     setRightError(rightSide.error)
     if (leftSide.error.length > 0 || rightSide.error.length > 0) {
-      setResult(null)
+      setRows([])
       setMessage('Fix the JSON on both sides to compare.')
       return
     }
     if (!leftSide.present || !rightSide.present) {
-      setResult(null)
+      setRows([])
       setMessage('Paste JSON into both sides.')
       return
     }
-    const next = diffJson(leftSide.value, rightSide.value)
-    setResult(next)
-    setMessage(next.entries.length === 0 ? 'Identical JSON' : '')
+    const next = pairChanged(diffLines(prettyLines(leftSide.value), prettyLines(rightSide.value)))
+    setRows(next)
+    setMessage(next.length === 0 ? 'Identical JSON' : '')
+    setMode('diff')
   }
 
   function runCompare(): void {
@@ -145,13 +152,14 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
     setRight('')
     setLeftError('')
     setRightError('')
-    setResult(null)
+    setRows([])
     setMessage('Paste JSON into both sides, or load the sample.')
+    setMode('input')
   }
 
   async function copyDiff(): Promise<void> {
-    if (result === null || result.entries.length === 0) return
-    await copy(diffToText(result.entries))
+    if (rows.length === 0) return
+    await copy(diffRowsToText(rows))
   }
 
   function prettifyBoth(): void {
@@ -160,12 +168,12 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
     setLeftError(leftSide.error)
     setRightError(rightSide.error)
     if (leftSide.error.length > 0 || rightSide.error.length > 0) {
-      setResult(null)
+      setRows([])
       setMessage('Both sides must be valid JSON.')
       return
     }
     if (!leftSide.present || !rightSide.present) {
-      setResult(null)
+      setRows([])
       setMessage('Paste JSON into both sides.')
       return
     }
@@ -176,72 +184,124 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
     compare(formattedLeft, formattedRight)
   }
 
-  const added =
-    result === null ? 0 : result.entries.filter((entry) => entry.kind === 'added').length
-  const removed =
-    result === null ? 0 : result.entries.filter((entry) => entry.kind === 'removed').length
-  const changed =
-    result === null ? 0 : result.entries.filter((entry) => entry.kind === 'changed').length
+  const modeSwitch = (
+    <div className="segment">
+      <button type="button" aria-pressed={mode === 'input'} onClick={() => setMode('input')}>
+        Input
+      </button>
+      <button type="button" aria-pressed={mode === 'diff'} onClick={() => setMode('diff')}>
+        Diff
+      </button>
+    </div>
+  )
 
   return (
-    <DialogFrame open={open} wide className="compare-dialog" label="Compare JSON" onClose={onClose}>
-      <h2>Compare JSON</h2>
-      <p>
-        Paste two JSON documents. Key order is ignored; added, removed and changed paths are listed
-        below.
-      </p>
-      <div className="compare-inputs">
-        <label className="field">
-          <span className="field-label">A · before</span>
-          <textarea
-            className="paste"
-            placeholder='{"order_id": "ord_8841"}'
-            spellCheck={false}
-            value={left}
-            onChange={(event) => setLeft(event.target.value)}
-          />
-          <p className="guard" role={leftError.length > 0 ? 'alert' : undefined}>
-            {leftError}
-          </p>
-        </label>
-        <label className="field">
-          <span className="field-label">B · after</span>
-          <textarea
-            className="paste"
-            placeholder='{"order_id": "ord_8841"}'
-            spellCheck={false}
-            value={right}
-            onChange={(event) => setRight(event.target.value)}
-          />
-          <p className="guard" role={rightError.length > 0 ? 'alert' : undefined}>
-            {rightError}
-          </p>
-        </label>
-      </div>
-      <div className="compare-summary" role="status">
-        {result === null ? (
+    <ToolView
+      title="Compare JSON"
+      description="Line-by-line. Key order is ignored; added, removed and changed lines are tinted."
+      onBack={onBack}
+      actions={modeSwitch}
+    >
+      {mode === 'input' ? (
+        <div className="diff-inputs">
+          <label className="field">
+            <span className="field-label">A · before</span>
+            <textarea
+              className="paste"
+              placeholder='{"order_id": "ord_8841"}'
+              spellCheck={false}
+              value={left}
+              onChange={(event) => setLeft(event.target.value)}
+            />
+            <p className="guard" role={leftError.length > 0 ? 'alert' : undefined}>
+              {leftError}
+            </p>
+          </label>
+          <label className="field">
+            <span className="field-label">B · after</span>
+            <textarea
+              className="paste"
+              placeholder='{"order_id": "ord_8841"}'
+              spellCheck={false}
+              value={right}
+              onChange={(event) => setRight(event.target.value)}
+            />
+            <p className="guard" role={rightError.length > 0 ? 'alert' : undefined}>
+              {rightError}
+            </p>
+          </label>
+        </div>
+      ) : (
+        <div className="diff-panes">
+          <div className="diff-heads">
+            <div className="diff-head">
+              <span>LEFT · BEFORE</span>
+              <button
+                className="diff-head-copy"
+                type="button"
+                aria-label="Copy the left side"
+                title="Copy the left side"
+                onClick={() => void copy(left)}
+              >
+                <Icon name="copy" />
+              </button>
+            </div>
+            <div className="diff-head right-head">
+              <span>RIGHT · AFTER</span>
+              <button
+                className="diff-head-copy"
+                type="button"
+                aria-label="Copy the right side"
+                title="Copy the right side"
+                onClick={() => void copy(right)}
+              >
+                <Icon name="copy" />
+              </button>
+            </div>
+          </div>
+          <div className={`diff-scroll${wrap ? ' diff-wrap' : ''}`}>
+            {rows.length === 0 ? (
+              <p className="diff-empty">{message}</p>
+            ) : (
+              rows.map((row, index) => (
+                <DiffRowView key={`${String(index)}-${row.kind}`} row={row} />
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="diff-summary" role="status">
+        {rows.length === 0 ? (
           <span>{message}</span>
-        ) : result.entries.length === 0 ? (
-          <span>Identical JSON</span>
         ) : (
           <>
-            <span className="added">{added} added</span>
-            <span className="removed">{removed} removed</span>
-            <span className="changed">{changed} changed</span>
-            {result.truncated ? (
-              <span className="compare-note">diff truncated at 5,000 paths</span>
-            ) : null}
+            <span className="added">{stats.added} added</span>
+            <span className="removed">{stats.removed} removed</span>
+            <span className="changed">{stats.changed} changed</span>
+            <span className="note">{rows.length} lines compared</span>
           </>
         )}
+        <span className="spacer" />
+        <button
+          className="btn ghost"
+          type="button"
+          aria-pressed={wrap}
+          onClick={() => setWrap(!wrap)}
+        >
+          Wrap {wrap ? 'on' : 'off'}
+        </button>
+        <button
+          className="btn ghost"
+          type="button"
+          disabled={rows.length === 0}
+          onClick={() => void copyDiff()}
+        >
+          {copied ? 'Copied' : 'Copy diff'}
+        </button>
       </div>
-      {result !== null && result.entries.length > 0 ? (
-        <div className="compare-result">
-          {result.entries.map((entry) => (
-            <CompareRow key={`${entry.path}-${entry.kind}`} entry={entry} />
-          ))}
-        </div>
-      ) : null}
-      <div className="dialog-actions">
+
+      <div className="diff-actions">
         <button className="btn ghost" type="button" onClick={loadSample}>
           Load sample
         </button>
@@ -254,21 +314,14 @@ export function CompareDialog({ open, onClose }: { open: boolean; onClose: () =>
         <button className="btn" type="button" onClick={clear}>
           Clear
         </button>
+        <button className="btn" type="button" onClick={() => setMode('input')}>
+          Edit
+        </button>
+        <span className="spacer" />
         <button className="btn primary" type="button" onClick={runCompare}>
           Compare
         </button>
-        <button
-          className="btn"
-          type="button"
-          disabled={result === null || result.entries.length === 0}
-          onClick={() => void copyDiff()}
-        >
-          {copied ? 'Copied' : 'Copy diff'}
-        </button>
-        <button className="btn" type="button" onClick={onClose}>
-          Close
-        </button>
       </div>
-    </DialogFrame>
+    </ToolView>
   )
 }

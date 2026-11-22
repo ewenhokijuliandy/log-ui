@@ -1,5 +1,8 @@
+import { CompareView } from '../components/compare.tsx'
 import { ExportMenuContent } from '../components/export.tsx'
 import { Sprite } from '../components/icons.tsx'
+import { MergeView } from '../components/merge-view.tsx'
+import { PrettyView } from '../components/prettify.tsx'
 import { EmptyState } from '../components/quick.tsx'
 import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
 import { StreamView } from '../components/stream-view.tsx'
@@ -9,6 +12,8 @@ import { useWorkspace } from '../components/workspace-state.ts'
 
 export function App() {
   const workspace = useWorkspace()
+  const view = workspace.rail.workspaceView
+  const onBack = workspace.onBackToLogs
   return (
     <>
       <Sprite />
@@ -17,6 +22,7 @@ export function App() {
         <div className="main">
           <TopBar
             {...workspace.topBar}
+            exportDisabled={view === 'compare' || view === 'prettify'}
             onExport={
               <ExportMenuContent
                 count={workspace.exportMenu.count}
@@ -28,11 +34,22 @@ export function App() {
           />
           <StreamTabs {...workspace.tabs} />
           <div className="workspace">
-            {workspace.zeroStreams ? (
-              <EmptyState {...workspace.empty} />
-            ) : (
-              <StreamView {...workspace.stream} />
-            )}
+            <div hidden={view !== 'stream'} className="view-slot">
+              {workspace.zeroStreams ? (
+                <EmptyState {...workspace.empty} />
+              ) : (
+                <StreamView {...workspace.stream} />
+              )}
+            </div>
+            <div hidden={view !== 'compare'} className="view-slot">
+              <CompareView onBack={onBack} />
+            </div>
+            <div hidden={view !== 'prettify'} className="view-slot">
+              <PrettyView onBack={onBack} />
+            </div>
+            <div hidden={view !== 'merge'} className="view-slot">
+              <MergeView onBack={onBack} />
+            </div>
           </div>
           <Statusbar {...workspace.statusbar} />
         </div>

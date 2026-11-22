@@ -1,10 +1,8 @@
-import { CompareDialog } from './compare.tsx'
 import { ConfirmDialog } from './confirm-dialog.tsx'
 import { DetailSheet } from './detail-sheet.tsx'
 import { HelpSheet } from './help-sheet.tsx'
 import { ManualDialog } from './manual-dialog.tsx'
 import { ParseRulesDialog } from './parse-rules.tsx'
-import { PrettifyDialog } from './prettify.tsx'
 import { PrintSheet } from './print-sheet.tsx'
 import { QuickStart } from './quick.tsx'
 import { SettingsSheet } from './settings-sheet.tsx'
@@ -19,6 +17,7 @@ export function WorkspaceSheets({ sheets }: { sheets: SheetsModel }) {
         <DetailSheet
           record={sheets.detail.record}
           zone={sheets.detail.zone}
+          source={sheets.detail.source}
           onClose={sheets.detail.onClose}
         />
       )}
@@ -29,6 +28,8 @@ export function WorkspaceSheets({ sheets }: { sheets: SheetsModel }) {
 
       <ConfirmDialog {...sheets.close} />
 
+      <ConfirmDialog {...sheets.closeAll} />
+
       <SettingsSheet {...sheets.settings} />
 
       <HelpSheet {...sheets.help} />
@@ -36,10 +37,6 @@ export function WorkspaceSheets({ sheets }: { sheets: SheetsModel }) {
       <ManualDialog {...sheets.manual} />
 
       <ParseRulesDialog {...sheets.rules} />
-
-      <CompareDialog {...sheets.compare} />
-
-      <PrettifyDialog {...sheets.prettify} />
 
       <PrintSheet {...sheets.print} />
     </>

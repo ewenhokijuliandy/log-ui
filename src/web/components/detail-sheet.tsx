@@ -9,10 +9,12 @@ const noop = (): void => {}
 export function DetailSheet({
   record,
   zone,
+  source,
   onClose,
 }: {
   record: LogRecord
   zone: Zone
+  source: string | null
   onClose: () => void
 }) {
   return (
@@ -23,7 +25,15 @@ export function DetailSheet({
       label={`Line ${formatNumber(record.seq)}`}
       onClose={onClose}
     >
-      <Inspector record={record} zone={zone} width={0} onWidth={noop} onResetWidth={noop} sheet />
+      <Inspector
+        record={record}
+        zone={zone}
+        source={source}
+        width={0}
+        onWidth={noop}
+        onResetWidth={noop}
+        sheet
+      />
     </DialogFrame>
   )
 }

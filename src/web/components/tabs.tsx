@@ -4,16 +4,25 @@ import { type StreamEntry, useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { Icon } from './icons.tsx'
+import { PopoverPanel, usePopover } from './popover.tsx'
+import { TabFinder } from './tab-finder.tsx'
 
-export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
+export function StreamTabs({
+  onQuickStart,
+  onCloseTab,
+  onCloseAll,
+  toolViewActive,
+}: StreamTabsProps) {
   const streams = useStreams((state) => state.streams)
   const activeId = useStreams((state) => state.activeId)
   const setActive = useStreams((state) => state.setActive)
   const moveTab = useStreams((state) => state.moveTab)
   const renameStream = useStreams((state) => state.renameStream)
+  const lastError = useStreams((state) => state.lastError)
   const select = useUi((state) => state.select)
   const setIsolate = useUi((state) => state.setIsolate)
   const setScreen = useUi((state) => state.setScreen)
+  const setWorkspaceView = useUi((state) => state.setWorkspaceView)
 
   const dragId = useRef<string | null>(null)
   const renameRef = useRef<HTMLInputElement | null>(null)
@@ -21,6 +30,8 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [finderOpen, setFinderOpen] = useState(false)
+  const menu = usePopover()
 
   useEffect(() => {
     if (editingId === null) return
@@ -32,6 +43,17 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
     if (error === null) return
     errorRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
   }, [error])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'k') return
+      if (!event.metaKey && !event.ctrlKey) return
+      event.preventDefault()
+      setFinderOpen(true)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   function beginRename(entry: StreamEntry): void {
     setEditingId(entry.id)
@@ -59,6 +81,7 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
     select(entry.id, entry.records[entry.records.length - 1]?.seq ?? null)
     setIsolate(null)
     setScreen('stream')
+    setWorkspaceView('stream')
   }
 
   function moveFocus(entry: StreamEntry, direction: 'left' | 'right' | 'first' | 'last'): void {
@@ -78,11 +101,13 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
     document.getElementById(`tab-${target.id}`)?.focus()
   }
 
+  const shownError = error ?? lastError
+
   return (
     <div className="tabs">
       <div className="tab-scroll" role="tablist" aria-label="Log streams">
         {streams.map((entry) => {
-          const selected = entry.id === activeId
+          const selected = entry.id === activeId && !toolViewActive
           const editing = editingId === entry.id
           return (
             <div
@@ -212,11 +237,64 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
           )
         })}
       </div>
-      {error === null ? null : (
+      {shownError === null ? null : (
         <span ref={errorRef} className="tab-error" role="alert">
-          {error}
+          {shownError}
         </span>
       )}
+      <button
+        className="tab-tool"
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={finderOpen}
+        aria-label="Find a tab"
+        title="Find a tab (⌘K)"
+        onClick={() => setFinderOpen(true)}
+      >
+        <Icon name="search" />
+        <span className="tab-tool-count">{formatNumber(streams.length)}</span>
+      </button>
+      <button
+        className="tab-tool"
+        type="button"
+        ref={menu.bindTrigger}
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        aria-label="Tab actions"
+        title="Tab actions"
+        onClick={() => menu.setOpen(!menu.open)}
+      >
+        <Icon name="more" />
+      </button>
+      <PopoverPanel control={menu} label="Tab actions">
+        <button
+          className="menu-item"
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            menu.close()
+            setFinderOpen(true)
+          }}
+        >
+          <Icon name="search" />
+          <span className="grow">Find a tab…</span>
+          <span className="note">⌘K</span>
+        </button>
+        <button
+          className="menu-item danger"
+          type="button"
+          role="menuitem"
+          disabled={streams.length === 0}
+          onClick={() => {
+            menu.close()
+            onCloseAll()
+          }}
+        >
+          <Icon name="trash" />
+          <span className="grow">Close all tabs</span>
+          <span className="note">{formatNumber(streams.length)}</span>
+        </button>
+      </PopoverPanel>
       <button
         className="tab-add"
         type="button"
@@ -226,6 +304,7 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
       >
         <Icon name="plus" />
       </button>
+      <TabFinder open={finderOpen} onClose={() => setFinderOpen(false)} />
     </div>
   )
 }
@@ -233,4 +312,6 @@ export function StreamTabs({ onQuickStart, onCloseTab }: StreamTabsProps) {
 export type StreamTabsProps = {
   onQuickStart: () => void
   onCloseTab: (id: string) => void
+  onCloseAll: () => void
+  toolViewActive: boolean
 }

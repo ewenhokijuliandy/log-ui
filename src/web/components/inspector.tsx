@@ -13,6 +13,7 @@ import { JsonNodes, PrettyJson } from './json-tree.tsx'
 export function Inspector({
   record,
   zone,
+  source = null,
   width,
   onWidth,
   onResetWidth,
@@ -36,6 +37,11 @@ export function Inspector({
     for (const id of record.ids) base.push({ key: 'id', value: id })
     return base
   }, [record, zone])
+
+  const parsedWithSource = useMemo(() => {
+    if (source === null) return parsed
+    return [{ key: 'stream', value: source }, ...parsed]
+  }, [parsed, source])
 
   const tokens = useMemo(
     () => (record === null || record.json === null ? [] : jsonTokens(record.json)),
@@ -83,7 +89,7 @@ export function Inspector({
         <section className="insp-section">
           <div className="insp-label">Parsed fields</div>
           <dl className="parsed">
-            {parsed.map((item) => (
+            {parsedWithSource.map((item) => (
               <InspectorField
                 key={`${item.key}-${item.value}`}
                 label={item.key}
@@ -218,6 +224,7 @@ export function Inspector({
 export type InspectorProps = {
   record: LogRecord | null
   zone: Zone
+  source?: string | null
   width: number
   onWidth: (width: number) => void
   onResetWidth: () => void

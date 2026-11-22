@@ -14,7 +14,7 @@ export function ToolView({
   children: ReactNode
 }) {
   return (
-    <section className="tool-view" role="region" aria-label={title} tabIndex={-1}>
+    <section className="tool-view" aria-label={title} tabIndex={-1}>
       <header className="tool-view-head">
         <button className="tool-view-back" type="button" onClick={onBack}>
           ← Back to logs

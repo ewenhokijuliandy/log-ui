@@ -4,7 +4,7 @@ import type { Prefs } from '../app/prefs.ts'
 import type { StreamEntry } from '../app/store.ts'
 import { formatNumber } from '../lib/format-time.ts'
 
-export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | 'compare' | 'prettify' | null
+export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | null
 
 export type PdfState = {
   title: string
@@ -23,7 +23,12 @@ export type ConfirmModel = {
 }
 
 export type SheetsModel = {
-  detail: { record: LogRecord; zone: Prefs['zone']; onClose: () => void } | null
+  detail: {
+    record: LogRecord
+    zone: Prefs['zone']
+    source: string | null
+    onClose: () => void
+  } | null
   quick: {
     open: boolean
     connected: boolean
@@ -33,6 +38,7 @@ export type SheetsModel = {
   }
   clear: ConfirmModel
   close: ConfirmModel
+  closeAll: ConfirmModel
   settings: {
     open: boolean
     onClose: () => void
@@ -58,8 +64,6 @@ export type SheetsModel = {
     onClose: () => void
     onSave: (next: ParseRules) => void
   }
-  compare: { open: boolean; onClose: () => void }
-  prettify: { open: boolean; onClose: () => void }
   print: { open: boolean; title: string; meta: string; pages: string[]; onClose: () => void }
 }
 
@@ -73,7 +77,7 @@ export type SheetsInput = {
   onQuickManual: () => void
   onQuickHelp: () => void
   onQuickClose: () => void
-  detail: { record: LogRecord; zone: Prefs['zone'] } | null
+  detail: { record: LogRecord; zone: Prefs['zone']; source: string | null } | null
   onCloseDetail: () => void
   clearTarget: StreamEntry | null
   onConfirmClear: () => void
@@ -81,6 +85,10 @@ export type SheetsInput = {
   closeTarget: StreamEntry | null
   onConfirmClose: () => void
   onCancelClose: () => void
+  closeAllOpen: boolean
+  closeAllStreams: readonly StreamEntry[]
+  onConfirmCloseAll: () => void
+  onCancelCloseAll: () => void
   prefs: Prefs
   onSavePrefs: (draft: Prefs) => void
   rules: ParseRules
@@ -99,7 +107,12 @@ export function buildSheets(input: SheetsInput): SheetsModel {
     detail:
       input.detail === null
         ? null
-        : { record: input.detail.record, zone: input.detail.zone, onClose: input.onCloseDetail },
+        : {
+            record: input.detail.record,
+            zone: input.detail.zone,
+            source: input.detail.source,
+            onClose: input.onCloseDetail,
+          },
     quick: {
       open: input.quickOpen,
       connected: input.connected,
@@ -131,6 +144,15 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       onConfirm: input.onConfirmClose,
       onCancel: input.onCancelClose,
     },
+    closeAll: {
+      open: input.closeAllOpen,
+      title: closeAllTitle(input.closeAllStreams),
+      body: closeAllBody(input.closeAllStreams),
+      confirmLabel: 'Close all tabs',
+      cancelLabel: 'Keep open',
+      onConfirm: input.onConfirmCloseAll,
+      onCancel: input.onCancelCloseAll,
+    },
     settings: {
       open: input.sheet === 'settings',
       onClose: input.onCloseSheet,
@@ -160,8 +182,6 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       onClose: input.onCloseSheet,
       onSave: input.onSaveRules,
     },
-    compare: { open: input.sheet === 'compare', onClose: input.onCloseSheet },
-    prettify: { open: input.sheet === 'prettify', onClose: input.onCloseSheet },
     print: {
       open: input.pdfState !== null,
       title: input.pdfState?.title ?? '',
@@ -170,6 +190,24 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       onClose: input.onClosePdf,
     },
   }
+}
+
+export function closeAllTitle(streams: readonly StreamEntry[]): string {
+  if (streams.length === 0) return 'Close all tabs?'
+  return `Close all ${String(streams.length)} tabs?`
+}
+
+export function closeAllBody(streams: readonly StreamEntry[]): string {
+  const pipes = streams.filter((entry) => entry.kind === 'pipe').length
+  const manual = streams.length - pipes
+  if (streams.length === 0) return 'There are no tabs to close.'
+  if (manual === 0) {
+    return `This closes ${String(pipes)} streams and ends their pipes. Buffers are freed. This cannot be undone.`
+  }
+  if (pipes === 0) {
+    return `This removes ${String(manual)} parsed tabs from this browser. This cannot be undone.`
+  }
+  return `This closes ${String(streams.length)} streams: ${String(pipes)} pipes end and ${String(manual)} parsed tabs are removed. This cannot be undone.`
 }
 
 function clearBody(entry: StreamEntry): string {

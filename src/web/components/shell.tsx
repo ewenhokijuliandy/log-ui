@@ -1,22 +1,26 @@
 import type { ReactNode } from 'react'
 import { useStreams } from '../app/store.ts'
+import type { WorkspaceView } from '../app/ui.ts'
 import { useUi } from '../app/ui.ts'
 import type { Zone } from '../lib/format-time.ts'
 import { Icon } from './icons.tsx'
 import { PopoverPanel, usePopover } from './popover.tsx'
+import type { SheetName } from './sheets-model.ts'
 
-export type SheetName = 'settings' | 'help' | 'manual' | null
+export type { SheetName }
 
 export function Rail({
   openSheet,
   toggleTheme,
   onStreams,
+  onMerge,
   onDetail,
   onCompare,
   onPretty,
   detailOpen,
+  workspaceView,
 }: RailProps) {
-  const streamsOpen = useUi((state) => state.screen === 'stream')
+  const streamsOpen = workspaceView === 'stream'
   return (
     <aside className="rail" aria-label="Workspace">
       <span className="rail-mark">
@@ -36,6 +40,17 @@ export function Rail({
       <button
         className="rail-btn"
         type="button"
+        aria-current={workspaceView === 'merge' ? 'page' : undefined}
+        title="Merge log"
+        aria-label="Merge log"
+        onClick={onMerge}
+      >
+        <Icon name="merge" />
+        <span className="rail-label">Merge</span>
+      </button>
+      <button
+        className="rail-btn"
+        type="button"
         title="Line detail"
         aria-label="Line detail"
         aria-pressed={detailOpen}
@@ -49,6 +64,7 @@ export function Rail({
         type="button"
         title="Compare JSON"
         aria-label="Compare JSON"
+        aria-current={workspaceView === 'compare' ? 'page' : undefined}
         onClick={onCompare}
       >
         <Icon name="diff" />
@@ -59,6 +75,7 @@ export function Rail({
         type="button"
         title="Pretty JSON"
         aria-label="Pretty JSON"
+        aria-current={workspaceView === 'prettify' ? 'page' : undefined}
         onClick={onPretty}
       >
         <Icon name="prettify" />
@@ -116,10 +133,12 @@ export type RailProps = {
   openSheet: (sheet: Exclude<SheetName, null> | null) => void
   toggleTheme: () => void
   onStreams: () => void
+  onMerge: () => void
   onDetail: () => void
   onCompare: () => void
   onPretty: () => void
   detailOpen: boolean
+  workspaceView: WorkspaceView
 }
 
 function ThemeGlyph() {
@@ -127,7 +146,13 @@ function ThemeGlyph() {
   return <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
 }
 
-export function TopBar({ openSheet, toggleTheme, onExport, onSimulateLoss }: TopBarProps) {
+export function TopBar({
+  openSheet,
+  toggleTheme,
+  onExport,
+  onSimulateLoss,
+  exportDisabled = false,
+}: TopBarProps) {
   const manual = usePopover()
   const connection = usePopover()
   const phase = useStreams((state) => (state.simulatedLost ? 'reconnecting' : state.connection))
@@ -181,6 +206,8 @@ export function TopBar({ openSheet, toggleTheme, onExport, onSimulateLoss }: Top
           aria-label="Export"
           aria-haspopup="menu"
           aria-expanded={manual.open}
+          disabled={exportDisabled}
+          title={exportDisabled ? 'Export applies to log views' : undefined}
           onClick={() => manual.setOpen(!manual.open)}
         >
           <Icon name="download" />
@@ -209,6 +236,7 @@ export type TopBarProps = {
   toggleTheme: () => void
   onExport: ReactNode
   onSimulateLoss: () => void
+  exportDisabled?: boolean
 }
 
 function phaseLabel(phase: string): string {

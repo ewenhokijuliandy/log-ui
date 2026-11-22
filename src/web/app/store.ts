@@ -65,6 +65,7 @@ type StoreActions = {
   setPaused: (id: string, paused: boolean) => void
   renameStream: (id: string, name: string) => Promise<RenameResult>
   closeStream: (id: string) => Promise<void>
+  closeAllStreams: () => Promise<void>
   clearStream: (id: string) => Promise<void>
 }
 
@@ -247,11 +248,33 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
       })
       return
     }
-    try {
-      await deleteStream(id)
-    } catch {
-      set({ lastError: 'Could not close this stream.' })
-    }
+    const outcome = await deleteStream(id)
+    if (!outcome.ok) set({ lastError: outcome.error })
+  },
+
+  closeAllStreams: async () => {
+    const entries = get().streams
+    if (entries.length === 0) return
+    const manualIds = entries.filter((entry) => entry.kind === 'manual').map((entry) => entry.id)
+    const pipeIds = entries.filter((entry) => entry.kind === 'pipe').map((entry) => entry.id)
+    const results = await Promise.allSettled(pipeIds.map((id) => deleteStream(id)))
+    const failed = pipeIds.filter((_, index) => {
+      const result = results[index]
+      if (result === undefined) return true
+      if (result.status === 'rejected') return true
+      return !result.value.ok
+    })
+    const closed = new Set([...manualIds, ...pipeIds.filter((id) => !failed.includes(id))])
+    set((state) => {
+      const next = state.streams.filter((entry) => !closed.has(entry.id))
+      saveTabOrder(next.map((item) => item.id))
+      return {
+        streams: next,
+        activeId: closed.has(state.activeId ?? '') ? (next[0]?.id ?? null) : state.activeId,
+        cleared: state.cleared.filter((item) => !closed.has(item)),
+        lastError: failed.length === 0 ? null : 'Could not close every stream.',
+      }
+    })
   },
 
   clearStream: async (id) => {

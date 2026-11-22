@@ -47,8 +47,19 @@ export async function patchStreamName(id: string, name: string): Promise<RenameO
   }
 }
 
-export async function deleteStream(id: string): Promise<void> {
-  await fetch(joinPath(`/api/streams/${id}`), { method: 'DELETE' })
+export type DeleteOutcome = { ok: true } | { ok: false; error: string }
+
+export async function deleteStream(id: string): Promise<DeleteOutcome> {
+  try {
+    const response = await fetch(joinPath(`/api/streams/${id}`), {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (!response.ok) return { ok: false, error: 'Could not close this stream.' }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Could not close this stream.' }
+  }
 }
 
 export async function clearStreamBuffer(id: string): Promise<void> {

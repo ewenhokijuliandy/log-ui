@@ -32,6 +32,7 @@ const SPRITE_SYMBOLS: readonly string[] = [
   'more',
   'diff',
   'prettify',
+  'merge',
   'caret',
 ]
 
@@ -385,6 +386,25 @@ export function Sprite() {
         <circle cx="3.2" cy="8" r="1" fill="currentColor" />
         <circle cx="8" cy="8" r="1" fill="currentColor" />
         <circle cx="12.8" cy="8" r="1" fill="currentColor" />
+      </symbol>
+      <symbol id="i-merge" viewBox="0 0 16 16">
+        <path
+          d="M3 3v3.2c0 1.6 1.3 2.9 2.9 2.9h4.2c1.6 0 2.9 1.3 2.9 2.9V13"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <path
+          d="M13 3v3.2c0 1.6-1.3 2.9-2.9 2.9H5.9C4.3 9.1 3 10.4 3 12V13"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          opacity=".55"
+        />
       </symbol>
       <symbol id="i-caret" viewBox="0 0 10 6">
         <path

@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useUi } from '../app/ui.ts'
 import { type PrettifyIndent, prettifyJsonText } from '../lib/json-format.ts'
 import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
-import { DialogFrame, Segment } from './dialog-frame.tsx'
+import { Segment } from './dialog-frame.tsx'
+import { ToolView } from './tool-view.tsx'
 
 const SAMPLE =
   '{"order_id":"ord_8841","status":"pending","amount":128.4,"items":[{"sku":"SKU-4471","qty":2}]}'
 
-export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function PrettyView({ onBack }: { onBack: () => void }) {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
@@ -14,6 +16,11 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
   const [mode, setMode] = useState<'pretty' | 'minify'>('pretty')
   const [sortKeys, setSortKeys] = useState(false)
   const { copied, copy } = useCopyFeedback()
+  const setPrettyStats = useUi((state) => state.setPrettyStats)
+
+  useEffect(() => {
+    setPrettyStats({ lines: output === '' ? 0 : output.split('\n').length })
+  }, [output, setPrettyStats])
 
   function options(pretty: boolean, spaces: PrettifyIndent, sorted: boolean) {
     return { indent: spaces, minify: !pretty, sortKeys: sorted }
@@ -67,9 +74,22 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
   }
 
   return (
-    <DialogFrame open={open} className="prettify-dialog" label="Prettify JSON" onClose={onClose}>
-      <h2>Prettify JSON</h2>
-      <p>Paste messy JSON, then copy it back formatted.</p>
+    <ToolView
+      title="Pretty JSON"
+      description="Paste messy JSON, then copy it back formatted. Parsed in this browser."
+      onBack={onBack}
+      actions={
+        <Segment
+          label="Format"
+          value={mode}
+          options={[
+            { value: 'pretty', label: 'Pretty' },
+            { value: 'minify', label: 'Minify' },
+          ]}
+          onChange={changeMode}
+        />
+      }
+    >
       <div className="prettify-grid">
         <label className="field">
           <span className="field-label">JSON in</span>
@@ -97,18 +117,6 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
       <p className="prettify-note">Up to 1 MB · parsed in this browser.</p>
       <div className="prettify-footer">
         <div className="prettify-tools">
-          <div className="prettify-indent">
-            <span>Format</span>
-            <Segment
-              label="Format"
-              value={mode}
-              options={[
-                { value: 'pretty', label: 'Pretty' },
-                { value: 'minify', label: 'Minify' },
-              ]}
-              onChange={changeMode}
-            />
-          </div>
           {mode === 'pretty' ? (
             <div className="prettify-indent">
               <span>Indent</span>
@@ -152,6 +160,6 @@ export function PrettifyDialog({ open, onClose }: { open: boolean; onClose: () =
           </button>
         </div>
       </div>
-    </DialogFrame>
+    </ToolView>
   )
 }

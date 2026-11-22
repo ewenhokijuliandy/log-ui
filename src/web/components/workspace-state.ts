@@ -13,7 +13,7 @@ import {
   saveInspectorWidth,
 } from '../app/prefs.ts'
 import { levelCountTotal, reconnectNow, useStreams } from '../app/store.ts'
-import { useUi } from '../app/ui.ts'
+import { useUi, type WorkspaceView } from '../app/ui.ts'
 import { useKeyboardShortcuts } from '../app/use-keyboard-shortcuts.ts'
 import { usePrefsEffects } from '../app/use-prefs-effects.ts'
 import { usePresetActions } from '../app/use-preset-actions.ts'
@@ -49,6 +49,7 @@ export type { PdfState, SheetName }
 export type Workspace = {
   zeroStreams: boolean
   bufferCap: number
+  onBackToLogs: () => void
   stream: {
     data: StreamData
     actions: StreamActions
@@ -66,10 +67,12 @@ export type Workspace = {
     openSheet: (target: SheetName) => void
     toggleTheme: () => void
     onStreams: () => void
+    onMerge: () => void
     onDetail: () => void
     onCompare: () => void
     onPretty: () => void
     detailOpen: boolean
+    workspaceView: WorkspaceView
   }
   topBar: {
     openSheet: (target: SheetName) => void
@@ -79,6 +82,8 @@ export type Workspace = {
   tabs: {
     onQuickStart: () => void
     onCloseTab: (id: string) => void
+    onCloseAll: () => void
+    toolViewActive: boolean
   }
   empty: {
     error: string | null
@@ -106,12 +111,15 @@ export function useWorkspace(): Workspace {
   const addManual = useStreams((state) => state.addManual)
   const setPaused = useStreams((state) => state.setPaused)
   const closeStream = useStreams((state) => state.closeStream)
+  const closeAllStreams = useStreams((state) => state.closeAllStreams)
   const clearStream = useStreams((state) => state.clearStream)
   const cleared = useStreams((state) => state.cleared)
   const bufferCap = useStreams((state) => state.bufferCap)
 
   const screen = useUi((state) => state.screen)
   const setScreen = useUi((state) => state.setScreen)
+  const workspaceView = useUi((state) => state.workspaceView)
+  const setWorkspaceView = useUi((state) => state.setWorkspaceView)
   const isolateTrace = useUi((state) => state.isolateTrace)
   const setIsolate = useUi((state) => state.setIsolate)
   const select = useUi((state) => state.select)
@@ -128,6 +136,7 @@ export function useWorkspace(): Workspace {
   const [rules, setRules] = useState<ParseRules>(() => loadParseRules())
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [closeTarget, setCloseTarget] = useState<string | null>(null)
+  const [closeAllOpen, setCloseAllOpen] = useState(false)
   const [pdfState, setPdfState] = useState<PdfState | null>(null)
   const [inspectorWidth, setInspectorWidth] = useState(
     () => loadInspectorWidth() ?? defaultInspectorWidth(),
@@ -340,18 +349,30 @@ export function useWorkspace(): Workspace {
     connected: connection === 'connected' && !simulatedLost,
     onQuickManual: () => {
       setScreen('stream')
+      setWorkspaceView('stream')
       setSheet('manual')
     },
     onQuickHelp: () => {
       setScreen('stream')
+      setWorkspaceView('stream')
       setSheet('help')
     },
-    onQuickClose: () => setScreen('stream'),
+    onQuickClose: () => {
+      setScreen('stream')
+      setWorkspaceView('stream')
+    },
     detail:
       showDetailSheet && selectedRecord !== null
-        ? { record: selectedRecord, zone: prefs.zone }
+        ? { record: selectedRecord, zone: prefs.zone, source: null }
         : null,
     onCloseDetail: () => setInspectorOpen(false),
+    closeAllOpen,
+    closeAllStreams: streams,
+    onConfirmCloseAll: () => {
+      setCloseAllOpen(false)
+      void closeAllStreams()
+    },
+    onCancelCloseAll: () => setCloseAllOpen(false),
     clearTarget: clearEntry,
     onConfirmClear: confirmClear,
     onCancelClear: () => setClearTarget(null),
@@ -374,6 +395,7 @@ export function useWorkspace(): Workspace {
       addManual(records, totalLinesParsed)
       setInspectorOpen(false)
       setScreen('stream')
+      setWorkspaceView('stream')
     },
     pdfState,
     onClosePdf: () => setPdfState(null),
@@ -382,6 +404,7 @@ export function useWorkspace(): Workspace {
   return {
     zeroStreams,
     bufferCap,
+    onBackToLogs: () => setWorkspaceView('stream'),
     stream: { data, actions, filter, sort, prefs, presets },
     exportMenu: {
       count: visible.length,
@@ -397,11 +420,13 @@ export function useWorkspace(): Workspace {
     rail: {
       openSheet: setSheet,
       toggleTheme,
-      onStreams: () => setScreen('stream'),
+      onStreams: () => setWorkspaceView('stream'),
+      onMerge: () => setWorkspaceView('merge'),
       onDetail: toggleDetail,
-      onCompare: () => setSheet('compare'),
-      onPretty: () => setSheet('prettify'),
+      onCompare: () => setWorkspaceView('compare'),
+      onPretty: () => setWorkspaceView('prettify'),
       detailOpen: inspectorOpen && selectedRecord !== null,
+      workspaceView,
     },
     topBar: {
       openSheet: setSheet,
@@ -411,6 +436,8 @@ export function useWorkspace(): Workspace {
     tabs: {
       onQuickStart: () => setScreen('quick'),
       onCloseTab: setCloseTarget,
+      onCloseAll: () => setCloseAllOpen(true),
+      toolViewActive: workspaceView !== 'stream',
     },
     empty: {
       error: bootError,
