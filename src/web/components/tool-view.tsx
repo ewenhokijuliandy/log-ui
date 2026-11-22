@@ -4,11 +4,13 @@ export function ToolView({
   title,
   description,
   actions,
+  flush = false,
   children,
 }: {
   title: string
   description: string
   actions?: ReactNode
+  flush?: boolean
   children: ReactNode
 }) {
   return (
@@ -22,7 +24,7 @@ export function ToolView({
           {actions === undefined ? null : <div className="tool-view-actions">{actions}</div>}
         </div>
       </header>
-      <div className="tool-view-body">{children}</div>
+      <div className={`tool-view-body${flush ? ' tool-view-body-flush' : ''}`}>{children}</div>
     </section>
   )
 }

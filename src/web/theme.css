@@ -2719,7 +2719,7 @@ dialog.quick-dialog {
   flex: none;
   flex-wrap: wrap;
   row-gap: 6px;
-  padding-bottom: 10px;
+  padding: 14px var(--pad) 10px;
 }
 
 .merge-chips-label {
@@ -3139,6 +3139,10 @@ dialog.quick-dialog {
   display: flex;
   flex-direction: column;
   padding: 14px var(--pad) 0;
+}
+
+.tool-view-body-flush {
+  padding: 0;
 }
 
 .diff-panes {

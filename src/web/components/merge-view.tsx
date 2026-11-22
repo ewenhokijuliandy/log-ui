@@ -114,6 +114,7 @@ export function MergeView() {
     <ToolView
       title="Merge log"
       description="Two streams on one timeline. Each row names the stream it came from."
+      flush
       actions={
         <button className="btn" type="button" onClick={() => setSelectorOpen(true)}>
           {selectedIds.length === 0 ? 'Select streams' : `${String(selectedIds.length)} streams`}
