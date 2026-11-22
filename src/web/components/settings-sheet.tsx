@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useAppInfo } from '../app/app-info.ts'
 import { formatNumber } from '../lib/format-time.ts'
+import { formatUptime } from '../lib/format-uptime.ts'
 import { DialogFrame, Segment } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
 
@@ -31,6 +33,10 @@ export function SettingsSheet({
   port: string
   bufferCap: number
 }) {
+  const version = useAppInfo((state) => state.version)
+  const pid = useAppInfo((state) => state.pid)
+  const startedAt = useAppInfo((state) => state.startedAt)
+  const loaded = useAppInfo((state) => state.loaded)
   const [draft, setDraft] = useState(prefs)
   const [capChoice, setCapChoice] = useState(String(bufferCap))
   const [customCap, setCustomCap] = useState(String(bufferCap))
@@ -190,6 +196,16 @@ export function SettingsSheet({
       )}
       <div className="setting-row">
         <div className="setting-copy">
+          <div className="name">Version</div>
+          <div className="desc">The daemon serving this workspace.</div>
+        </div>
+        <div className="version-readout">
+          {versionState(loaded, version)}
+          <span className="version-sub">{daemonState(loaded, pid, startedAt)}</span>
+        </div>
+      </div>
+      <div className="setting-row">
+        <div className="setting-copy">
           <div className="name">Daemon port</div>
           <div className="desc">Set with logdeck --port when the daemon starts.</div>
         </div>
@@ -205,4 +221,16 @@ export function SettingsSheet({
       </div>
     </DialogFrame>
   )
+}
+
+function versionState(loaded: boolean, version: string | null): string {
+  if (!loaded) return 'Checking…'
+  if (version === null) return 'Unavailable'
+  return `logdeck ${version}`
+}
+
+function daemonState(loaded: boolean, pid: number | null, startedAt: number | null): string {
+  if (!loaded) return 'Reading daemon info'
+  if (pid === null || startedAt === null) return 'Daemon unreachable'
+  return `pid ${String(pid)} · up ${formatUptime(startedAt, Date.now())}`
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { countLevels, emptyLevelCounts } from '../../shared/levels.ts'
 import { isDefaultParseRules, type ParseRules } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
+import { useAppInfo } from '../app/app-info.ts'
 import { type Prefs, resolveTheme } from '../app/prefs.ts'
 import { openSocket, type StreamEntry, useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
@@ -46,6 +47,7 @@ export function useBootEffect(): void {
   useEffect(() => {
     openSocket()
     void useStreams.getState().boot()
+    void useAppInfo.getState().loadAppInfo()
   }, [])
 }
 

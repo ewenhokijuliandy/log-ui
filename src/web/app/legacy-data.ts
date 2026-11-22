@@ -27,9 +27,26 @@ export const MANUAL_SAMPLE: string = [
 
 export const SHORTCUTS: ReadonlyArray<{ keys: string; label: string }> = [
   { keys: '/', label: 'Focus the search field' },
-  { keys: 'Esc', label: 'Clear the search, or close a sheet' },
+  { keys: '⌘K / Ctrl+K', label: 'Find a stream tab by name' },
+  { keys: 'Esc', label: 'Clear the search, close a sheet, or return to the logs' },
   { keys: 'j / k', label: 'Move down and up the visible rows' },
   { keys: 'Enter', label: 'Open the selected row in the inspector' },
   { keys: 't', label: 'Switch between dark and light' },
   { keys: '?', label: 'Open this shortcut list' },
+  { keys: 'F2', label: 'Rename the active tab' },
+]
+
+export const CLI_FLAGS: ReadonlyArray<{ flag: string; label: string }> = [
+  { flag: '--port <number>', label: 'daemon port (default 3333)' },
+  { flag: '--name <name>', label: 'tab name for the piped stream' },
+  { flag: '--buffer-cap <n>', label: 'initial buffer limit, 1,000–50,000' },
+  { flag: '--idle-timeout <min>', label: 'idle shutdown; 0 disables (default 5)' },
+  { flag: '--quiet', label: 'suppress CLI status messages' },
+]
+
+export const LEVEL_FILTER_TIPS: ReadonlyArray<string> = [
+  'Click a segment to solo that level. Click it again to return to All levels.',
+  '⌘-click or Shift-click adds a level to the selection.',
+  'Esc resets to All. Arrow keys move between segments.',
+  'Error includes fatal; Debug includes trace. Counts cover the whole buffer, not the filtered view.',
 ]
