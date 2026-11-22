@@ -5,7 +5,7 @@ import { loadParseRules } from '../app/parse-rules.ts'
 import { useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
 import { DEFAULT_FILTER, DEFAULT_SORT, type FilterState, type SortKey } from '../lib/filters.ts'
-import { formatNumber } from '../lib/format-time.ts'
+import { formatNumber, formatTime } from '../lib/format-time.ts'
 import {
   type MergedRow,
   mergedExportText,
@@ -72,6 +72,14 @@ export function MergeView({ onBack }: { onBack: () => void }) {
     () => merged.rows.find((row) => row.key === selectedMergedKey) ?? null,
     [merged.rows, selectedMergedKey],
   )
+
+  useEffect(() => {
+    if (merged.rows.length === 0) return
+    if (selectedRow !== null) return
+    const newest = merged.rows[merged.rows.length - 1]
+    if (newest === undefined) return
+    selectMerged(newest.key)
+  }, [merged.rows, selectedRow, selectMerged])
 
   const chipCounts = {
     error: counts.fatal + counts.error,
@@ -258,7 +266,7 @@ function MergedRowView({
       }}
     >
       <span className="seq">{formatNumber(record.seq)}</span>
-      <span className="time">{record.ts === null ? '-' : new Date(record.ts).toISOString()}</span>
+      <span className="time">{formatTime(record.ts, 'utc')}</span>
       <span className="source">
         <span className="dot" />
         {row.streamName}

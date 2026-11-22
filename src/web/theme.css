@@ -2781,7 +2781,7 @@ dialog.quick-dialog {
 .merge-head,
 .merge-row {
   display: grid;
-  grid-template-columns: 42px 92px 140px 72px minmax(0, 1fr);
+  grid-template-columns: 42px 96px 140px 72px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 0 var(--pad) 0 calc(var(--pad) + 4px);
@@ -2823,9 +2823,12 @@ dialog.quick-dialog {
 }
 
 .merge-row .time {
+  overflow: hidden;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: var(--fs-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .merge-row .source {
