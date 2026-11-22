@@ -306,13 +306,14 @@ pretty-printed JSON.
 **Decision.** Merge is a client-side view over existing streams. No new server
 route, no new persistence.
 
-- **Selection of streams.** 2–8 streams, chosen from existing tabs. One merged
-  view at a time; changing the selection replaces it. The selection is
-  session-only (not `localStorage`); a reload resets it. Stale IDs are pruned on
-  boot/reconnect. The 8-stream cap is a measured budget, not a product limit:
-  the row cap already bounds output, so the cap exists only to keep the merge
-  sort inside the frame budget. D-11 must design the disabled 9th-stream state
-  with the reason shown ("8 streams is the merge limit").
+- **Selection of streams.** Any number of streams (at least two), chosen from
+  existing tabs. One merged view at a time; changing the selection replaces it.
+  The selection is session-only (not `localStorage`); a reload resets it. Stale
+  IDs are pruned on boot/reconnect. **There is no stream-count limit** — the
+  buffer cap already bounds the output, and the merge sorts the selected
+  streams' records before slicing to that cap. Measured cost of the sort alone:
+  2 streams × 10k = 2.8 ms, 8 × 10k = 12.9 ms, 32 × 10k = 47 ms, 64 × 10k =
+  117 ms, so the practical ceiling is the browser, not an arbitrary number.
 - **Row model.**
 
   ```ts
@@ -395,9 +396,9 @@ route, no new persistence.
 - **Performance.** Memoize the merge on the selected entries' `records` and
   `rules`. Gate: `src/web/lib/merged-timeline.bench.test.ts` builds 8 × 10,000
   synthetic `LogRecord`s with interleaved timestamps, runs `mergeStreamRecords`
-  20 times, and asserts the median under 50 ms via `performance.now()`. If the
-  median exceeds 50 ms, **cap the selection at 4 streams and re-measure**; do
-  not add a k-way merge in v1.3.
+  20 times, and asserts the median under 50 ms via `performance.now()`. No
+  stream-count cap is imposed; if a very large selection ever feels slow, the
+  fix is a k-way merge, not a limit.
 - **Row rendering.** `logs.tsx` exports `LogList` with a
   `variant: 'stream' | 'merged'` prop rather than a second component.
   `getItemKey` becomes a required `getKey: (row) => string` prop, because the
@@ -448,7 +449,7 @@ route, no new persistence.
 | Independent merge filter/sort | Share the stream view's `filter`/`sort` | Filtering the merge would silently filter the stream view, and the two views have different search haystacks |
 | `--cols-merged` token | Change `--cols` | `--cols` is consumed by six-child rows; a seven-track value breaks the stream view |
 | `LogList` variant prop | Separate merged-list component | Duplicates the virtualizer, banners, header, and empty state; the variant keeps one code path |
-| 8-stream cap | No cap | Unbounded sort cost; the cap is measured, and the limit state is designed |
+| No stream cap | 8-stream cap | The buffer cap already bounds output; measured sort cost stays under 50 ms well past 8 streams |
 
 ### 4.4 App info (V13-06, V13-07)
 
@@ -879,8 +880,8 @@ inspector are all per active stream.
 
 - Rail item **Merge** directly below **Streams**.
 - Full-workspace view (no tab), like Compare/Pretty.
-- Select 2–8 existing streams; one merged view at a time; changing the
-  selection replaces it.
+- Select any number of existing streams (at least two); one merged view at a
+  time; changing the selection replaces it.
 - Merged table adds a **source** column between time and level.
 - Same features as the stream view: search, level bar, range, sort, pause,
   wrap, autoscroll, signal strip, inspector, trace isolation, export.
@@ -923,7 +924,7 @@ inspector are all per active stream.
 - [ ] Merge sits directly below Streams in the rail and is active while the
       view is open.
 - [ ] The selector lists existing streams with search, status, and line count;
-      selecting 2–8 updates the merged view; the 9th is disabled with a reason.
+      any number can be selected and updates the merged view.
 - [ ] The merged table shows the source column between time and level; names
       truncate with a title.
 - [ ] Rows are ordered by timestamp (nulls last), tie-broken by stream order
@@ -1151,8 +1152,9 @@ with two accepted deviations and three additions now folded into the plan.**
 1. **`focus-on-route-change`** — the plan already focuses the tool-view heading
    on open; this is now an explicit acceptance criterion rather than an
    implementation note.
-2. **`empty-nav-state`** — the merge selector's disabled 9th stream and the
-   zero-stream tool views now explain why instead of silently hiding.
+2. **`empty-nav-state`** — the zero-stream tool views and the merge view's
+   "select at least two streams" state explain why instead of silently
+   showing nothing.
 3. **`color-only`** — every diff row carries a gutter arrow (`→`/`←`/`↔`) and a
    sign in addition to its tint, so the diff is readable without color.
 
@@ -1218,8 +1220,7 @@ and level**, exactly as requested. Rows interleave both streams by timestamp;
 the selected row carries the accent left edge. Mobile (390) puts the source in a
 chip after the level on the first row and the message on the second, with a
 `More` overflow in the bottom bar instead of an 8th item. Selector popover:
-search, checkbox rows, the 9th stream disabled, `8 streams is the merge limit`,
-`Merge 2` primary.
+search, checkbox rows, `N selected`, `Merge N` primary.
 
 **Settings (12776).** Version row: `logdeck 1.3.0` with `pid 4821 · up 2h 14m`
 beneath, above the existing Daemon port row.
@@ -1252,7 +1253,7 @@ user can confirm or override at design review.
 | --- | --- | --- | --- |
 | 1 | Compare input vs. diff layout | `Input \| Diff` segmented control; Compare switches to Diff; Edit returns | Keeps the reference's full-width panes without cramming textareas above the diff |
 | 2 | Mobile diff | Unified single-column at ≤720 px | Side-by-side is unreadable at 390 px |
-| 3 | Merge stream limit | 2–8 streams; merged rows capped at the buffer limit | Bounds sort time; the user's example is two. The 9th-stream state is designed, not silent |
+| 3 | Merge stream limit | No limit; merged rows capped at the buffer limit | The buffer cap already bounds output; a stream cap was an invented constraint |
 | 4 | Merge ordering | Timestamp ascending, nulls last, tie-break stream order then seq | Deterministic "one timeline"; newest-first reverses |
 | 5 | Merge export | TXT `[source] raw`; PDF source prefix; no clear-buffer in merge | Keeps the source visible; destructive clear stays per stream |
 | 6 | Tab finder entry | Magnifier in the tab strip + `Cmd/Ctrl+K`; popover desktop, dialog mobile | Fast, discoverable, and does not reorder tabs |
