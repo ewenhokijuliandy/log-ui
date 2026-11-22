@@ -113,7 +113,7 @@ export function MergeView() {
   return (
     <ToolView
       title="Merge log"
-      description="Two streams on one timeline. Each row names the stream it came from."
+      description="Selected streams on one timeline. Each row names the stream it came from."
       flush
       actions={
         <button className="btn" type="button" onClick={() => setSelectorOpen(true)}>
