@@ -127,7 +127,7 @@ export function MergeView({ onBack }: { onBack: () => void }) {
           entry === undefined ? null : (
             <span className="merge-chip" key={entry.id}>
               <span className="dot" />
-              {entry.name}
+              <span className="merge-chip-name">{entry.name}</span>
               <button
                 type="button"
                 aria-label={`Remove ${entry.name} from the merge`}

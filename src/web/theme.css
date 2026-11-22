@@ -3520,6 +3520,90 @@ dialog.quick-dialog {
   }
 }
 
+@media (max-width: 960px) {
+  .merge-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .merge-shell .inspector {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .merge-chips {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .merge-chip {
+    max-width: 150px;
+  }
+
+  .merge-chip .merge-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .merge-toolbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .merge-toolbar .search {
+    width: 100%;
+  }
+
+  .merge-head {
+    display: none;
+  }
+
+  .merge-row {
+    grid-template-columns: 88px 72px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 2px;
+    align-items: start;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    padding-right: 16px;
+  }
+
+  .merge-row .seq {
+    display: none;
+  }
+
+  .merge-row .time {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .merge-row .level {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .merge-row .source {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .merge-row .msg {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .tab-tool-count {
+    display: none;
+  }
+
+  .tab-tool {
+    padding: 0 5px;
+  }
+}
+
 @media (max-width: 720px) {
   .diff-heads {
     grid-template-columns: 1fr;
