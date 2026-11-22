@@ -3162,25 +3162,11 @@ dialog.quick-dialog {
   padding: 14px var(--pad) 0;
 }
 
-.tool-view-back {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--faint);
-  font-size: var(--fs-small);
-  transition: color 140ms ease;
-}
-
-.tool-view-back:hover {
-  color: var(--text);
-}
-
 .tool-view-title-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 10px;
 }
 
 .tool-view-title {
@@ -3419,14 +3405,48 @@ dialog.quick-dialog {
   gap: 12px;
 }
 
-.diff-inputs .field {
-  margin-top: 0;
+.diff-input-card {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+  background: var(--raised);
 }
 
-.diff-inputs textarea.paste {
-  height: 100%;
+.diff-textarea {
+  flex: 1;
+  width: 100%;
   min-height: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  resize: none;
+}
+
+.diff-textarea::placeholder {
+  color: var(--faint);
+}
+
+.diff-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.diff-input-error {
+  flex: none;
+  margin: 0;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--pill-neg-bg);
+  color: var(--pill-neg-ink);
+  font-size: var(--fs-meta);
 }
 
 .prettify-grid {
@@ -3610,7 +3630,7 @@ dialog.quick-dialog {
     gap: 0;
   }
 
-  .diff-head.right-head {
+  .diff-panes .diff-head.right-head {
     display: none;
   }
 
@@ -3632,6 +3652,24 @@ dialog.quick-dialog {
     grid-template-columns: 1fr;
   }
 
+  .diff-input-card {
+    min-height: 200px;
+  }
+
+  .diff-panes-input .diff-heads {
+    display: none;
+  }
+
+  .diff-input-card::before {
+    content: attr(data-side);
+    display: block;
+    margin-bottom: 8px;
+    color: var(--faint);
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
   .diff-summary {
     flex-wrap: wrap;
     height: auto;
@@ -3641,6 +3679,31 @@ dialog.quick-dialog {
 
   .diff-actions {
     flex-wrap: wrap;
+    row-gap: 8px;
+    padding-bottom: 16px;
+  }
+
+  .diff-actions .spacer {
+    display: none;
+  }
+
+  .diff-actions .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .diff-actions .btn.primary {
+    flex: 1 0 100%;
+    order: 10;
+  }
+
+  .diff-summary {
+    gap: 10px;
+  }
+
+  .diff-summary .spacer {
+    display: none;
   }
 
   .tool-view-title-row {

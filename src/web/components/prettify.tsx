@@ -8,7 +8,7 @@ import { ToolView } from './tool-view.tsx'
 const SAMPLE =
   '{"order_id":"ord_8841","status":"pending","amount":128.4,"items":[{"sku":"SKU-4471","qty":2}]}'
 
-export function PrettyView({ onBack }: { onBack: () => void }) {
+export function PrettyView() {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
@@ -77,7 +77,6 @@ export function PrettyView({ onBack }: { onBack: () => void }) {
     <ToolView
       title="Pretty JSON"
       description="Paste messy JSON, then copy it back formatted. Parsed in this browser."
-      onBack={onBack}
       actions={
         <Segment
           label="Format"

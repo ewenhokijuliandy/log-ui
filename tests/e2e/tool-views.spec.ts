@@ -60,7 +60,7 @@ test('tool view content survives a round trip to the logs', async ({ page }) => 
   await view.getByRole('button', { name: 'Load sample' }).click()
   await expect(view.locator('.diff-row')).toHaveCount(19)
 
-  await view.getByRole('button', { name: 'Back to logs' }).click()
+  await page.getByRole('button', { name: 'Streams', exact: true }).click()
   await expect(page.locator('.view-slot:not([hidden]) .log-panel')).toBeVisible()
 
   await page.getByRole('button', { name: 'Compare JSON' }).click()

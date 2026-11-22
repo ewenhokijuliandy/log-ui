@@ -81,7 +81,7 @@ function DiffRowView({ row }: { row: DiffRow }) {
   )
 }
 
-export function CompareView({ onBack }: { onBack: () => void }) {
+export function CompareView() {
   const [left, setLeft] = useState('')
   const [right, setRight] = useState('')
   const [leftError, setLeftError] = useState('')
@@ -201,37 +201,68 @@ export function CompareView({ onBack }: { onBack: () => void }) {
     <ToolView
       title="Compare JSON"
       description="Line-by-line. Key order is ignored; added, removed and changed lines are tinted."
-      onBack={onBack}
       actions={modeSwitch}
     >
       {mode === 'input' ? (
-        <div className="diff-inputs">
-          <label className="field">
-            <span className="field-label">A · before</span>
-            <textarea
-              className="paste"
-              placeholder='{"order_id": "ord_8841"}'
-              spellCheck={false}
-              value={left}
-              onChange={(event) => setLeft(event.target.value)}
-            />
-            <p className="guard" role={leftError.length > 0 ? 'alert' : undefined}>
-              {leftError}
-            </p>
-          </label>
-          <label className="field">
-            <span className="field-label">B · after</span>
-            <textarea
-              className="paste"
-              placeholder='{"order_id": "ord_8841"}'
-              spellCheck={false}
-              value={right}
-              onChange={(event) => setRight(event.target.value)}
-            />
-            <p className="guard" role={rightError.length > 0 ? 'alert' : undefined}>
-              {rightError}
-            </p>
-          </label>
+        <div className="diff-panes diff-panes-input">
+          <div className="diff-heads">
+            <div className="diff-head">
+              <span>LEFT · BEFORE</span>
+              <button
+                className="diff-head-copy"
+                type="button"
+                aria-label="Copy the left side"
+                title="Copy the left side"
+                onClick={() => void copy(left)}
+              >
+                <Icon name="copy" />
+              </button>
+            </div>
+            <div className="diff-head right-head">
+              <span>RIGHT · AFTER</span>
+              <button
+                className="diff-head-copy"
+                type="button"
+                aria-label="Copy the right side"
+                title="Copy the right side"
+                onClick={() => void copy(right)}
+              >
+                <Icon name="copy" />
+              </button>
+            </div>
+          </div>
+          <div className="diff-inputs">
+            <label className="diff-input-card" data-side="LEFT · BEFORE">
+              <textarea
+                className="diff-textarea"
+                aria-label="A · before"
+                placeholder='{"order_id": "ord_8841"}'
+                spellCheck={false}
+                value={left}
+                onChange={(event) => setLeft(event.target.value)}
+              />
+              {leftError.length === 0 ? null : (
+                <p className="diff-input-error" role="alert">
+                  {leftError}
+                </p>
+              )}
+            </label>
+            <label className="diff-input-card" data-side="RIGHT · AFTER">
+              <textarea
+                className="diff-textarea"
+                aria-label="B · after"
+                placeholder='{"order_id": "ord_8841"}'
+                spellCheck={false}
+                value={right}
+                onChange={(event) => setRight(event.target.value)}
+              />
+              {rightError.length === 0 ? null : (
+                <p className="diff-input-error" role="alert">
+                  {rightError}
+                </p>
+              )}
+            </label>
+          </div>
         </div>
       ) : (
         <div className="diff-panes">

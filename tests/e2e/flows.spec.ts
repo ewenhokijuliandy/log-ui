@@ -323,7 +323,7 @@ test('compare JSON reports differences as a line diff', async ({ page }) => {
   await expect(page.getByLabel('A · before')).toHaveValue(rightValue)
   await expect(page.getByLabel('B · after')).toHaveValue(leftValue)
 
-  await view.getByRole('button', { name: 'Back to logs' }).click()
+  await page.getByRole('button', { name: 'Streams', exact: true }).click()
   await expect(page.locator('.view-slot:not([hidden]) .log-panel')).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })

@@ -13,7 +13,6 @@ import { useWorkspace } from '../components/workspace-state.ts'
 export function App() {
   const workspace = useWorkspace()
   const view = workspace.rail.workspaceView
-  const onBack = workspace.onBackToLogs
   return (
     <>
       <Sprite />
@@ -42,13 +41,13 @@ export function App() {
               )}
             </div>
             <div hidden={view !== 'compare'} className="view-slot">
-              <CompareView onBack={onBack} />
+              <CompareView />
             </div>
             <div hidden={view !== 'prettify'} className="view-slot">
-              <PrettyView onBack={onBack} />
+              <PrettyView />
             </div>
             <div hidden={view !== 'merge'} className="view-slot">
-              <MergeView onBack={onBack} />
+              <MergeView />
             </div>
           </div>
           <Statusbar {...workspace.statusbar} />

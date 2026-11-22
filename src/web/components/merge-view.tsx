@@ -23,7 +23,7 @@ import { ToolView } from './tool-view.tsx'
 
 const MAX_STREAMS = 8
 
-export function MergeView({ onBack }: { onBack: () => void }) {
+export function MergeView() {
   const streams = useStreams((state) => state.streams)
   const bufferCap = useStreams((state) => state.bufferCap)
   const isolateTrace = useUi((state) => state.isolateTrace)
@@ -114,7 +114,6 @@ export function MergeView({ onBack }: { onBack: () => void }) {
     <ToolView
       title="Merge log"
       description="Two streams on one timeline. Each row names the stream it came from."
-      onBack={onBack}
       actions={
         <button className="btn" type="button" onClick={() => setSelectorOpen(true)}>
           {selectedIds.length === 0 ? 'Select streams' : `${String(selectedIds.length)} streams`}

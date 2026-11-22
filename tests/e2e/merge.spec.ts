@@ -66,7 +66,7 @@ test('merge combines two streams with a source column', async ({ page }) => {
   await view.locator('.merge-row').first().click()
   await expect(view.locator('.inspector')).toContainText('stream')
 
-  await view.getByRole('button', { name: 'Back to logs' }).click()
+  await page.getByRole('button', { name: 'Streams', exact: true }).click()
   await expect(page.locator('.view-slot:not([hidden]) .log-panel')).toBeVisible()
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
