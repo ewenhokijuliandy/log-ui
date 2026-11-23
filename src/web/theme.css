@@ -3499,7 +3499,7 @@ dialog.quick-dialog {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -3549,8 +3549,19 @@ dialog.quick-dialog {
 
 .diff-output {
   display: block;
+  flex: 1;
+  min-width: 0;
+  min-height: 240px;
   margin: 0;
+  padding: 10px 12px;
   overflow: auto;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
   white-space: pre;
 }
 
@@ -3658,7 +3669,7 @@ dialog.quick-dialog {
   }
 
   .diff-inputs {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
   }
 

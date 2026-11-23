@@ -133,19 +133,34 @@ describe('line diff', () => {
     expect(diffLines(['a', 'b'], []).map((row) => row.leftNo)).toEqual([1, 2])
   })
 
-  test('caps output rows at 2000 when the edit distance is exceeded', () => {
+  test('diffs every row of a 3000-line input without truncating', () => {
     const before = Array.from({ length: 3000 }, (_, index) => `left ${index}`)
     const after = Array.from({ length: 3000 }, (_, index) => `right ${index}`)
     const rows = diffLines(before, after)
-    expect(rows).toHaveLength(2000)
-    expect(rows.every((row) => row.kind === 'removed')).toBe(true)
+    expect(rows).toHaveLength(6000)
+    expect(rows.filter((row) => row.kind === 'removed')).toHaveLength(3000)
+    expect(rows.filter((row) => row.kind === 'added')).toHaveLength(3000)
+    expect(rows[rows.length - 1].rightNo).toBe(3000)
   })
 
-  test('caps output rows at 2000 for long identical input', () => {
+  test('keeps every identical row of a 3000-line input', () => {
     const lines = Array.from({ length: 3000 }, (_, index) => `line ${index}`)
     const rows = diffLines(lines, lines)
-    expect(rows).toHaveLength(2000)
+    expect(rows).toHaveLength(3000)
     expect(rows.every((row) => row.kind === 'same')).toBe(true)
+    expect(rows[rows.length - 1].leftNo).toBe(3000)
+  })
+
+  test('reports a single change in a 3000-line input at its real line number', () => {
+    const before = Array.from({ length: 3000 }, (_, index) => `  "key_${index}": ${index},`)
+    const after = [...before]
+    after[1500] = '  "changed": true,'
+    const rows = diffLines(before, after)
+    expect(rows).toHaveLength(3001)
+    const changed = rows.filter((row) => row.kind !== 'same')
+    expect(changed).toHaveLength(2)
+    expect(changed[0].leftNo).toBe(1501)
+    expect(changed[1].rightNo).toBe(1501)
   })
 
   test('matches the minimal edit distance and reconstructs both sides', () => {

@@ -16,8 +16,7 @@ type EditStep = {
   rightIndex: number
 }
 
-const MAX_EDIT_DISTANCE = 2000
-const MAX_ROWS = 2000
+const MAX_EDIT_DISTANCE = 4000
 
 export function prettyLines(value: unknown): string[] {
   return prettyJson(value).split('\n')
@@ -162,7 +161,6 @@ function appendSteps(
   offset: number,
 ): void {
   for (const step of steps) {
-    if (rows.length >= MAX_ROWS) return
     rows.push(rowFromStep(step, before, after, offset))
   }
 }
@@ -176,7 +174,6 @@ function appendSameRun(
   count: number,
 ): void {
   for (let index = 0; index < count; index += 1) {
-    if (rows.length >= MAX_ROWS) return
     rows.push({
       kind: 'same',
       leftNo: leftStart + index + 1,
@@ -197,7 +194,6 @@ function appendFallback(
   const leftEnd = before.length - suffix
   const rightEnd = after.length - suffix
   for (let index = prefix; index < leftEnd; index += 1) {
-    if (rows.length >= MAX_ROWS) return
     rows.push({
       kind: 'removed',
       leftNo: index + 1,
@@ -207,7 +203,6 @@ function appendFallback(
     })
   }
   for (let index = prefix; index < rightEnd; index += 1) {
-    if (rows.length >= MAX_ROWS) return
     rows.push({
       kind: 'added',
       leftNo: null,
@@ -223,7 +218,6 @@ export function diffLines(before: readonly string[], after: readonly string[]): 
   const prefix = commonPrefixLength(before, after)
   const suffix = commonSuffixLength(before, after, prefix)
   appendSameRun(rows, before, after, 0, 0, prefix)
-  if (rows.length >= MAX_ROWS) return rows
   const leftMiddle = before.slice(prefix, before.length - suffix)
   const rightMiddle = after.slice(prefix, after.length - suffix)
   const trace = buildTrace(leftMiddle, rightMiddle, MAX_EDIT_DISTANCE)
@@ -233,7 +227,6 @@ export function diffLines(before: readonly string[], after: readonly string[]): 
   }
   const steps = traceToSteps(trace, leftMiddle.length, rightMiddle.length)
   appendSteps(rows, steps, leftMiddle, rightMiddle, prefix)
-  if (rows.length >= MAX_ROWS) return rows
   appendSameRun(rows, before, after, before.length - suffix, after.length - suffix, suffix)
   return rows
 }

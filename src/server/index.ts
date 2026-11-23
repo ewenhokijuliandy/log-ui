@@ -60,7 +60,7 @@ export async function startServer(options: ServerOptions): Promise<StartedServer
     settings,
     health: {
       pid: process.pid,
-      version: readVersion(),
+      versionProvider: readVersion,
       startedAt: Date.now(),
       node: process.version,
       portProvider: () => port,

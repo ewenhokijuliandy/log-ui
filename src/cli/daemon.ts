@@ -53,12 +53,11 @@ export async function ensureDaemon(
   const existing = await probeHealth(port)
   if (existing !== null) {
     const ours = readVersion()
-    if (existing.version !== ours) {
-      process.stderr.write(
-        `logdeck: daemon on port ${port} is v${existing.version} while the CLI is v${ours} — run "logdeck stop" to refresh\n`,
-      )
-    }
-    return { health: existing, started: false }
+    if (existing.version === ours) return { health: existing, started: false }
+    process.stderr.write(
+      `logdeck: restarting the daemon on port ${port} (v${existing.version} -> v${ours})\n`,
+    )
+    await stopDaemon(port, DEFAULT_STATE_DIR).catch(() => undefined)
   }
 
   const daemonArgs = [cliScriptPath(), '__daemon', `--port=${String(port)}`]

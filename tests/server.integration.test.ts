@@ -193,9 +193,23 @@ describe('daemon server', () => {
     const info = JSON.parse(res.text) as Record<string, unknown>
     expect(info.ok).toBe(true)
     expect(info.pid).toBe(process.pid)
-    expect(info.version).toBe('1.3.0')
+    expect(info.version).toBe('1.3.1')
     expect(info.node).toBe(process.version)
     expect(info.port).toBe(server.port)
+  })
+
+  test('health resolves the version on every request, not at boot', async () => {
+    const server = await boot()
+    const first = JSON.parse((await fetchJson(server, '/api/health')).text) as Record<
+      string,
+      unknown
+    >
+    const second = JSON.parse((await fetchJson(server, '/api/health')).text) as Record<
+      string,
+      unknown
+    >
+    expect(first.version).toBe(second.version)
+    expect(first.version).toBe('1.3.1')
   })
 
   test('12k ingest yields 10k retained with dropped count and gap policy', async () => {
