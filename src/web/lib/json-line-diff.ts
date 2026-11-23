@@ -16,121 +16,173 @@ type EditStep = {
   rightIndex: number
 }
 
-const MAX_EDIT_DISTANCE = 4000
+type Snake = {
+  leftStart: number
+  rightStart: number
+  leftEnd: number
+  rightEnd: number
+}
 
 export function prettyLines(value: unknown): string[] {
   return prettyJson(value).split('\n')
 }
 
-function commonPrefixLength(before: readonly string[], after: readonly string[]): number {
-  const limit = Math.min(before.length, after.length)
-  let index = 0
-  while (index < limit && before[index] === after[index]) {
-    index += 1
-  }
-  return index
-}
-
-function commonSuffixLength(
+function findMiddleSnake(
   before: readonly string[],
   after: readonly string[],
-  prefix: number,
-): number {
-  const limit = Math.min(before.length, after.length) - prefix
-  let index = 0
-  while (index < limit && before[before.length - 1 - index] === after[after.length - 1 - index]) {
-    index += 1
-  }
-  return index
-}
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+): Snake {
+  const leftLength = leftEnd - leftStart
+  const rightLength = rightEnd - rightStart
+  const delta = leftLength - rightLength
+  const odd = (delta & 1) !== 0
+  const maxSteps = Math.ceil((leftLength + rightLength) / 2)
+  const offset = maxSteps + 1
+  const size = 2 * maxSteps + 3
+  const forward = new Int32Array(size).fill(-1)
+  const backward = new Int32Array(size).fill(-1)
+  forward[offset + 1] = 0
+  backward[offset + 1] = 0
 
-function buildTrace(
-  before: readonly string[],
-  after: readonly string[],
-  limit: number,
-): Int32Array[] | null {
-  const leftLength = before.length
-  const rightLength = after.length
-  const span = leftLength + rightLength
-  if (span === 0) return [new Int32Array(1)]
-  const offset = span
-  const furthest = new Int32Array(2 * span + 1)
-  const trace: Int32Array[] = []
-  const maxStep = Math.min(limit, span)
-  for (let step = 0; step <= maxStep; step += 1) {
-    trace.push(furthest.slice(offset - step, offset + step + 1))
+  for (let step = 0; step <= maxSteps; step += 1) {
     for (let diagonal = -step; diagonal <= step; diagonal += 2) {
-      const movesDown =
-        diagonal === -step ||
-        (diagonal !== step && furthest[offset + diagonal - 1] < furthest[offset + diagonal + 1])
-      const startX = movesDown
-        ? furthest[offset + diagonal + 1]
-        : furthest[offset + diagonal - 1] + 1
-      let x = startX
+      const index = offset + diagonal
+      const down =
+        diagonal === -step || (diagonal !== step && forward[index - 1] < forward[index + 1])
+      let x = down ? forward[index + 1] : forward[index - 1] + 1
       let y = x - diagonal
-      while (x < leftLength && y < rightLength && before[x] === after[y]) {
+      const snakeLeftStart = x
+      const snakeRightStart = y
+      while (x < leftLength && y < rightLength && before[leftStart + x] === after[rightStart + y]) {
         x += 1
         y += 1
       }
-      furthest[offset + diagonal] = x
-      if (x >= leftLength && y >= rightLength) return trace
-    }
-  }
-  return null
-}
-
-function traceToSteps(
-  trace: readonly Int32Array[],
-  leftLength: number,
-  rightLength: number,
-): EditStep[] {
-  const steps: EditStep[] = []
-  let x = leftLength
-  let y = rightLength
-  for (let step = trace.length - 1; step >= 0; step -= 1) {
-    if (step === 0) {
-      while (x > 0 && y > 0) {
-        x -= 1
-        y -= 1
-        steps.push({ kind: 'same', leftIndex: x, rightIndex: y })
+      forward[index] = x
+      if (!odd) continue
+      if (diagonal < delta - (step - 1)) continue
+      if (diagonal > delta + (step - 1)) continue
+      if (forward[index] + backward[offset + delta - diagonal] < leftLength) continue
+      return {
+        leftStart: leftStart + snakeLeftStart,
+        rightStart: rightStart + snakeRightStart,
+        leftEnd: leftStart + x,
+        rightEnd: rightStart + y,
       }
-      continue
     }
-    const slice = trace[step]
-    const diagonal = x - y
-    const movesDown =
-      diagonal === -step ||
-      (diagonal !== step && slice[diagonal - 1 + step] < slice[diagonal + 1 + step])
-    const previousDiagonal = movesDown ? diagonal + 1 : diagonal - 1
-    const previousX = slice[previousDiagonal + step]
-    const previousY = previousX - previousDiagonal
-    while (x > previousX && y > previousY) {
-      x -= 1
-      y -= 1
-      steps.push({ kind: 'same', leftIndex: x, rightIndex: y })
+
+    for (let diagonal = -step; diagonal <= step; diagonal += 2) {
+      const index = offset + diagonal
+      const down =
+        diagonal === -step || (diagonal !== step && backward[index - 1] < backward[index + 1])
+      let x = down ? backward[index + 1] : backward[index - 1] + 1
+      let y = x - diagonal
+      const snakeLeftEnd = x
+      const snakeRightEnd = y
+      while (
+        x < leftLength &&
+        y < rightLength &&
+        before[leftEnd - 1 - x] === after[rightEnd - 1 - y]
+      ) {
+        x += 1
+        y += 1
+      }
+      backward[index] = x
+      if (odd) continue
+      if (diagonal < delta - step) continue
+      if (diagonal > delta + step) continue
+      if (backward[index] + forward[offset + delta - diagonal] < leftLength) continue
+      return {
+        leftStart: leftEnd - x,
+        rightStart: rightEnd - y,
+        leftEnd: leftEnd - snakeLeftEnd,
+        rightEnd: rightEnd - snakeRightEnd,
+      }
     }
-    if (x === previousX) {
-      y -= 1
-      steps.push({ kind: 'added', leftIndex: -1, rightIndex: y })
-      continue
-    }
-    x -= 1
-    steps.push({ kind: 'removed', leftIndex: x, rightIndex: -1 })
   }
-  return steps.reverse()
+
+  throw new Error('middle snake not found')
 }
 
-function rowFromStep(
-  step: EditStep,
+function appendSuffix(steps: EditStep[], suffix: readonly EditStep[]): void {
+  for (let index = suffix.length - 1; index >= 0; index -= 1) {
+    steps.push(suffix[index])
+  }
+}
+
+function emitSteps(
   before: readonly string[],
   after: readonly string[],
-  offset: number,
-): DiffRow {
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+  steps: EditStep[],
+): void {
+  while (leftStart < leftEnd && rightStart < rightEnd && before[leftStart] === after[rightStart]) {
+    steps.push({ kind: 'same', leftIndex: leftStart, rightIndex: rightStart })
+    leftStart += 1
+    rightStart += 1
+  }
+
+  const suffix: EditStep[] = []
+  while (
+    leftStart < leftEnd &&
+    rightStart < rightEnd &&
+    before[leftEnd - 1] === after[rightEnd - 1]
+  ) {
+    leftEnd -= 1
+    rightEnd -= 1
+    suffix.push({ kind: 'same', leftIndex: leftEnd, rightIndex: rightEnd })
+  }
+
+  if (leftStart === leftEnd) {
+    for (let index = rightStart; index < rightEnd; index += 1) {
+      steps.push({ kind: 'added', leftIndex: -1, rightIndex: index })
+    }
+    appendSuffix(steps, suffix)
+    return
+  }
+
+  if (rightStart === rightEnd) {
+    for (let index = leftStart; index < leftEnd; index += 1) {
+      steps.push({ kind: 'removed', leftIndex: index, rightIndex: -1 })
+    }
+    appendSuffix(steps, suffix)
+    return
+  }
+
+  const snake = findMiddleSnake(before, after, leftStart, leftEnd, rightStart, rightEnd)
+  const progressed =
+    snake.leftStart > leftStart || snake.rightStart > rightStart || snake.leftEnd > snake.leftStart
+
+  if (!progressed) {
+    steps.push({ kind: 'removed', leftIndex: leftStart, rightIndex: -1 })
+    emitSteps(before, after, leftStart + 1, leftEnd, rightStart, rightEnd, steps)
+    appendSuffix(steps, suffix)
+    return
+  }
+
+  emitSteps(before, after, leftStart, snake.leftStart, rightStart, snake.rightStart, steps)
+  for (let index = 0; index < snake.leftEnd - snake.leftStart; index += 1) {
+    steps.push({
+      kind: 'same',
+      leftIndex: snake.leftStart + index,
+      rightIndex: snake.rightStart + index,
+    })
+  }
+  emitSteps(before, after, snake.leftEnd, leftEnd, snake.rightEnd, rightEnd, steps)
+  appendSuffix(steps, suffix)
+}
+
+function rowFromStep(step: EditStep, before: readonly string[], after: readonly string[]): DiffRow {
   if (step.kind === 'same') {
     return {
       kind: 'same',
-      leftNo: step.leftIndex + offset + 1,
-      rightNo: step.rightIndex + offset + 1,
+      leftNo: step.leftIndex + 1,
+      rightNo: step.rightIndex + 1,
       leftText: before[step.leftIndex],
       rightText: after[step.rightIndex],
     }
@@ -138,7 +190,7 @@ function rowFromStep(
   if (step.kind === 'removed') {
     return {
       kind: 'removed',
-      leftNo: step.leftIndex + offset + 1,
+      leftNo: step.leftIndex + 1,
       rightNo: null,
       leftText: before[step.leftIndex],
       rightText: null,
@@ -147,88 +199,35 @@ function rowFromStep(
   return {
     kind: 'added',
     leftNo: null,
-    rightNo: step.rightIndex + offset + 1,
+    rightNo: step.rightIndex + 1,
     leftText: null,
     rightText: after[step.rightIndex],
   }
 }
 
-function appendSteps(
-  rows: DiffRow[],
-  steps: readonly EditStep[],
-  before: readonly string[],
-  after: readonly string[],
-  offset: number,
-): void {
-  for (const step of steps) {
-    rows.push(rowFromStep(step, before, after, offset))
-  }
-}
-
-function appendSameRun(
-  rows: DiffRow[],
-  before: readonly string[],
-  after: readonly string[],
-  leftStart: number,
-  rightStart: number,
-  count: number,
-): void {
-  for (let index = 0; index < count; index += 1) {
-    rows.push({
-      kind: 'same',
-      leftNo: leftStart + index + 1,
-      rightNo: rightStart + index + 1,
-      leftText: before[leftStart + index],
-      rightText: after[rightStart + index],
-    })
-  }
-}
-
-function appendFallback(
-  rows: DiffRow[],
-  before: readonly string[],
-  after: readonly string[],
-  prefix: number,
-  suffix: number,
-): void {
-  const leftEnd = before.length - suffix
-  const rightEnd = after.length - suffix
-  for (let index = prefix; index < leftEnd; index += 1) {
-    rows.push({
-      kind: 'removed',
-      leftNo: index + 1,
-      rightNo: null,
-      leftText: before[index],
-      rightText: null,
-    })
-  }
-  for (let index = prefix; index < rightEnd; index += 1) {
-    rows.push({
-      kind: 'added',
-      leftNo: null,
-      rightNo: index + 1,
-      leftText: null,
-      rightText: after[index],
-    })
+function normalizeSteps(steps: EditStep[]): void {
+  let index = 0
+  while (index < steps.length) {
+    if (steps[index].kind === 'same') {
+      index += 1
+      continue
+    }
+    const start = index
+    while (index < steps.length && steps[index].kind !== 'same') {
+      index += 1
+    }
+    const block = steps.slice(start, index)
+    const removals = block.filter((step) => step.kind === 'removed')
+    const additions = block.filter((step) => step.kind === 'added')
+    steps.splice(start, block.length, ...removals, ...additions)
   }
 }
 
 export function diffLines(before: readonly string[], after: readonly string[]): DiffRow[] {
-  const rows: DiffRow[] = []
-  const prefix = commonPrefixLength(before, after)
-  const suffix = commonSuffixLength(before, after, prefix)
-  appendSameRun(rows, before, after, 0, 0, prefix)
-  const leftMiddle = before.slice(prefix, before.length - suffix)
-  const rightMiddle = after.slice(prefix, after.length - suffix)
-  const trace = buildTrace(leftMiddle, rightMiddle, MAX_EDIT_DISTANCE)
-  if (trace === null) {
-    appendFallback(rows, before, after, prefix, suffix)
-    return rows
-  }
-  const steps = traceToSteps(trace, leftMiddle.length, rightMiddle.length)
-  appendSteps(rows, steps, leftMiddle, rightMiddle, prefix)
-  appendSameRun(rows, before, after, before.length - suffix, after.length - suffix, suffix)
-  return rows
+  const steps: EditStep[] = []
+  emitSteps(before, after, 0, before.length, 0, after.length, steps)
+  normalizeSteps(steps)
+  return steps.map((step) => rowFromStep(step, before, after))
 }
 
 export function pairChanged(rows: readonly DiffRow[]): DiffRow[] {

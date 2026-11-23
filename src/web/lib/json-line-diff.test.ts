@@ -133,6 +133,31 @@ describe('line diff', () => {
     expect(diffLines(['a', 'b'], []).map((row) => row.leftNo)).toEqual([1, 2])
   })
 
+  test('has no edit-distance ceiling: a 3000-line all-different diff stays exact', () => {
+    const before = Array.from({ length: 3000 }, (_, index) => `left ${index}`)
+    const after = Array.from({ length: 3000 }, (_, index) => `right ${index}`)
+    const rows = diffLines(before, after)
+    expect(rows).toHaveLength(6000)
+    expect(rows.filter((row) => row.kind === 'removed')).toHaveLength(3000)
+    expect(rows.filter((row) => row.kind === 'added')).toHaveLength(3000)
+    expect(rows[rows.length - 1].rightNo).toBe(3000)
+  })
+
+  test('stays minimal on 3000 random pairs of up to 40 lines', () => {
+    const random = makeRandom(20261123)
+    for (let round = 0; round < 3000; round += 1) {
+      const sizeBefore = Math.floor(random() * 40)
+      const sizeAfter = Math.floor(random() * 40)
+      const before = Array.from({ length: sizeBefore }, () => `v${Math.floor(random() * 10)}`)
+      const after = Array.from({ length: sizeAfter }, () => `v${Math.floor(random() * 10)}`)
+      const rows = diffLines(before, after)
+      const edits = rows.filter((row) => row.kind !== 'same')
+      expect(edits).toHaveLength(minimalEdits(before, after))
+      expect(rows.filter((row) => row.leftNo !== null).map((row) => row.leftText)).toEqual(before)
+      expect(rows.filter((row) => row.rightNo !== null).map((row) => row.rightText)).toEqual(after)
+    }
+  })
+
   test('diffs every row of a 3000-line input without truncating', () => {
     const before = Array.from({ length: 3000 }, (_, index) => `left ${index}`)
     const after = Array.from({ length: 3000 }, (_, index) => `right ${index}`)
