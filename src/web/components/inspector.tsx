@@ -17,6 +17,7 @@ export function Inspector({
   width,
   onWidth,
   onResetWidth,
+  onShowAll,
   sheet = false,
 }: InspectorProps) {
   const close = useUi((state) => state.setInspectorOpen)
@@ -75,15 +76,27 @@ export function Inspector({
               : formatTime(record.ts, zone)}
           </p>
         </div>
-        <button
-          className="icon-btn"
-          type="button"
-          title="Close inspector"
-          aria-label="Close inspector"
-          onClick={() => close(false)}
-        >
-          <Icon name="x" />
-        </button>
+        <div className="inspector-head-actions">
+          {onShowAll === undefined ? null : (
+            <button
+              className="btn ghost inspector-showall"
+              type="button"
+              title="Clear the filter and keep this line in view"
+              onClick={onShowAll}
+            >
+              Show all lines
+            </button>
+          )}
+          <button
+            className="icon-btn"
+            type="button"
+            title="Close inspector"
+            aria-label="Close inspector"
+            onClick={() => close(false)}
+          >
+            <Icon name="x" />
+          </button>
+        </div>
       </header>
       <div className="inspector-body">
         <section className="insp-section">
@@ -228,6 +241,7 @@ export type InspectorProps = {
   width: number
   onWidth: (width: number) => void
   onResetWidth: () => void
+  onShowAll?: () => void
   sheet?: boolean
 }
 

@@ -33,6 +33,7 @@ export type StreamData = {
   emptyText: string
   selectedRecord: LogRecord | null
   inspectorOpen: boolean
+  revealTick: number
   inspectorWidth: number
 }
 
@@ -51,6 +52,7 @@ export type StreamActions = {
   onResume: () => void
   onRetry: () => void
   onClearFilters: () => void
+  onRevealSelected: () => void
   onClearBuffer: (id: string) => void
   onSaveLog: (id: string, name: string) => void
   onInspectorWidth: (width: number) => void
@@ -142,6 +144,7 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
           pending={data.pending}
           onResume={actions.onResume}
           emptyText={data.emptyText}
+          revealTick={data.revealTick}
           onClearFilters={data.filterProblem === null && on ? actions.onClearFilters : undefined}
         />
         <Inspector
@@ -150,6 +153,7 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
           width={data.inspectorWidth}
           onWidth={actions.onInspectorWidth}
           onResetWidth={actions.onResetInspectorWidth}
+          onShowAll={on ? actions.onRevealSelected : undefined}
         />
       </div>
       <SaveLogDialog

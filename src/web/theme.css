@@ -1906,6 +1906,20 @@ body.is-resizing {
   border-bottom: 1px solid var(--rule);
 }
 
+.inspector-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.inspector-showall {
+  height: 26px;
+  padding: 0 8px;
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
 .inspector-head h2 {
   font-size: var(--fs-panel);
   line-height: 1.2;

@@ -145,6 +145,7 @@ export function useWorkspace(): Workspace {
   )
 
   const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
+  const [revealTick, setRevealTick] = useState(0)
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT)
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets(window.localStorage))
   const [sheet, setSheet] = useState<SheetName>(null)
@@ -243,6 +244,12 @@ export function useWorkspace(): Workspace {
     setIsolate(null)
   }
 
+  const revealSelected = (): void => {
+    setFilter({ ...DEFAULT_FILTER })
+    setIsolate(null)
+    setRevealTick((tick) => tick + 1)
+  }
+
   const confirmClear = (): void => {
     const id = clearTarget
     setClearTarget(null)
@@ -323,6 +330,7 @@ export function useWorkspace(): Workspace {
     selectedRecord,
     inspectorOpen,
     inspectorWidth,
+    revealTick,
   }
 
   const actions: StreamActions = {
@@ -344,6 +352,7 @@ export function useWorkspace(): Workspace {
     },
     onRetry: retryConnection,
     onClearFilters: clearFilters,
+    onRevealSelected: revealSelected,
     onClearBuffer: setClearTarget,
     onSaveLog: (id, name) => {
       void saveActiveLog(id, name)

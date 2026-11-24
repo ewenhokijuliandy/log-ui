@@ -18,6 +18,7 @@ export function LogList({
   pending,
   onResume,
   emptyText,
+  revealTick,
   onClearFilters,
 }: LogListProps) {
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -74,6 +75,15 @@ export function LogList({
     if (index < 0) return
     virtualizer.scrollToIndex(index, { align: 'auto' })
   }, [virtualizer, visible, activeSeq, activeId, isolateTrace])
+
+  const lastReveal = useRef(0)
+  useEffect(() => {
+    if (revealTick === lastReveal.current) return
+    lastReveal.current = revealTick
+    const index = visible.findIndex((record) => record.seq === activeSeq)
+    if (index < 0) return
+    virtualizer.scrollToIndex(index, { align: 'center' })
+  }, [revealTick, visible, activeSeq, virtualizer])
 
   const empty = visible.length === 0
 
@@ -211,6 +221,7 @@ export type LogListProps = {
   pending: number
   onResume: () => void
   emptyText: string
+  revealTick: number
   onClearFilters?: () => void
 }
 
