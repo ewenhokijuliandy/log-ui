@@ -29,16 +29,6 @@ export function Rail({
         <span className="rail-mark">
           <Icon name="mark" />
         </span>
-        <button
-          className="rail-toggle"
-          type="button"
-          aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse the sidebar' : 'Expand the sidebar'}
-          title={expanded ? 'Collapse the sidebar' : 'Expand the sidebar'}
-          onClick={onToggleExpanded}
-        >
-          <Icon name="panel" />
-        </button>
       </div>
       <nav className="rail-nav" aria-label="Views">
         <span className="rail-group-label">Views</span>
@@ -154,6 +144,18 @@ export function Rail({
           <span className="rail-label">Theme</span>
         </button>
       </nav>
+      <span className="rail-foot-divider" aria-hidden="true" />
+      <button
+        className="rail-toggle"
+        type="button"
+        aria-expanded={expanded}
+        aria-label={expanded ? 'Collapse the sidebar' : 'Expand the sidebar'}
+        title={expanded ? 'Collapse the sidebar' : 'Expand the sidebar'}
+        onClick={onToggleExpanded}
+      >
+        <Icon name="chevron" />
+        <span className="rail-label">{expanded ? 'Collapse' : 'Expand'}</span>
+      </button>
     </aside>
   )
 }
