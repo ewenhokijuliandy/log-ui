@@ -2930,17 +2930,6 @@ dialog.quick-dialog {
   font-size: var(--fs-meta);
 }
 
-.merge-shell {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--inspector-w, 440px);
-}
-
-.merge-shell .log-panel {
-  min-width: 0;
-}
-
 .merge-head {
   grid-template-columns: var(--cols-merged);
 }
@@ -3577,16 +3566,6 @@ dialog.quick-dialog {
 @media (max-width: 720px) {
   .rules-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 960px) {
-  .merge-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .merge-shell .inspector {
-    display: none;
   }
 }
 

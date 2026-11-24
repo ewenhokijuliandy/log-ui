@@ -47,7 +47,7 @@ export function App() {
               <PrettyView />
             </div>
             <div hidden={view !== 'merge'} className="view-slot">
-              <MergeView />
+              <MergeView {...workspace.merge} />
             </div>
           </div>
           <Statusbar {...workspace.statusbar} />

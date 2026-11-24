@@ -62,6 +62,11 @@ export type Workspace = {
     onTxt: () => void
     onPdf: () => void
   }
+  merge: {
+    inspectorWidth: number
+    onInspectorWidth: (width: number) => void
+    onResetInspectorWidth: () => void
+  }
   rail: {
     openSheet: (target: SheetName) => void
     toggleTheme: () => void
@@ -192,6 +197,8 @@ export function useWorkspace(): Workspace {
     setPaused(active.id, active.pausedAt === null)
   }
 
+  const resetInspectorWidth = (): void => updateInspectorWidth(defaultInspectorWidth())
+
   const updateInspectorWidth = (next: number): void => {
     const value = clampInspectorWidth(next)
     setInspectorWidth(value)
@@ -306,7 +313,7 @@ export function useWorkspace(): Workspace {
     onClearFilters: clearFilters,
     onClearBuffer: setClearTarget,
     onInspectorWidth: updateInspectorWidth,
-    onResetInspectorWidth: () => updateInspectorWidth(defaultInspectorWidth()),
+    onResetInspectorWidth: resetInspectorWidth,
   }
 
   const sheets = buildSheets({
@@ -395,6 +402,11 @@ export function useWorkspace(): Workspace {
         if (active === null) return
         setPdfState(buildPrintPages(active.name, exportCurrent(), prefs.zone, bufferCap))
       },
+    },
+    merge: {
+      inspectorWidth,
+      onInspectorWidth: updateInspectorWidth,
+      onResetInspectorWidth: resetInspectorWidth,
     },
     rail: {
       openSheet: setSheet,

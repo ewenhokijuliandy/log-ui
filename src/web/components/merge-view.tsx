@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useState } from 'react'
 import { countLevels, emptyLevelCounts } from '../../shared/levels.ts'
 import type { LogRecord } from '../../shared/types.ts'
 import { loadParseRules } from '../app/parse-rules.ts'
@@ -22,13 +22,19 @@ import { MergeSelector } from './merge-selector.tsx'
 import { SignalStrip } from './signal.tsx'
 import { ToolView } from './tool-view.tsx'
 
-export function MergeView() {
+export function MergeView({
+  inspectorWidth,
+  onInspectorWidth,
+  onResetInspectorWidth,
+}: MergeViewProps) {
   const streams = useStreams((state) => state.streams)
   const bufferCap = useStreams((state) => state.bufferCap)
   const isolateTrace = useUi((state) => state.isolateTrace)
   const setIsolate = useUi((state) => state.setIsolate)
   const selectedMergedKey = useUi((state) => state.selectedMergedKey)
   const selectMerged = useUi((state) => state.selectMerged)
+  const inspectorOpen = useUi((state) => state.inspectorOpen)
+  const setInspectorOpen = useUi((state) => state.setInspectorOpen)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [filter, setFilter] = useState<FilterState>(() => ({ ...DEFAULT_FILTER }))
   const [sort] = useState<SortKey>(DEFAULT_SORT)
@@ -71,14 +77,6 @@ export function MergeView() {
     () => merged.rows.find((row) => row.key === selectedMergedKey) ?? null,
     [merged.rows, selectedMergedKey],
   )
-
-  useEffect(() => {
-    if (merged.rows.length === 0) return
-    if (selectedRow !== null) return
-    const newest = merged.rows[merged.rows.length - 1]
-    if (newest === undefined) return
-    selectMerged(newest.key)
-  }, [merged.rows, selectedRow, selectMerged])
 
   const chipCounts = {
     error: counts.fatal + counts.error,
@@ -205,7 +203,14 @@ export function MergeView() {
 
       <SignalStrip records={frozen.map((row) => row.record)} zone="utc" />
 
-      <div className="log-shell">
+      <div
+        className={`log-shell${inspectorOpen && selectedRow !== null ? '' : ' no-inspector'}`}
+        style={
+          {
+            '--inspector-w': `${String(inspectorWidth)}px`,
+          } as CSSProperties
+        }
+      >
         <section className="log-panel" aria-label="Merged lines">
           {isolateTrace === null ? null : (
             <div className="isolate-banner open">
@@ -246,7 +251,10 @@ export function MergeView() {
                   key={row.key}
                   row={row}
                   selected={row.key === selectedMergedKey}
-                  onSelect={() => selectMerged(row.key)}
+                  onSelect={() => {
+                    selectMerged(row.key)
+                    setInspectorOpen(true)
+                  }}
                 />
               ))
             )}
@@ -256,9 +264,9 @@ export function MergeView() {
           record={selectedRow === null ? null : selectedRow.record}
           zone="utc"
           source={selectedRow === null ? null : selectedRow.streamName}
-          width={440}
-          onWidth={() => undefined}
-          onResetWidth={() => undefined}
+          width={inspectorWidth}
+          onWidth={onInspectorWidth}
+          onResetWidth={onResetInspectorWidth}
         />
       </div>
 
@@ -271,6 +279,12 @@ export function MergeView() {
       />
     </ToolView>
   )
+}
+
+export type MergeViewProps = {
+  inspectorWidth: number
+  onInspectorWidth: (width: number) => void
+  onResetInspectorWidth: () => void
 }
 
 function MergedRowView({

@@ -109,3 +109,95 @@ test('merge view works at 390 without horizontal overflow', async ({ page }) => 
   )
   expect(overflow).toBe(false)
 })
+
+test('merge keeps the table full width and hides the inspector until a row is clicked', async ({
+  page,
+}) => {
+  await seedTwo(page)
+  const consoleWatch = watchConsole(page)
+
+  await page.getByRole('button', { name: 'Merge log' }).click()
+  const view = page.locator('.view-slot:not([hidden]) .tool-view')
+  const shell = view.locator('.log-shell')
+
+  await expect(shell).toHaveClass(/no-inspector/)
+  await expect(view.locator('.inspector')).toHaveCount(0)
+
+  await view
+    .getByRole('button', { name: /Select streams|streams/ })
+    .first()
+    .click()
+  const selector = page.getByRole('dialog', { name: 'Select streams to merge' })
+  const boxes = selector.locator('.merge-selector-item input')
+  await boxes.nth(0).check()
+  await boxes.nth(1).check()
+  await selector.getByRole('button', { name: /^Merge \d/ }).click()
+
+  await expect(view.locator('.merge-row')).toHaveCount(2)
+  await expect(shell).toHaveClass(/no-inspector/)
+  await expect(view.locator('.inspector')).toHaveCount(0)
+
+  const fullWidth = await view.locator('.log-panel').evaluate((node) => node.clientWidth)
+
+  await view.locator('.merge-row').first().click()
+  await expect(shell).not.toHaveClass(/no-inspector/)
+  await expect(view.locator('.inspector')).toBeVisible()
+  const splitWidth = await view.locator('.log-panel').evaluate((node) => node.clientWidth)
+  expect(splitWidth).toBeLessThan(fullWidth)
+
+  await view.getByRole('button', { name: 'Close inspector' }).click()
+  await expect(shell).toHaveClass(/no-inspector/)
+  const restored = await view.locator('.log-panel').evaluate((node) => node.clientWidth)
+  expect(restored).toBe(fullWidth)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
+test('merge inspector resizes and shares its width with the stream view', async ({ page }) => {
+  await seedTwo(page)
+  const consoleWatch = watchConsole(page)
+
+  await page.getByRole('tab', { name: /ms-user-1ahdss/ }).click()
+  await page.locator('.view-slot:not([hidden]) .log-row').first().click()
+  const streamInspector = page.locator('.view-slot:not([hidden]) .inspector')
+  await expect(streamInspector).toBeVisible()
+  const originalWidth = await streamInspector.evaluate((node) => node.clientWidth)
+
+  const resizer = page.locator('.view-slot:not([hidden]) .inspector-resizer')
+  const box = await resizer.boundingBox()
+  if (box === null) throw new Error('no resizer box')
+  await page.mouse.move(box.x + 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x - 80, box.y + box.height / 2, { steps: 8 })
+  await page.mouse.up()
+  const widened = await streamInspector.evaluate((node) => node.clientWidth)
+  expect(widened).toBeGreaterThan(originalWidth)
+
+  await page.getByRole('button', { name: 'Merge log' }).click()
+  const view = page.locator('.view-slot:not([hidden]) .tool-view')
+  await view
+    .getByRole('button', { name: /Select streams|streams/ })
+    .first()
+    .click()
+  const selector = page.getByRole('dialog', { name: 'Select streams to merge' })
+  const boxes = selector.locator('.merge-selector-item input')
+  await boxes.nth(0).check()
+  await boxes.nth(1).check()
+  await selector.getByRole('button', { name: /^Merge \d/ }).click()
+  await view.locator('.merge-row').first().click()
+
+  const mergeInspector = view.locator('.inspector')
+  await expect(mergeInspector).toBeVisible()
+  const mergeWidth = await mergeInspector.evaluate((node) => node.clientWidth)
+  expect(mergeWidth).toBe(widened)
+
+  await page.reload()
+  await page.getByRole('tab', { name: /ms-user-1ahdss/ }).click()
+  await page.locator('.view-slot:not([hidden]) .log-row').first().click()
+  const persisted = await page
+    .locator('.view-slot:not([hidden]) .inspector')
+    .evaluate((node) => node.clientWidth)
+  expect(persisted).toBe(widened)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
