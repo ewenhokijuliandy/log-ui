@@ -3760,8 +3760,7 @@ dialog.quick-dialog {
 }
 
 .saved-table {
-  --saved-cols: minmax(180px, 1fr) 128px 168px 64px 142px 148px;
-  max-width: 1180px;
+  --saved-cols: minmax(180px, 300px) 128px 168px 64px 142px 148px;
   margin-top: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -3773,6 +3772,7 @@ dialog.quick-dialog {
   display: grid;
   grid-template-columns: var(--saved-cols);
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   height: 32px;
   padding: 0 14px;
@@ -3797,6 +3797,7 @@ dialog.quick-dialog {
   display: grid;
   grid-template-columns: var(--saved-cols);
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   min-height: 44px;
   padding: 0 14px;
