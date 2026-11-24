@@ -4050,6 +4050,19 @@ dialog.quick-dialog {
   font-size: var(--fs-meta);
 }
 
+.prettify-decoded {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
 .gql-keyword {
   color: var(--syntax-bool);
   font-weight: 600;

@@ -14,6 +14,7 @@ export function PrettyView() {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
+  const [decoded, setDecoded] = useState(false)
   const [indent, setIndent] = useState<PrettifyIndent>(2)
   const [mode, setMode] = useState<'pretty' | 'minify'>('pretty')
   const [sortKeys, setSortKeys] = useState(false)
@@ -34,6 +35,7 @@ export function PrettyView() {
     if (output.length === 0) return
     const result = prettifyJsonText(input, options(pretty, spaces, sorted))
     setOutput(result.ok ? result.text : '')
+    setDecoded(result.ok && result.decoded)
   }
 
   function runPrettify(): void {
@@ -41,22 +43,26 @@ export function PrettyView() {
     if (!result.ok) {
       setError(result.error)
       setOutput('')
+      setDecoded(false)
       return
     }
     setError('')
     setOutput(result.text)
+    setDecoded(result.decoded)
   }
 
   function clear(): void {
     setInput('')
     setOutput('')
     setError('')
+    setDecoded(false)
   }
 
   function loadSample(): void {
     setInput(SAMPLE)
     setOutput('')
     setError('')
+    setDecoded(false)
   }
 
   function changeIndent(value: string): void {
@@ -158,6 +164,7 @@ export function PrettyView() {
               {mode === 'pretty' ? `${String(indent)}-space indent` : 'minified'}
               {sortKeys ? ' · keys sorted' : ''}
             </span>
+            {decoded ? <span className="prettify-decoded">Escaped JSON decoded</span> : null}
           </>
         )}
         <span className="spacer" />

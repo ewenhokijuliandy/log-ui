@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useUi } from '../app/ui.ts'
+import { decodeJsonText } from '../lib/json-format.ts'
 import {
   type DiffRow,
   diffLines,
@@ -54,11 +55,11 @@ function parseSide(text: string): ParsedSide {
   if (new TextEncoder().encode(text).length > MAX_SIDE_BYTES) {
     return { present: false, value: undefined, error: 'This side is over 1 MB.' }
   }
-  try {
-    return { present: true, value: JSON.parse(trimmed), error: '' }
-  } catch {
+  const decoded = decodeJsonText(trimmed)
+  if (decoded === null) {
     return { present: false, value: undefined, error: 'This side is not valid JSON.' }
   }
+  return { present: true, value: decoded.value, error: '' }
 }
 
 function gutterSign(kind: DiffRow['kind']): string {
