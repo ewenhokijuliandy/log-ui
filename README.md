@@ -2,7 +2,7 @@
 
 Pipe terminal output into a rich, interactive local log viewer.
 
-`logdeck` reads stdin, streams it to a local daemon, and renders the result in a browser workspace with tabs, search, level filters, a JSON inspector, trace isolation, manual parsing, and TXT/PDF export. Everything stays on `127.0.0.1`; there is no cloud service and no log persistence.
+`logdeck` reads stdin, streams it to a local daemon, and renders the result in a browser workspace with tabs, search, level filters, a JSON inspector, trace isolation, JSON and GraphQL formatters, saved snapshots, manual parsing, and TXT/PDF export. Everything stays on `127.0.0.1`; there is no cloud service and nothing leaves your machine. Live buffers are in memory only — the one thing written to disk is a snapshot you explicitly save.
 
 ## Install
 
@@ -70,14 +70,16 @@ The daemon exits after the idle timeout when there are no active streams and no 
 
 ## Viewer
 
-- **Tabs** - one per stream; drag to reorder, double-click or press F2 to rename, close with the tab button. The magnifier (or `Cmd/Ctrl+K`) finds a tab by name when many are open, and the `⋯` menu closes every tab at once after a confirmation.
+- **Tabs** - one per stream; drag to reorder, double-click or press F2 to rename, close with the tab button. The magnifier (or `Cmd/Ctrl+K`) finds a tab by name when many are open. The trash button closes tabs two ways, both confirmed: **Close inactive tabs** clears the streams that have ended and leaves live ones and manual tabs alone, while **Close all tabs** empties the workspace.
 - **Search** - plain text or regular expressions (`.*`), with an inline invalid-pattern message.
 - **Filters** - interactive severity bar (Error / Warn / Info / Debug / Unknown) sized by the full-buffer mix; click a segment to solo it, Shift-click to add, click it again or press Esc for All levels. Relative or custom time ranges, saved presets, and oldest-first sorting by default.
 - **Parsing** - ANSI-stripped lines; ISO or epoch head timestamps plus JSON `time`/`timestamp`/`ts` fields with second-to-nanosecond detection; named or numeric levels (Pino/Bunyan, syslog); JSON bodies and trace/request IDs.
 - **Parse rules** - Settings → Parsing rules: JSON level/time/message keys, numeric presets (Auto, Pino/Bunyan, Syslog, Custom map), epoch units, and a live test line. Rules apply in this browser and re-parse the retained buffer.
-- **Inspect** - click a row (or press Enter) for parsed fields, a Pretty (default) or Tree JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer.
+- **Inspect** - click a row (or press Enter) for parsed fields, a Pretty (default) or Tree JSON body with wrap, expand/collapse and copy, and a collapsible raw line. Trace IDs isolate a request across the buffer. While a filter is narrowing the list, **Show all N lines** clears the filter and keeps the selected line centred in view, so you can read the lines before and after it.
 - **Compare** - Compare JSON opens as a full workspace view, not a dialog. Paste two JSON documents and read a side-by-side line diff with line numbers in both gutters and a centre gutter marking added (`→`), removed (`←`) and changed (`↔`) lines. Added, removed and changed rows are tinted, and every row also carries its sign so the diff reads without colour. Key order is ignored; the diff is copyable. **Pretty** formats both sides in place.
-- **Pretty** - Pretty JSON also opens as a full workspace view. Paste messy JSON, choose Pretty (2- or 4-space indent) or Minify, optionally sort keys, format it locally (1 MB limit), and copy the result.
+- **Pretty** - Pretty JSON also opens as a full workspace view. Paste messy JSON, choose Pretty (2- or 4-space indent) or Minify, optionally sort keys, format it locally (1 MB limit), and copy the result. Escaped input is decoded for you: a payload that arrives as `{\"key\":\"value\"}` or wrapped in a JSON string still formats, and the summary says so. JSON in Compare, Pretty and the inspector is syntax-coloured with a palette checked for contrast in both themes.
+- **GraphQL** - GraphQL opens as a full workspace view. Paste a query, mutation, subscription or fragment document and get it indented, with syntax colouring and a copy button. Literal `\n` and `\t` from escaped input become real line breaks, and an escaped query or a `{\"query\": ...}` envelope is unwrapped first. Plain queries are left alone, and an escape inside a string literal is never rewritten. The output keeps definitions separated by a blank line.
+- **Saved logs** - Saved logs keeps snapshots you save from a stream. **Save log** in the stream header asks for a name first, then writes the retained buffer, its time zone and its parse rules to disk under the daemon's state directory. The list is searchable and sortable (newest, name, rows) and shows each snapshot's source stream, level mix, row count and save time; rename or delete from the row. Opening a snapshot spawns a normal tab, so search, filters, the inspector, export and every other stream feature work on it. Snapshots survive a daemon restart; live streams do not.
 - **Merge** - Merge log sits directly below Streams. Pick two to eight existing streams and read them on one timeline; each row names the stream it came from in a **stream** column between time and level. Search matches the stream name too, and the level bar, wrap, pause, inspector and export all work on the merged set. One merged view at a time; change the selection to see another.
 - **Pause** - freeze the visible rows while ingestion and counts continue; resume to reveal the buffered lines.
 - **Manual mode** - paste text or drop a `.txt`/`.log` file (up to 25 MB) for a client-only tab.
@@ -92,7 +94,8 @@ Keyboard: `/` search, `Cmd/Ctrl+K` find a tab, `Enter` inspect, `j`/`k` move row
 ## Behavior and limits
 
 - Each stream retains the newest 10,000 lines by default; the limit is configurable from 1,000 to 50,000 in Settings, applies live, and persists. Older lines are counted as dropped.
-- Streams are in-memory only. Restarting the daemon clears them; create new pipes to continue.
+- Live streams are in-memory only. Restarting the daemon clears them; create new pipes to continue.
+- Saved snapshots are the exception: they are written to `<state dir>/saved` and reloaded on start. Nothing is saved unless you press **Save log**.
 - The daemon binds to `127.0.0.1`, checks same-origin/Host on mutating routes, and requires a per-stream token for ingestion.
 - Browser auto-open happens only when no viewer is already connected.
 - Windows is best-effort: the daemon works, but the Unix signal and SIGPIPE paths are skipped.
