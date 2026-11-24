@@ -1,3 +1,5 @@
+import { decodeJsonText, unescapeJsonish } from './json-format.ts'
+
 export type GqlTokenKind =
   | 'keyword'
   | 'field'
@@ -97,13 +99,103 @@ export function gqlLineTokens(line: string): GqlToken[] {
   return tokens
 }
 
-export type GqlFormatResult = { ok: true; text: string } | { ok: false; error: string }
+export type GqlFormatResult =
+  | { ok: true; text: string; decoded: boolean }
+  | { ok: false; error: string }
+
+export type PreparedGql = { text: string; decoded: boolean }
+
+function isFullyEscaped(text: string): boolean {
+  if (!text.includes('\\"')) return false
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] !== '"') continue
+    if (index === 0) return false
+    if (text[index - 1] !== '\\') return false
+  }
+  return true
+}
+
+function queryFromEnvelope(value: unknown): string | null {
+  if (value === null || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  if (typeof record.query === 'string') return record.query
+  return null
+}
+
+function unescapeGqlControlChars(text: string): { text: string; changed: boolean } {
+  let out = ''
+  let inString = false
+  let changed = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '"') {
+      inString = !inString
+      out += char
+      continue
+    }
+    if (char !== '\\') {
+      out += char
+      continue
+    }
+    const next = text[index + 1] ?? ''
+    if (inString) {
+      out += char + next
+      index += 1
+      continue
+    }
+    if (next === 'n') {
+      out += '\n'
+      index += 1
+      changed = true
+      continue
+    }
+    if (next === 't') {
+      out += '\t'
+      index += 1
+      changed = true
+      continue
+    }
+    if (next === 'r') {
+      out += '\r'
+      index += 1
+      changed = true
+      continue
+    }
+    if (next === '\\') {
+      out += '\\'
+      index += 1
+      changed = true
+      continue
+    }
+    out += char
+  }
+  return { text: out, changed }
+}
+
+export function prepareGqlText(source: string): PreparedGql {
+  const trimmed = source.trim()
+  if (trimmed.length === 0) return { text: trimmed, decoded: false }
+  const json = decodeJsonText(trimmed)
+  if (json !== null && typeof json.value === 'string' && trimmed.startsWith('"')) {
+    return { text: json.value, decoded: true }
+  }
+  if (json !== null) {
+    const query = queryFromEnvelope(json.value)
+    if (query !== null) return { text: query, decoded: true }
+  }
+  if (isFullyEscaped(trimmed)) return { text: unescapeJsonish(trimmed), decoded: true }
+  const control = unescapeGqlControlChars(trimmed)
+  if (control.changed) return { text: control.text, decoded: true }
+  return { text: trimmed, decoded: false }
+}
 
 const INDENT = '  '
 
 const NO_SPACE_AFTER = new Set(['(', '[', '@', '...'])
 const TIGHT_TOKEN = new Set(['(', ')', ']', '!', ':'])
 const SELECTION_CONTINUE = new Set(['on'])
+
+const DEFINITION_KEYWORDS = new Set(['query', 'mutation', 'subscription', 'fragment'])
 
 type Writer = {
   lines: string[]
@@ -143,7 +235,8 @@ function needsSpaceBefore(writer: Writer, token: RawToken, previous: RawToken | 
 }
 
 export function formatGql(source: string): GqlFormatResult {
-  const tokens = tokenizeGql(source)
+  const prepared = prepareGqlText(source)
+  const tokens = tokenizeGql(prepared.text)
   if (tokens.length === 0) return { ok: false, error: 'Nothing to format yet.' }
   const writer: Writer = {
     lines: [],
@@ -264,6 +357,19 @@ export function formatGql(source: string): GqlFormatResult {
       continue
     }
 
+    const startsDefinition =
+      token.type === 'name' &&
+      writer.selectionDepth === 0 &&
+      writer.objectDepth === 0 &&
+      writer.parenDepth === 0 &&
+      writer.bracketDepth === 0 &&
+      DEFINITION_KEYWORDS.has(token.text)
+    if (startsDefinition) {
+      flush(writer)
+      const last = writer.lines.at(-1)
+      if (last?.endsWith('}') === true) writer.lines.push('')
+    }
+
     const startsSelection =
       token.type === 'name' && atSelectionLevel(writer) && !writer.continuation
     if (startsSelection && writer.line.length > 0) flush(writer)
@@ -281,5 +387,5 @@ export function formatGql(source: string): GqlFormatResult {
   if (writer.parenDepth !== 0) return { ok: false, error: 'Unbalanced parentheses.' }
   if (writer.bracketDepth !== 0) return { ok: false, error: 'Unbalanced brackets.' }
   flush(writer)
-  return { ok: true, text: writer.lines.join('\n') }
+  return { ok: true, text: writer.lines.join('\n'), decoded: prepared.decoded }
 }

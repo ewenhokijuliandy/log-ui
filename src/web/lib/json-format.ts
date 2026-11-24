@@ -25,7 +25,7 @@ const SIMPLE_ESCAPES: Record<string, string> = {
   t: '\t',
 }
 
-function unescapeJsonish(text: string): string {
+export function unescapeJsonish(text: string): string {
   return text.replace(ESCAPE_PATTERN, (match, sequence: string) => {
     if (!sequence.startsWith('u')) return SIMPLE_ESCAPES[sequence] ?? match
     const code = Number.parseInt(sequence.slice(1), 16)

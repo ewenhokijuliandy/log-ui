@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatGql, gqlLineTokens } from './graphql-format.ts'
+import { formatGql, gqlLineTokens, prepareGqlText } from './graphql-format.ts'
 
 const format = (source: string): string => {
   const result = formatGql(source)
@@ -101,5 +101,118 @@ describe('gql line tokens', () => {
           .join(''),
       ).toBe(line)
     }
+  })
+})
+
+describe('escaped and wrapped GraphQL', () => {
+  const expected = 'query {\n  user(name: "x") {\n    id\n  }\n}'
+
+  test('keeps quotes when the query arrives backslash-escaped', () => {
+    const result = formatGql('query { user(name: \\"x\\") { id } }')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(true)
+    expect(result.text).toBe(expected)
+  })
+
+  test('unwraps a JSON envelope holding the query', () => {
+    const result = formatGql(JSON.stringify({ query: 'query { user(name: "x") { id } }' }))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(true)
+    expect(result.text).toBe(expected)
+  })
+
+  test('unwraps an escaped JSON envelope', () => {
+    const envelope = JSON.stringify({ query: 'query { user { id } }' }).replaceAll('"', '\\"')
+    const result = formatGql(envelope)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(true)
+    expect(result.text).toBe('query {\n  user {\n    id\n  }\n}')
+  })
+
+  test('unwraps a JSON string holding the query', () => {
+    const result = formatGql(JSON.stringify('query { user(name: "x") { id } }'))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(true)
+    expect(result.text).toBe(expected)
+  })
+
+  test('leaves ordinary queries alone', () => {
+    const result = formatGql('query { user(name: "x") { id } }')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(false)
+    expect(result.text).toBe(expected)
+  })
+
+  test('does not mangle an escaped quote inside a real string literal', () => {
+    const source = 'query { a(s: "he said \\"hi\\"") }'
+    expect(prepareGqlText(source).decoded).toBe(false)
+    const result = formatGql(source)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.text).toContain('"he said \\"hi\\""')
+  })
+})
+
+describe('literal backslash escapes', () => {
+  test('turns literal backslash-n into real line breaks', () => {
+    const result = formatGql('query pfmSetting {\\npfmSetting {\\n__typename\\n}\\n}')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(true)
+    expect(result.text).toBe('query pfmSetting {\n  pfmSetting {\n    __typename\n  }\n}')
+  })
+
+  test('turns literal backslash-t into indentation', () => {
+    const result = formatGql('query {\\n\\tpfmSetting {\\n\\t\\tid\\n\\t}\\n}')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decoded).toBe(true)
+    expect(result.text).toBe('query {\n  pfmSetting {\n    id\n  }\n}')
+  })
+
+  test('never rewrites an escape inside a string literal', () => {
+    const source = 'query { a(s: "line1\\nline2") }'
+    expect(prepareGqlText(source).decoded).toBe(false)
+    const result = formatGql(source)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.text).toContain('"line1\\nline2"')
+  })
+
+  test('leaves a real newline inside a block string untouched', () => {
+    const source = 'query { a(s: """line1\nline2""") }'
+    expect(prepareGqlText(source).decoded).toBe(false)
+    const result = formatGql(source)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.text).toContain('line1\nline2')
+  })
+})
+
+describe('top level definition layout', () => {
+  test('separates a fragment from the operation with a blank line', () => {
+    const result = formatGql('query { a }\nfragment F on T { b }')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.text).toBe('query {\n  a\n}\n\nfragment F on T {\n  b\n}')
+  })
+
+  test('separates consecutive fragments', () => {
+    const result = formatGql('fragment A on T { a }\nfragment B on T { b }')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.text).toBe('fragment A on T {\n  a\n}\n\nfragment B on T {\n  b\n}')
+  })
+
+  test('does not add a trailing or leading blank line', () => {
+    const result = formatGql('query { a }')
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.text).toBe('query {\n  a\n}')
   })
 })

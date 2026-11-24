@@ -50,6 +50,7 @@ export function GraphqlView() {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
+  const [decoded, setDecoded] = useState(false)
   const { copied, copy } = useCopyFeedback()
 
   const outputLines = output === '' ? 0 : output.split('\n').length
@@ -59,22 +60,26 @@ export function GraphqlView() {
     if (!result.ok) {
       setError(result.error)
       setOutput('')
+      setDecoded(false)
       return
     }
     setError('')
     setOutput(result.text)
+    setDecoded(result.decoded)
   }
 
   function clear(): void {
     setInput('')
     setOutput('')
     setError('')
+    setDecoded(false)
   }
 
   function loadSample(): void {
     setInput(SAMPLE)
     setOutput('')
     setError('')
+    setDecoded(false)
   }
 
   return (
@@ -144,6 +149,7 @@ export function GraphqlView() {
           <>
             <span className="changed">{outputLines} lines</span>
             <span className="note">Formatted in this browser</span>
+            {decoded ? <span className="prettify-decoded">Escaped GraphQL decoded</span> : null}
           </>
         )}
         <span className="spacer" />
