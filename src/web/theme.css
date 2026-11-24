@@ -3570,6 +3570,36 @@ dialog.quick-dialog {
   color: var(--faint);
 }
 
+.gql-keyword {
+  color: var(--syntax-bool);
+  font-weight: 600;
+}
+
+.gql-field {
+  color: var(--syntax-key);
+}
+
+.gql-variable {
+  color: var(--syntax-number);
+}
+
+.gql-string {
+  color: var(--syntax-string);
+}
+
+.gql-number {
+  color: var(--syntax-number);
+}
+
+.gql-comment {
+  color: var(--syntax-punct);
+  font-style: italic;
+}
+
+.gql-punct {
+  color: var(--syntax-punct);
+}
+
 .diff-head-copy:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -4266,7 +4296,9 @@ textarea.paste::placeholder {
   }
 
   .rail-btn.rail-btn-app,
-  .rail-expanded .rail-btn.rail-btn-app {
+  .rail-expanded .rail-btn.rail-btn-app,
+  .rail-btn.rail-btn-narrow,
+  .rail-expanded .rail-btn.rail-btn-narrow {
     display: none;
   }
 

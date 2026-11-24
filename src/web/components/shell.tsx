@@ -16,6 +16,7 @@ export function Rail({
   onMerge,
   onCompare,
   onPretty,
+  onGraphql,
   workspaceView,
   expanded,
   onToggleExpanded,
@@ -84,6 +85,17 @@ export function Rail({
           <Icon name="prettify" />
           <span className="rail-label">Pretty</span>
         </button>
+        <button
+          className="rail-btn rail-btn-narrow"
+          type="button"
+          title="GraphQL"
+          aria-label="GraphQL"
+          aria-current={workspaceView === 'graphql' ? 'page' : undefined}
+          onClick={onGraphql}
+        >
+          <Icon name="terminal" />
+          <span className="rail-label">GraphQL</span>
+        </button>
       </nav>
       <nav className="rail-nav rail-nav-app" aria-label="Application">
         <span className="rail-group-label">App</span>
@@ -140,6 +152,7 @@ export type RailProps = {
   onMerge: () => void
   onCompare: () => void
   onPretty: () => void
+  onGraphql: () => void
   workspaceView: WorkspaceView
   expanded: boolean
   onToggleExpanded: () => void

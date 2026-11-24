@@ -1,5 +1,6 @@
 import { CompareView } from '../components/compare.tsx'
 import { ExportMenuContent } from '../components/export.tsx'
+import { GraphqlView } from '../components/graphql.tsx'
 import { Sprite } from '../components/icons.tsx'
 import { MergeView } from '../components/merge-view.tsx'
 import { PrettyView } from '../components/prettify.tsx'
@@ -45,6 +46,9 @@ export function App() {
             </div>
             <div hidden={view !== 'prettify'} className="view-slot">
               <PrettyView />
+            </div>
+            <div hidden={view !== 'graphql'} className="view-slot">
+              <GraphqlView />
             </div>
             <div hidden={view !== 'merge'} className="view-slot">
               <MergeView {...workspace.merge} />

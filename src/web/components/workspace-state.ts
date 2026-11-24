@@ -74,6 +74,7 @@ export type Workspace = {
     onMerge: () => void
     onCompare: () => void
     onPretty: () => void
+    onGraphql: () => void
     workspaceView: WorkspaceView
     expanded: boolean
     onToggleExpanded: () => void
@@ -415,6 +416,7 @@ export function useWorkspace(): Workspace {
       onMerge: () => setWorkspaceView('merge'),
       onCompare: () => setWorkspaceView('compare'),
       onPretty: () => setWorkspaceView('prettify'),
+      onGraphql: () => setWorkspaceView('graphql'),
       workspaceView,
       expanded: prefs.railExpanded,
       onToggleExpanded: () => setPrefs({ ...prefs, railExpanded: !prefs.railExpanded }),
