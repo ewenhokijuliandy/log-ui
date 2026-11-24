@@ -5,6 +5,7 @@ import { Sprite } from '../components/icons.tsx'
 import { MergeView } from '../components/merge-view.tsx'
 import { PrettyView } from '../components/prettify.tsx'
 import { EmptyState } from '../components/quick.tsx'
+import { SavedView } from '../components/saved-view.tsx'
 import { Rail, Statusbar, TopBar } from '../components/shell.tsx'
 import { StreamView } from '../components/stream-view.tsx'
 import { StreamTabs } from '../components/tabs.tsx'
@@ -49,6 +50,9 @@ export function App() {
             </div>
             <div hidden={view !== 'graphql'} className="view-slot">
               <GraphqlView />
+            </div>
+            <div hidden={view !== 'saved'} className="view-slot">
+              <SavedView {...workspace.merge} active={view === 'saved'} />
             </div>
             <div hidden={view !== 'merge'} className="view-slot">
               <MergeView {...workspace.merge} />

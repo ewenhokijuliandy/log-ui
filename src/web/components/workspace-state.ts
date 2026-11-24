@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { countForChip } from '../../shared/levels.ts'
 import { normalizeParseRules, type ParseRules } from '../../shared/parse-rules.ts'
 import type { LogRecord } from '../../shared/types.ts'
-import { patchSettings } from '../app/api.ts'
+import { patchSettings, saveStream } from '../app/api.ts'
 import { emptyStateText } from '../app/empty-state.ts'
 import { loadParseRules, saveParseRules } from '../app/parse-rules.ts'
 import {
@@ -31,7 +31,13 @@ import { pendingCount } from '../lib/pause.ts'
 import { loadPresets, type Preset } from '../lib/presets.ts'
 import { buildPrintPages } from '../lib/print-sheet.ts'
 import { downloadText, exportRecords, exportText } from './export.tsx'
-import { buildSheets, type PdfState, type SheetName, type SheetsModel } from './sheets-model.ts'
+import {
+  buildSheets,
+  type MoreModel,
+  type PdfState,
+  type SheetName,
+  type SheetsModel,
+} from './sheets-model.ts'
 import type { StreamActions, StreamData } from './stream-view.tsx'
 import {
   flippedTheme,
@@ -75,6 +81,7 @@ export type Workspace = {
     onCompare: () => void
     onPretty: () => void
     onGraphql: () => void
+    onSaved: () => void
     workspaceView: WorkspaceView
     expanded: boolean
     onToggleExpanded: () => void
@@ -192,6 +199,23 @@ export function useWorkspace(): Workspace {
       ? null
       : (derivedRecords.find((record) => record.seq === selectedSeq) ?? null)
   const showDetailSheet = narrow && inspectorOpen && selectedRecord !== null
+
+  const saveActiveLog = async (id: string): Promise<void> => {
+    const entry = streams.find((item) => item.id === id)
+    if (entry === undefined) return
+    useStreams.getState().setLastError(null)
+    const outcome = await saveStream({
+      streamId: id,
+      name: entry.name,
+      zone: prefs.zone,
+      rules,
+    })
+    if (!outcome.ok) {
+      useStreams.getState().setLastError(outcome.error)
+      return
+    }
+    setWorkspaceView('saved')
+  }
 
   const togglePause = (): void => {
     if (active === null) return
@@ -313,11 +337,27 @@ export function useWorkspace(): Workspace {
     onRetry: retryConnection,
     onClearFilters: clearFilters,
     onClearBuffer: setClearTarget,
+    onSaveLog: (id) => {
+      void saveActiveLog(id)
+    },
     onInspectorWidth: updateInspectorWidth,
     onResetInspectorWidth: resetInspectorWidth,
   }
 
+  const more: MoreModel = {
+    open: sheet === 'more',
+    onView: (target) => {
+      setSheet(null)
+      setWorkspaceView(target)
+    },
+    onManual: () => setSheet('manual'),
+    onSettings: () => setSheet('settings'),
+    onHelp: () => setSheet('help'),
+    onClose: () => setSheet(null),
+  }
+
   const sheets = buildSheets({
+    more,
     sheet,
     bufferCap,
     onSaveBufferCap: async (value) => {
@@ -417,6 +457,7 @@ export function useWorkspace(): Workspace {
       onCompare: () => setWorkspaceView('compare'),
       onPretty: () => setWorkspaceView('prettify'),
       onGraphql: () => setWorkspaceView('graphql'),
+      onSaved: () => setWorkspaceView('saved'),
       workspaceView,
       expanded: prefs.railExpanded,
       onToggleExpanded: () => setPrefs({ ...prefs, railExpanded: !prefs.railExpanded }),

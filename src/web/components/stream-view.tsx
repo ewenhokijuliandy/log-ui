@@ -51,6 +51,7 @@ export type StreamActions = {
   onRetry: () => void
   onClearFilters: () => void
   onClearBuffer: (id: string) => void
+  onSaveLog: (id: string) => void
   onInspectorWidth: (width: number) => void
   onResetInspectorWidth: () => void
 }
@@ -76,6 +77,8 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
         droppedLines={data.droppedLines}
         bootError={data.bootError}
         onClearBuffer={() => actions.onClearBuffer(active.id)}
+        onSave={() => actions.onSaveLog(active.id)}
+        saveDisabled={data.totalLines === 0}
       />
 
       <ConnectionBanner

@@ -67,6 +67,7 @@ type StoreActions = {
   closeStream: (id: string) => Promise<void>
   closeAllStreams: () => Promise<void>
   clearStream: (id: string) => Promise<void>
+  setLastError: (message: string | null) => void
 }
 
 function handleStreamCreated(event: ServerEvent): void {
@@ -151,6 +152,8 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
   simulatedLost: false,
   bootError: null,
   lastError: null,
+
+  setLastError: (message) => set({ lastError: message }),
   bufferCap: BUFFER_CAP_DEFAULT,
 
   applyEvent: (event) => {

@@ -56,8 +56,16 @@ test('the phone bar keeps five labelled items', async ({ page }) => {
 
   const visible = page.locator('.rail-btn:visible')
   await expect(visible).toHaveCount(5)
-  await expect(page.getByRole('button', { name: 'Manual mode' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'More', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Settings' })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Manual mode' })).toBeHidden()
+
+  await page.getByRole('button', { name: 'More', exact: true }).click()
+  const more = page.getByRole('dialog', { name: 'More' })
+  await expect(more).toBeVisible()
+  await expect(more.locator('.more-item')).toHaveCount(5)
+  await expect(more).toContainText('GraphQL')
+  await expect(more).toContainText('Saved logs')
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,

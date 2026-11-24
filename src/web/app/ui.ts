@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 export type Screen = 'stream' | 'quick'
 
-export type WorkspaceView = 'stream' | 'compare' | 'prettify' | 'merge' | 'graphql'
+export type WorkspaceView = 'stream' | 'compare' | 'prettify' | 'merge' | 'graphql' | 'saved'
 
 export type CompareStats = {
   added: number

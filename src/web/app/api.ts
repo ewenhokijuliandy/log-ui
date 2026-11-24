@@ -96,3 +96,76 @@ export async function patchSettings(
     return { ok: false, error: 'Could not save the buffer limit.' }
   }
 }
+
+export type SavedMeta = {
+  id: string
+  name: string
+  streamName: string
+  savedAt: number
+  rowCount: number
+}
+
+export type SavedEnvelope = SavedMeta & {
+  zone: 'utc' | 'local'
+  rules: unknown
+  rows: import('../../shared/types.ts').LogRecord[]
+}
+
+export type SaveOutcome = { ok: true; meta: SavedMeta } | { ok: false; error: string }
+
+export async function fetchSavedList(): Promise<SavedMeta[]> {
+  const list = await fetchJson<SavedMeta[]>('/api/saved')
+  return list ?? []
+}
+
+export async function fetchSaved(id: string): Promise<SavedEnvelope | null> {
+  return fetchJson<SavedEnvelope>(`/api/saved/${id}`)
+}
+
+export async function saveStream(input: {
+  streamId: string
+  name: string
+  zone: 'utc' | 'local'
+  rules: unknown
+}): Promise<SaveOutcome> {
+  try {
+    const response = await fetch(joinPath('/api/saved'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (!response.ok) return { ok: false, error: await response.text() }
+    return { ok: true, meta: (await response.json()) as SavedMeta }
+  } catch {
+    return { ok: false, error: 'Could not save this log.' }
+  }
+}
+
+export async function renameSavedLog(id: string, name: string): Promise<SaveOutcome> {
+  try {
+    const response = await fetch(joinPath(`/api/saved/${id}`), {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (!response.ok) return { ok: false, error: await response.text() }
+    return { ok: true, meta: (await response.json()) as SavedMeta }
+  } catch {
+    return { ok: false, error: 'Could not rename this saved log.' }
+  }
+}
+
+export async function deleteSavedLog(id: string): Promise<DeleteOutcome> {
+  try {
+    const response = await fetch(joinPath(`/api/saved/${id}`), {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (!response.ok) return { ok: false, error: 'Could not delete this saved log.' }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Could not delete this saved log.' }
+  }
+}

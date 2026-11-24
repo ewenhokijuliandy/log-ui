@@ -4,7 +4,7 @@ import type { Prefs } from '../app/prefs.ts'
 import type { StreamEntry } from '../app/store.ts'
 import { formatNumber } from '../lib/format-time.ts'
 
-export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | null
+export type SheetName = 'settings' | 'help' | 'manual' | 'rules' | 'more' | null
 
 export type PdfState = {
   title: string
@@ -22,7 +22,17 @@ export type ConfirmModel = {
   onCancel: () => void
 }
 
+export type MoreModel = {
+  open: boolean
+  onView: (view: 'graphql' | 'saved') => void
+  onManual: () => void
+  onSettings: () => void
+  onHelp: () => void
+  onClose: () => void
+}
+
 export type SheetsModel = {
+  more: MoreModel
   detail: {
     record: LogRecord
     zone: Prefs['zone']
@@ -68,6 +78,7 @@ export type SheetsModel = {
 }
 
 export type SheetsInput = {
+  more: MoreModel
   sheet: SheetName
   onCloseSheet: () => void
   onOpenRules: () => void
@@ -104,6 +115,7 @@ export function buildSheets(input: SheetsInput): SheetsModel {
   const clearEntry = input.clearTarget
   const closeEntry = input.closeTarget
   return {
+    more: input.more,
     detail:
       input.detail === null
         ? null

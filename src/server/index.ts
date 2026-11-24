@@ -66,6 +66,7 @@ export async function startServer(options: ServerOptions): Promise<StartedServer
       portProvider: () => port,
     },
     webRoot: resolveWebRoot(options.webRoot),
+    stateDir: options.stateDir ?? null,
   })
 
   const server = serve({ fetch: app.fetch, port: options.port, hostname: '127.0.0.1' })

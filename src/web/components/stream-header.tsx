@@ -7,12 +7,16 @@ export function StreamHeader({
   droppedLines,
   bootError,
   onClearBuffer,
+  onSave,
+  saveDisabled = false,
 }: {
   entry: StreamEntry
   totalLines: number
   droppedLines: number
   bootError: string | null
   onClearBuffer: () => void
+  onSave: () => void
+  saveDisabled?: boolean
 }) {
   return (
     <div className="title-row">
@@ -41,6 +45,15 @@ export function StreamHeader({
             {droppedLines > 0 ? ` retained · ${formatNumber(droppedLines)} dropped` : ' retained'}
           </span>
         </span>
+        <button
+          className="btn ghost"
+          type="button"
+          disabled={saveDisabled}
+          title={saveDisabled ? 'Nothing to save yet' : 'Save this log'}
+          onClick={onSave}
+        >
+          Save log
+        </button>
         <button className="btn ghost" type="button" onClick={onClearBuffer}>
           Clear buffer
         </button>

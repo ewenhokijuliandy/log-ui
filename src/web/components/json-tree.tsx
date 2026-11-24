@@ -33,12 +33,15 @@ export function JsonText({ text }: { text: string }) {
   const lines = text.split('\n')
   return (
     <>
-      {lines.map((line, index) => (
-        <span key={index}>
-          <JsonLine text={line} />
-          {index === lines.length - 1 ? null : '\n'}
-        </span>
-      ))}
+      {lines.map((line, index) => {
+        const offset = lines.slice(0, index).join('\n').length
+        return (
+          <span key={`line-${String(offset)}`}>
+            <JsonLine text={line} />
+            {index === lines.length - 1 ? null : '\n'}
+          </span>
+        )
+      })}
     </>
   )
 }

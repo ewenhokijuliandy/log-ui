@@ -17,6 +17,7 @@ export function Rail({
   onCompare,
   onPretty,
   onGraphql,
+  onSaved,
   workspaceView,
   expanded,
   onToggleExpanded,
@@ -96,18 +97,30 @@ export function Rail({
           <Icon name="terminal" />
           <span className="rail-label">GraphQL</span>
         </button>
+        <button
+          className="rail-btn rail-btn-narrow"
+          type="button"
+          title="Saved logs"
+          aria-label="Saved logs"
+          aria-current={workspaceView === 'saved' ? 'page' : undefined}
+          onClick={onSaved}
+        >
+          <Icon name="bookmark" />
+          <span className="rail-label">Saved</span>
+        </button>
       </nav>
       <nav className="rail-nav rail-nav-app" aria-label="Application">
         <span className="rail-group-label">App</span>
         <button
           className="rail-btn rail-btn-phone"
           type="button"
-          title="Manual mode"
-          aria-label="Manual mode"
-          onClick={() => openSheet('manual')}
+          title="More"
+          aria-label="More"
+          aria-haspopup="dialog"
+          onClick={() => openSheet('more')}
         >
-          <Icon name="terminal" />
-          <span className="rail-label">Manual</span>
+          <Icon name="more" />
+          <span className="rail-label">More</span>
         </button>
         <button
           className="rail-btn rail-btn-app"
@@ -153,6 +166,7 @@ export type RailProps = {
   onCompare: () => void
   onPretty: () => void
   onGraphql: () => void
+  onSaved: () => void
   workspaceView: WorkspaceView
   expanded: boolean
   onToggleExpanded: () => void
