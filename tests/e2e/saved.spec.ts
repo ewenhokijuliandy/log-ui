@@ -66,6 +66,10 @@ test('saves a stream log, renames it, opens it and deletes it', async ({ page })
     .getByRole('button', { name: /^Delete/ })
     .first()
     .click()
+  await page
+    .getByRole('dialog', { name: /Delete/ })
+    .getByRole('button', { name: 'Delete log' })
+    .click()
   await expect(view.locator('.saved-empty')).toContainText('Nothing saved yet')
 
   const after = await page.request.get('/api/saved')
@@ -92,6 +96,66 @@ test('saved logs survive a reload', async ({ page }) => {
   await page.getByRole('button', { name: 'Saved logs' }).click()
   await expect(page.locator('.view-slot:not([hidden]) .saved-row')).toHaveCount(1)
   await expect(page.locator('.view-slot:not([hidden]) .saved-row').first()).toContainText('worker')
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
+test('filters, sorts and guards deletion of saved logs', async ({ page }) => {
+  const consoleWatch = watchConsole(page)
+  const first = startPipe('alpha')
+  const second = startPipe('beta')
+  pipes.push(first, second)
+  await first.write([line(1, 'ERROR', 'boom')])
+  await second.write([line(2, 'INFO', 'ok')])
+  await waitForStream('alpha')
+  await waitForStream('beta')
+
+  await page.goto('/')
+  await page.keyboard.press('Escape')
+  for (const name of ['alpha', 'beta']) {
+    await page
+      .getByRole('tab', { name: new RegExp(`^${name}`) })
+      .first()
+      .click()
+    await page.getByRole('button', { name: 'Save log' }).click()
+    await page.waitForTimeout(500)
+  }
+
+  const view = page.locator('.view-slot:not([hidden])')
+  await expect(view.locator('.saved-row')).toHaveCount(2)
+
+  await view.getByLabel('Search saved logs').fill('alp')
+  await expect(view.locator('.saved-row')).toHaveCount(1)
+  await expect(view.locator('.saved-open').first()).toHaveText('alpha')
+
+  await view.getByLabel('Search saved logs').fill('nothing-here')
+  await expect(view.locator('.saved-empty-title')).toContainText('No saved log matches')
+  await view.getByRole('button', { name: 'clear the search' }).click()
+  await expect(view.locator('.saved-row')).toHaveCount(2)
+
+  await view.getByRole('button', { name: 'Name', exact: true }).click()
+  await expect(view.locator('.saved-open').first()).toHaveText('alpha')
+
+  await view
+    .getByRole('button', { name: /^Delete/ })
+    .first()
+    .click()
+  const confirm = page.getByRole('dialog', { name: /Delete/ })
+  await expect(confirm).toBeVisible()
+  await expect(confirm.locator('h2')).toContainText('alpha')
+  await expect(confirm.getByRole('button', { name: 'Keep log' })).toBeVisible()
+  await confirm.getByRole('button', { name: 'Keep log' }).click()
+  await expect(view.locator('.saved-row')).toHaveCount(2)
+
+  await view
+    .getByRole('button', { name: /^Delete/ })
+    .first()
+    .click()
+  await page
+    .getByRole('dialog', { name: /Delete/ })
+    .getByRole('button', { name: 'Delete log' })
+    .click()
+  await expect(view.locator('.saved-row')).toHaveCount(1)
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })

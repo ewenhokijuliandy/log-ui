@@ -104,7 +104,14 @@ describe('saved store', () => {
     })
     const list = await listSaved(stateDir)
     expect(list.map((item) => item.id)).toEqual([second.id, first.id])
-    expect(Object.keys(list[0]).sort()).toEqual(['id', 'name', 'rowCount', 'savedAt', 'streamName'])
+    expect(Object.keys(list[0]).sort()).toEqual([
+      'counts',
+      'id',
+      'name',
+      'rowCount',
+      'savedAt',
+      'streamName',
+    ])
   })
 
   test('renames and keeps the rows intact', async () => {
@@ -142,6 +149,29 @@ describe('saved store', () => {
     expect(await readSaved(stateDir, '../settings')).toBeNull()
     expect(await deleteSaved(stateDir, '../../etc/passwd')).toBe(false)
     expect(await renameSaved(stateDir, '../x', 'nope')).toBeNull()
+  })
+
+  test('reports the level mix for each entry', async () => {
+    const rows: LogRecord[] = [
+      { ...makeRow(1), level: 'error' },
+      { ...makeRow(2), level: 'fatal' },
+      { ...makeRow(3), level: 'warn' },
+      { ...makeRow(4), level: 'info' },
+      { ...makeRow(5), level: 'debug' },
+      { ...makeRow(6), level: 'trace' },
+      { ...makeRow(7), level: 'unknown' },
+    ]
+    const created = await createSaved(stateDir, {
+      name: 'mixed',
+      streamName: 'api',
+      zone: 'utc',
+      rules: null,
+      rows,
+      bufferCap: 100,
+    })
+    const [meta] = await listSaved(stateDir)
+    expect(meta.id).toBe(created.id)
+    expect(meta.counts).toEqual({ error: 2, warn: 1, info: 1, debug: 2, unknown: 1 })
   })
 
   test('clamps an empty name to a readable fallback', async () => {

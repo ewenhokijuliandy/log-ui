@@ -1,4 +1,5 @@
 import type { Hono, MiddlewareHandler } from 'hono'
+import { countLevels } from '../../shared/levels.ts'
 import { createSaved, deleteSaved, listSaved, readSaved, renameSaved } from '../saved-store.ts'
 import type { StreamRegistry } from '../stream-registry.ts'
 
@@ -61,6 +62,7 @@ export function registerSavedRoutes(app: Hono, deps: SavedDeps, guard: Middlewar
       rows,
       bufferCap: deps.bufferCap(),
     })
+    const levels = countLevels(envelope.rows)
     return context.json(
       {
         id: envelope.id,
@@ -68,6 +70,13 @@ export function registerSavedRoutes(app: Hono, deps: SavedDeps, guard: Middlewar
         streamName: envelope.streamName,
         savedAt: envelope.savedAt,
         rowCount: envelope.rowCount,
+        counts: {
+          error: levels.fatal + levels.error,
+          warn: levels.warn,
+          info: levels.info,
+          debug: levels.debug + levels.trace,
+          unknown: levels.unknown,
+        },
       },
       201,
     )

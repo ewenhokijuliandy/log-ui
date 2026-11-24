@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { countLevels } from '../shared/levels.ts'
 import type { LogRecord } from '../shared/types.ts'
+
+export type SavedCounts = {
+  error: number
+  warn: number
+  info: number
+  debug: number
+  unknown: number
+}
 
 export type SavedMeta = {
   id: string
@@ -9,9 +18,15 @@ export type SavedMeta = {
   streamName: string
   savedAt: number
   rowCount: number
+  counts: SavedCounts
 }
 
-export type SavedEnvelope = SavedMeta & {
+export type SavedEnvelope = {
+  id: string
+  name: string
+  streamName: string
+  savedAt: number
+  rowCount: number
   zone: 'utc' | 'local'
   rules: unknown
   rows: LogRecord[]
@@ -36,12 +51,20 @@ function clampName(value: string, fallback: string): string {
 }
 
 function toMeta(envelope: SavedEnvelope): SavedMeta {
+  const levels = countLevels(envelope.rows)
   return {
     id: envelope.id,
     name: envelope.name,
     streamName: envelope.streamName,
     savedAt: envelope.savedAt,
     rowCount: envelope.rowCount,
+    counts: {
+      error: levels.fatal + levels.error,
+      warn: levels.warn,
+      info: levels.info,
+      debug: levels.debug + levels.trace,
+      unknown: levels.unknown,
+    },
   }
 }
 

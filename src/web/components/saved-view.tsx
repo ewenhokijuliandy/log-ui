@@ -9,9 +9,53 @@ import {
   type SavedMeta,
 } from '../app/api.ts'
 import { formatNumber, formatTime } from '../lib/format-time.ts'
+import { ConfirmDialog } from './confirm-dialog.tsx'
+import { Segment } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
 import { Inspector } from './inspector.tsx'
 import { ToolView } from './tool-view.tsx'
+
+type SavedSort = 'newest' | 'name' | 'rows'
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'name', label: 'Name' },
+  { value: 'rows', label: 'Rows' },
+]
+
+function mixLabel(counts: SavedMeta['counts']): string {
+  if (counts.error > 0) return `${formatNumber(counts.error)} err`
+  if (counts.warn > 0) return `${formatNumber(counts.warn)} warn`
+  return 'clean'
+}
+
+function mixLabelClass(counts: SavedMeta['counts']): string {
+  if (counts.error > 0) return 'saved-mix-label has-error'
+  if (counts.warn > 0) return 'saved-mix-label has-warn'
+  return 'saved-mix-label'
+}
+
+function LevelMix({ counts }: { counts: SavedMeta['counts'] }) {
+  const total = counts.error + counts.warn + counts.info + counts.debug + counts.unknown
+  if (total === 0) return <span className="saved-mix-empty">no levels</span>
+  return (
+    <span
+      className="saved-mix"
+      title={`${String(counts.error)} error · ${String(counts.warn)} warn · ${String(counts.info)} info · ${String(counts.debug)} debug`}
+    >
+      <span className="saved-mix-bar" aria-hidden="true">
+        {counts.error === 0 ? null : <span className="error" style={{ flex: counts.error }} />}
+        {counts.warn === 0 ? null : <span className="warn" style={{ flex: counts.warn }} />}
+        {counts.info === 0 ? null : <span className="info" style={{ flex: counts.info }} />}
+        {counts.debug === 0 ? null : <span className="debug" style={{ flex: counts.debug }} />}
+        {counts.unknown === 0 ? null : (
+          <span className="unknown" style={{ flex: counts.unknown }} />
+        )}
+      </span>
+      <span className={mixLabelClass(counts)}>{mixLabel(counts)}</span>
+    </span>
+  )
+}
 
 export function SavedView({
   active,
@@ -28,6 +72,9 @@ export function SavedView({
   const [error, setError] = useState('')
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<SavedSort>('newest')
+  const [deleteTarget, setDeleteTarget] = useState<SavedMeta | null>(null)
 
   const refresh = useCallback(async (): Promise<void> => {
     setList(await fetchSavedList())
@@ -58,6 +105,23 @@ export function SavedView({
     setSelectedSeq(null)
     setInspectorOpen(false)
   }
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    const matched =
+      needle.length === 0
+        ? list
+        : list.filter(
+            (meta) =>
+              meta.name.toLowerCase().includes(needle) ||
+              meta.streamName.toLowerCase().includes(needle),
+          )
+    const ordered = [...matched]
+    if (sort === 'name') ordered.sort((a, b) => a.name.localeCompare(b.name))
+    if (sort === 'rows') ordered.sort((a, b) => b.rowCount - a.rowCount)
+    if (sort === 'newest') ordered.sort((a, b) => b.savedAt - a.savedAt)
+    return ordered
+  }, [list, query, sort])
 
   const counts = useMemo(() => (rows.length === 0 ? null : countLevels(rows)), [rows])
   const selected = useMemo(
@@ -184,6 +248,32 @@ export function SavedView({
       }
     >
       {error.length === 0 ? null : <p className="saved-error">{error}</p>}
+      <div className="saved-toolbar">
+        <label className="search saved-search">
+          <Icon name="search" />
+          <input
+            type="text"
+            aria-label="Search saved logs"
+            placeholder="Search name or source"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <Segment
+          label="Sort saved logs"
+          value={sort}
+          options={SORT_OPTIONS}
+          onChange={(value) =>
+            setSort(value === 'name' ? 'name' : value === 'rows' ? 'rows' : 'newest')
+          }
+        />
+        <span className="spacer" />
+        <span className="saved-count">
+          {visible.length === list.length
+            ? `${formatNumber(list.length)} saved`
+            : `${formatNumber(visible.length)} of ${formatNumber(list.length)}`}
+        </span>
+      </div>
       {list.length === 0 ? (
         <div className="saved-empty">
           <p className="saved-empty-title">Nothing saved yet</p>
@@ -192,17 +282,29 @@ export function SavedView({
             here. Saved logs survive restarts and clearing the buffer.
           </p>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="saved-empty">
+          <p className="saved-empty-title">No saved log matches “{query.trim()}”</p>
+          <p className="saved-empty-body">
+            Try a shorter term, or{' '}
+            <button className="link" type="button" onClick={() => setQuery('')}>
+              clear the search
+            </button>{' '}
+            to see all {formatNumber(list.length)} saved logs.
+          </p>
+        </div>
       ) : (
         <div className="saved-table">
           <div className="saved-head" aria-hidden="true">
             <span>name</span>
             <span>source</span>
+            <span>levels</span>
             <span className="num">rows</span>
             <span className="num">saved</span>
             <span />
           </div>
           <ul className="saved-list">
-            {list.map((meta) => (
+            {visible.map((meta) => (
               <li className="saved-row" key={meta.id}>
                 {renaming === meta.id ? (
                   <input
@@ -225,7 +327,11 @@ export function SavedView({
                     {meta.name}
                   </button>
                 )}
-                <span className="saved-source">{meta.streamName}</span>
+                <span className="saved-source">
+                  <span className="dot" />
+                  {meta.streamName}
+                </span>
+                <LevelMix counts={meta.counts} />
                 <span className="saved-rows">{formatNumber(meta.rowCount)}</span>
                 <span className="saved-when">{formatTime(meta.savedAt, 'utc')}</span>
                 <span className="saved-actions">
@@ -261,7 +367,7 @@ export function SavedView({
                     aria-label={`Delete ${meta.name}`}
                     title={`Delete ${meta.name}`}
                     disabled={renaming === meta.id}
-                    onClick={() => void remove(meta.id)}
+                    onClick={() => setDeleteTarget(meta)}
                   >
                     <Icon name="trash" />
                   </button>
@@ -271,6 +377,19 @@ export function SavedView({
           </ul>
         </div>
       )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={deleteTarget === null ? 'Delete saved log' : `Delete “${deleteTarget.name}”?`}
+        body="This removes the snapshot from disk. It cannot be undone."
+        confirmLabel="Delete log"
+        cancelLabel="Keep log"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          const target = deleteTarget
+          setDeleteTarget(null)
+          if (target !== null) void remove(target.id)
+        }}
+      />
     </ToolView>
   )
 }

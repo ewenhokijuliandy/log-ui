@@ -97,12 +97,21 @@ export async function patchSettings(
   }
 }
 
+export type SavedCounts = {
+  error: number
+  warn: number
+  info: number
+  debug: number
+  unknown: number
+}
+
 export type SavedMeta = {
   id: string
   name: string
   streamName: string
   savedAt: number
   rowCount: number
+  counts: SavedCounts
 }
 
 export type SavedEnvelope = SavedMeta & {
