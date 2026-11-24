@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { type CSSProperties, useState } from 'react'
 import type { LogRecord } from '../../shared/types.ts'
 import type { Prefs } from '../app/prefs.ts'
 import type { StreamEntry } from '../app/store.ts'
@@ -10,6 +10,7 @@ import { ConnectionBanner } from './connection-banner.tsx'
 import type { ChipCounts } from './filter-chips.tsx'
 import { Inspector } from './inspector.tsx'
 import { LogList } from './logs.tsx'
+import { SaveLogDialog } from './save-log-dialog.tsx'
 import { SignalStrip } from './signal.tsx'
 import { StreamHeader } from './stream-header.tsx'
 import { Toolbar } from './toolbar.tsx'
@@ -51,7 +52,7 @@ export type StreamActions = {
   onRetry: () => void
   onClearFilters: () => void
   onClearBuffer: (id: string) => void
-  onSaveLog: (id: string) => void
+  onSaveLog: (id: string, name: string) => void
   onInspectorWidth: (width: number) => void
   onResetInspectorWidth: () => void
 }
@@ -67,6 +68,9 @@ export type StreamViewProps = {
 
 export function StreamView({ data, actions, filter, sort, prefs, presets }: StreamViewProps) {
   const { active } = data
+  const [saveTarget, setSaveTarget] = useState<string | null>(null)
+  const saveOpen = active !== null && saveTarget === active.id
+
   if (active === null) return null
   const on = filtersActive(filter, actions.isolateTrace)
   return (
@@ -77,7 +81,7 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
         droppedLines={data.droppedLines}
         bootError={data.bootError}
         onClearBuffer={() => actions.onClearBuffer(active.id)}
-        onSave={() => actions.onSaveLog(active.id)}
+        onSave={() => setSaveTarget(active.id)}
         saveDisabled={data.totalLines === 0}
       />
 
@@ -147,6 +151,16 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
           onResetWidth={actions.onResetInspectorWidth}
         />
       </div>
+      <SaveLogDialog
+        open={saveOpen}
+        streamName={active.name}
+        defaultName={active.name}
+        onCancel={() => setSaveTarget(null)}
+        onConfirm={(name) => {
+          setSaveTarget(null)
+          actions.onSaveLog(active.id, name)
+        }}
+      />
     </section>
   )
 }

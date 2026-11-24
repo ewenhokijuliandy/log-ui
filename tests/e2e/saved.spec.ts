@@ -18,6 +18,14 @@ async function clearSaved(page: Page): Promise<void> {
   for (const entry of entries) await page.request.delete(`/api/saved/${entry.id}`)
 }
 
+async function saveCurrentStream(page: Page, name?: string): Promise<void> {
+  await page.getByRole('button', { name: 'Save log', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Save log' })
+  await expect(dialog).toBeVisible()
+  if (name !== undefined) await dialog.getByLabel('Saved log name').fill(name)
+  await dialog.getByRole('button', { name: 'Save log' }).click()
+}
+
 test.beforeEach(async ({ page }) => {
   await clearStreams()
   await clearSaved(page)
@@ -39,7 +47,7 @@ test('saves a stream log, renames it, opens it and deletes it', async ({ page })
   await page.goto('/')
   await page.keyboard.press('Escape')
   await page.getByRole('tab', { name: /payments/ }).click()
-  await page.getByRole('button', { name: 'Save log' }).click()
+  await saveCurrentStream(page)
 
   const view = page.locator('.view-slot:not([hidden])')
   await expect(view.locator('.tool-view-title')).toHaveText('Saved logs')
@@ -88,7 +96,7 @@ test('saved logs survive a reload', async ({ page }) => {
   await page.goto('/')
   await page.keyboard.press('Escape')
   await page.getByRole('tab', { name: /worker/ }).click()
-  await page.getByRole('button', { name: 'Save log' }).click()
+  await saveCurrentStream(page)
   const view = page.locator('.view-slot:not([hidden])')
   await expect(view.locator('.saved-row')).toHaveCount(1)
 
@@ -117,8 +125,8 @@ test('filters, sorts and guards deletion of saved logs', async ({ page }) => {
       .getByRole('tab', { name: new RegExp(`^${name}`) })
       .first()
       .click()
-    await page.getByRole('button', { name: 'Save log' }).click()
-    await page.waitForTimeout(500)
+    await saveCurrentStream(page)
+    await page.waitForTimeout(300)
   }
 
   const view = page.locator('.view-slot:not([hidden])')
@@ -156,6 +164,43 @@ test('filters, sorts and guards deletion of saved logs', async ({ page }) => {
     .getByRole('button', { name: 'Delete log' })
     .click()
   await expect(view.locator('.saved-row')).toHaveCount(1)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
+test('save opens a name dialog defaulting to the stream name', async ({ page }) => {
+  const consoleWatch = watchConsole(page)
+  const pipe = startPipe('checkout-api')
+  pipes.push(pipe)
+  await pipe.write([line(1, 'ERROR', 'declined')])
+  await waitForStream('checkout-api')
+
+  await page.goto('/')
+  await page.keyboard.press('Escape')
+  await page.getByRole('tab', { name: /checkout-api/ }).click()
+
+  await page.getByRole('button', { name: 'Save log', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Save log' })
+  await expect(dialog).toBeVisible()
+
+  const input = dialog.getByLabel('Saved log name')
+  await expect(input).toHaveValue('checkout-api')
+  await expect(input).toBeFocused()
+
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  const none = await page.request.get('/api/saved')
+  expect((await none.json()) as unknown[]).toHaveLength(0)
+
+  await page.getByRole('button', { name: 'Save log', exact: true }).click()
+  await dialog.getByLabel('Saved log name').fill('   ')
+  await expect(dialog.getByRole('button', { name: 'Save log' })).toBeDisabled()
+
+  await dialog.getByLabel('Saved log name').fill('payment incident')
+  await dialog.getByRole('button', { name: 'Save log' }).click()
+
+  const view = page.locator('.view-slot:not([hidden])')
+  await expect(view.locator('.saved-open').first()).toHaveText('payment incident')
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })

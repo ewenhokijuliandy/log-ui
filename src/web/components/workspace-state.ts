@@ -200,13 +200,13 @@ export function useWorkspace(): Workspace {
       : (derivedRecords.find((record) => record.seq === selectedSeq) ?? null)
   const showDetailSheet = narrow && inspectorOpen && selectedRecord !== null
 
-  const saveActiveLog = async (id: string): Promise<void> => {
+  const saveActiveLog = async (id: string, name: string): Promise<void> => {
     const entry = streams.find((item) => item.id === id)
     if (entry === undefined) return
     useStreams.getState().setLastError(null)
     const outcome = await saveStream({
       streamId: id,
-      name: entry.name,
+      name,
       zone: prefs.zone,
       rules,
     })
@@ -337,8 +337,8 @@ export function useWorkspace(): Workspace {
     onRetry: retryConnection,
     onClearFilters: clearFilters,
     onClearBuffer: setClearTarget,
-    onSaveLog: (id) => {
-      void saveActiveLog(id)
+    onSaveLog: (id, name) => {
+      void saveActiveLog(id, name)
     },
     onInspectorWidth: updateInspectorWidth,
     onResetInspectorWidth: resetInspectorWidth,

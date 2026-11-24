@@ -3570,6 +3570,24 @@ dialog.quick-dialog {
   color: var(--faint);
 }
 
+.save-dialog {
+  max-width: 440px;
+}
+
+.save-dialog h2 {
+  margin: 0 0 6px;
+  font-size: var(--fs-section);
+  font-weight: 600;
+}
+
+.save-dialog > p {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}
+
 .more-dialog {
   max-width: 420px;
 }
