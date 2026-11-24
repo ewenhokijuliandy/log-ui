@@ -13,10 +13,6 @@ import { Icon } from './icons.tsx'
 import { Inspector } from './inspector.tsx'
 import { ToolView } from './tool-view.tsx'
 
-function describeSaved(meta: SavedMeta): string {
-  return `${meta.streamName} · ${formatNumber(meta.rowCount)} rows · ${formatTime(meta.savedAt, 'utc')}`
-}
-
 export function SavedView({
   active,
   inspectorWidth,
@@ -189,68 +185,91 @@ export function SavedView({
     >
       {error.length === 0 ? null : <p className="saved-error">{error}</p>}
       {list.length === 0 ? (
-        <p className="saved-empty">
-          Nothing saved yet. Open a stream and choose <strong>Save log</strong>.
-        </p>
+        <div className="saved-empty">
+          <p className="saved-empty-title">Nothing saved yet</p>
+          <p className="saved-empty-body">
+            Open a stream and choose <strong>Save log</strong> in its header to keep a snapshot
+            here. Saved logs survive restarts and clearing the buffer.
+          </p>
+        </div>
       ) : (
-        <ul className="saved-list">
-          {list.map((meta) => (
-            <li className="saved-item" key={meta.id}>
-              {renaming === meta.id ? (
-                <input
-                  className="saved-rename"
-                  aria-label="Saved log name"
-                  value={draftName}
-                  onChange={(event) => setDraftName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void commitRename(meta.id)
-                    if (event.key === 'Escape') setRenaming(null)
-                  }}
-                />
-              ) : (
-                <button
-                  className="saved-open"
-                  type="button"
-                  onClick={() => void openSaved(meta.id)}
-                >
-                  <span className="saved-name">{meta.name}</span>
-                  <span className="saved-meta">{describeSaved(meta)}</span>
-                </button>
-              )}
-              <div className="saved-actions">
+        <div className="saved-table">
+          <div className="saved-head" aria-hidden="true">
+            <span>name</span>
+            <span>source</span>
+            <span className="num">rows</span>
+            <span className="num">saved</span>
+            <span />
+          </div>
+          <ul className="saved-list">
+            {list.map((meta) => (
+              <li className="saved-row" key={meta.id}>
                 {renaming === meta.id ? (
-                  <button
-                    className="btn ghost"
-                    type="button"
-                    onClick={() => void commitRename(meta.id)}
-                  >
-                    Save
-                  </button>
+                  <input
+                    className="saved-rename"
+                    aria-label={`Rename ${meta.name}`}
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void commitRename(meta.id)
+                      if (event.key === 'Escape') setRenaming(null)
+                    }}
+                  />
                 ) : (
                   <button
-                    className="btn ghost"
+                    className="saved-open"
                     type="button"
-                    aria-label={`Rename ${meta.name}`}
-                    onClick={() => {
-                      setRenaming(meta.id)
-                      setDraftName(meta.name)
-                    }}
+                    title={`Open ${meta.name}`}
+                    onClick={() => void openSaved(meta.id)}
                   >
-                    Rename
+                    {meta.name}
                   </button>
                 )}
-                <button
-                  className="btn ghost saved-delete"
-                  type="button"
-                  aria-label={`Delete ${meta.name}`}
-                  onClick={() => void remove(meta.id)}
-                >
-                  <Icon name="trash" />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                <span className="saved-source">{meta.streamName}</span>
+                <span className="saved-rows">{formatNumber(meta.rowCount)}</span>
+                <span className="saved-when">{formatTime(meta.savedAt, 'utc')}</span>
+                <span className="saved-actions">
+                  {renaming === meta.id ? (
+                    <>
+                      <button className="btn ghost" type="button" onClick={() => setRenaming(null)}>
+                        Cancel
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => void commitRename(meta.id)}
+                      >
+                        Save
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      aria-label={`Rename ${meta.name}`}
+                      onClick={() => {
+                        setRenaming(meta.id)
+                        setDraftName(meta.name)
+                      }}
+                    >
+                      Rename
+                    </button>
+                  )}
+                  <button
+                    className="btn ghost saved-delete"
+                    type="button"
+                    aria-label={`Delete ${meta.name}`}
+                    title={`Delete ${meta.name}`}
+                    disabled={renaming === meta.id}
+                    onClick={() => void remove(meta.id)}
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </ToolView>
   )

@@ -43,16 +43,16 @@ test('saves a stream log, renames it, opens it and deletes it', async ({ page })
 
   const view = page.locator('.view-slot:not([hidden])')
   await expect(view.locator('.tool-view-title')).toHaveText('Saved logs')
-  await expect(view.locator('.saved-item')).toHaveCount(1)
-  await expect(view.locator('.saved-item').first()).toContainText('payments')
+  await expect(view.locator('.saved-row')).toHaveCount(1)
+  await expect(view.locator('.saved-row').first()).toContainText('payments')
 
   await view
     .getByRole('button', { name: /^Rename/ })
     .first()
     .click()
-  await view.getByLabel('Saved log name').fill('payment decline')
+  await view.locator('.saved-rename').fill('payment decline')
   await view.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(view.locator('.saved-name').first()).toHaveText('payment decline')
+  await expect(view.locator('.saved-open').first()).toHaveText('payment decline')
 
   await view.locator('.saved-open').first().click()
   await expect(view.locator('.log-row')).toHaveCount(1)
@@ -86,12 +86,12 @@ test('saved logs survive a reload', async ({ page }) => {
   await page.getByRole('tab', { name: /worker/ }).click()
   await page.getByRole('button', { name: 'Save log' }).click()
   const view = page.locator('.view-slot:not([hidden])')
-  await expect(view.locator('.saved-item')).toHaveCount(1)
+  await expect(view.locator('.saved-row')).toHaveCount(1)
 
   await page.reload()
   await page.getByRole('button', { name: 'Saved logs' }).click()
-  await expect(page.locator('.view-slot:not([hidden]) .saved-item')).toHaveCount(1)
-  await expect(page.locator('.view-slot:not([hidden]) .saved-item').first()).toContainText('worker')
+  await expect(page.locator('.view-slot:not([hidden]) .saved-row')).toHaveCount(1)
+  await expect(page.locator('.view-slot:not([hidden]) .saved-row').first()).toContainText('worker')
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
