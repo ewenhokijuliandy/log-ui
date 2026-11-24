@@ -49,6 +49,7 @@ export type SheetsModel = {
   clear: ConfirmModel
   close: ConfirmModel
   closeAll: ConfirmModel
+  closeInactive: ConfirmModel
   settings: {
     open: boolean
     onClose: () => void
@@ -97,9 +98,13 @@ export type SheetsInput = {
   onConfirmClose: () => void
   onCancelClose: () => void
   closeAllOpen: boolean
+  closeInactiveOpen: boolean
   closeAllStreams: readonly StreamEntry[]
   onConfirmCloseAll: () => void
   onCancelCloseAll: () => void
+  streams: readonly StreamEntry[]
+  onConfirmCloseInactive: () => void
+  onCancelCloseInactive: () => void
   prefs: Prefs
   onSavePrefs: (draft: Prefs) => void
   rules: ParseRules
@@ -156,6 +161,15 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       onConfirm: input.onConfirmClose,
       onCancel: input.onCancelClose,
     },
+    closeInactive: {
+      open: input.closeInactiveOpen,
+      title: closeInactiveTitle(input.streams),
+      body: closeInactiveBody(input.streams),
+      confirmLabel: 'Close inactive tabs',
+      cancelLabel: 'Keep them open',
+      onConfirm: input.onConfirmCloseInactive,
+      onCancel: input.onCancelCloseInactive,
+    },
     closeAll: {
       open: input.closeAllOpen,
       title: closeAllTitle(input.closeAllStreams),
@@ -202,6 +216,31 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       onClose: input.onClosePdf,
     },
   }
+}
+
+export function inactiveStreamsOf(streams: readonly StreamEntry[]): StreamEntry[] {
+  return streams.filter((entry) => entry.kind === 'pipe' && entry.status === 'stopped')
+}
+
+export function closeInactiveTitle(streams: readonly StreamEntry[]): string {
+  const count = inactiveStreamsOf(streams).length
+  if (count === 0) return 'Close inactive tabs?'
+  return count === 1 ? 'Close 1 inactive tab?' : `Close ${String(count)} inactive tabs?`
+}
+
+export function closeInactiveBody(streams: readonly StreamEntry[]): string {
+  const inactive = inactiveStreamsOf(streams).length
+  const live = streams.filter((entry) => entry.kind === 'pipe' && entry.status !== 'stopped').length
+  const manual = streams.filter((entry) => entry.kind === 'manual').length
+  if (inactive === 0) return 'Every open tab is still live.'
+  const kept: string[] = []
+  if (live > 0) kept.push(`${String(live)} live ${live === 1 ? 'stream' : 'streams'}`)
+  if (manual > 0) kept.push(`${String(manual)} manual ${manual === 1 ? 'tab' : 'tabs'}`)
+  if (kept.length === 0) {
+    return `This closes ${String(inactive)} ended ${inactive === 1 ? 'stream' : 'streams'} and frees their buffers. This cannot be undone.`
+  }
+  const stays = live + manual === 1 ? 'stays' : 'stay'
+  return `This closes ${String(inactive)} ended ${inactive === 1 ? 'stream' : 'streams'} and frees their buffers. ${kept.join(' and ')} ${stays} open. This cannot be undone.`
 }
 
 export function closeAllTitle(streams: readonly StreamEntry[]): string {

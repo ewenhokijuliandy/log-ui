@@ -31,6 +31,8 @@ export function WorkspaceSheets({ sheets }: { sheets: SheetsModel }) {
 
       <ConfirmDialog {...sheets.closeAll} />
 
+      <ConfirmDialog {...sheets.closeInactive} />
+
       <MoreSheet {...sheets.more} />
 
       <SettingsSheet {...sheets.settings} />

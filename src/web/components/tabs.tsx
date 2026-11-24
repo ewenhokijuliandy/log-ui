@@ -4,12 +4,15 @@ import { type StreamEntry, useStreams } from '../app/store.ts'
 import { useUi } from '../app/ui.ts'
 import { formatNumber } from '../lib/format-time.ts'
 import { Icon } from './icons.tsx'
+import { PopoverPanel, usePopover } from './popover.tsx'
 import { TabFinder } from './tab-finder.tsx'
 
 export function StreamTabs({
   onQuickStart,
   onCloseTab,
   onCloseAll,
+  onCloseInactive,
+  inactiveCount,
   toolViewActive,
 }: StreamTabsProps) {
   const streams = useStreams((state) => state.streams)
@@ -23,6 +26,7 @@ export function StreamTabs({
   const setScreen = useUi((state) => state.setScreen)
   const setWorkspaceView = useUi((state) => state.setWorkspaceView)
 
+  const menu = usePopover()
   const dragId = useRef<string | null>(null)
   const renameRef = useRef<HTMLInputElement | null>(null)
   const errorRef = useRef<HTMLSpanElement | null>(null)
@@ -255,13 +259,45 @@ export function StreamTabs({
       <button
         className="tab-tool tab-tool-danger"
         type="button"
-        aria-label="Close all tabs"
-        title="Close all tabs"
+        ref={menu.bindTrigger}
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        aria-label="Close tabs"
+        title="Close tabs"
         disabled={streams.length === 0}
-        onClick={onCloseAll}
+        onClick={() => menu.setOpen(!menu.open)}
       >
         <Icon name="trash" />
       </button>
+      <PopoverPanel control={menu} label="Close tabs">
+        <button
+          className="menu-item"
+          type="button"
+          role="menuitem"
+          disabled={inactiveCount === 0}
+          onClick={() => {
+            menu.close()
+            onCloseInactive()
+          }}
+        >
+          <Icon name="trash" />
+          <span className="grow">Close inactive tabs</span>
+          <span className="note">{formatNumber(inactiveCount)}</span>
+        </button>
+        <button
+          className="menu-item danger"
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            menu.close()
+            onCloseAll()
+          }}
+        >
+          <Icon name="trash" />
+          <span className="grow">Close all tabs</span>
+          <span className="note">{formatNumber(streams.length)}</span>
+        </button>
+      </PopoverPanel>
       <button
         className="tab-add"
         type="button"
@@ -280,5 +316,7 @@ export type StreamTabsProps = {
   onQuickStart: () => void
   onCloseTab: (id: string) => void
   onCloseAll: () => void
+  onCloseInactive: () => void
+  inactiveCount: number
   toolViewActive: boolean
 }

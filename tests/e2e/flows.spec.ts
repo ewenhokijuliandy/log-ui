@@ -110,7 +110,7 @@ test('pipe flows through search, level filter, inspector, export, and close', as
 
   await page.locator('.stream-tab.selected .close').click()
   await expect(page.getByRole('dialog', { name: 'Close flow?' })).toBeVisible()
-  await page.getByRole('button', { name: 'Close tab' }).click()
+  await page.getByRole('button', { name: 'Close tab', exact: true }).click()
   await expect(page.getByRole('tab', { name: /flow/ })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'No streams yet' })).toBeVisible()
   const exitCode = await pipe.exited

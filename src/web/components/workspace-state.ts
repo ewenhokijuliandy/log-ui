@@ -95,6 +95,8 @@ export type Workspace = {
     onQuickStart: () => void
     onCloseTab: (id: string) => void
     onCloseAll: () => void
+    onCloseInactive: () => void
+    inactiveCount: number
     toolViewActive: boolean
   }
   empty: {
@@ -124,6 +126,7 @@ export function useWorkspace(): Workspace {
   const setPaused = useStreams((state) => state.setPaused)
   const closeStream = useStreams((state) => state.closeStream)
   const closeAllStreams = useStreams((state) => state.closeAllStreams)
+  const closeInactiveStreams = useStreams((state) => state.closeInactiveStreams)
   const clearStream = useStreams((state) => state.clearStream)
   const cleared = useStreams((state) => state.cleared)
   const bufferCap = useStreams((state) => state.bufferCap)
@@ -149,6 +152,7 @@ export function useWorkspace(): Workspace {
   const [clearTarget, setClearTarget] = useState<string | null>(null)
   const [closeTarget, setCloseTarget] = useState<string | null>(null)
   const [closeAllOpen, setCloseAllOpen] = useState(false)
+  const [closeInactiveOpen, setCloseInactiveOpen] = useState(false)
   const [pdfState, setPdfState] = useState<PdfState | null>(null)
   const [inspectorWidth, setInspectorWidth] = useState(
     () => loadInspectorWidth() ?? defaultInspectorWidth(),
@@ -193,6 +197,10 @@ export function useWorkspace(): Workspace {
     openInspector: () => setInspectorOpen(true),
     toggleTheme,
   })
+
+  const inactiveEntries = streams.filter(
+    (entry) => entry.kind === 'pipe' && entry.status === 'stopped',
+  )
 
   const selectedRecord =
     active === null || selectedSeq === null
@@ -400,6 +408,13 @@ export function useWorkspace(): Workspace {
       void closeAllStreams()
     },
     onCancelCloseAll: () => setCloseAllOpen(false),
+    closeInactiveOpen,
+    streams,
+    onConfirmCloseInactive: () => {
+      setCloseInactiveOpen(false)
+      void closeInactiveStreams()
+    },
+    onCancelCloseInactive: () => setCloseInactiveOpen(false),
     clearTarget: clearEntry,
     onConfirmClear: confirmClear,
     onCancelClear: () => setClearTarget(null),
@@ -471,6 +486,8 @@ export function useWorkspace(): Workspace {
       onQuickStart: () => setScreen('quick'),
       onCloseTab: setCloseTarget,
       onCloseAll: () => setCloseAllOpen(true),
+      onCloseInactive: () => setCloseInactiveOpen(true),
+      inactiveCount: inactiveEntries.length,
       toolViewActive: workspaceView !== 'stream',
     },
     empty: {

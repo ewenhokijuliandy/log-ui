@@ -76,11 +76,21 @@ test('Cmd/Ctrl+K opens the tab finder', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Find a tab' })).not.toBeVisible()
 })
 
+async function openCloseMenu(page: import('@playwright/test').Page): Promise<void> {
+  await page.getByRole('button', { name: 'Close tabs' }).click()
+  await expect(page.getByRole('menu', { name: 'Close tabs' })).toBeVisible()
+}
+
+async function closeAllTabs(page: import('@playwright/test').Page): Promise<void> {
+  await openCloseMenu(page)
+  await page.getByRole('menuitem', { name: /Close all tabs/ }).click()
+}
+
 test('close all tabs confirms and empties the workspace', async ({ page }) => {
   await seedTabs(page)
   const consoleWatch = watchConsole(page)
 
-  await page.getByRole('button', { name: 'Close all tabs' }).click()
+  await closeAllTabs(page)
 
   const confirm = page.getByRole('dialog', { name: /Close all 3 tabs/ })
   await expect(confirm).toBeVisible()
@@ -95,7 +105,7 @@ test('close all tabs confirms and empties the workspace', async ({ page }) => {
 
 test('cancelling close all keeps every tab', async ({ page }) => {
   await seedTabs(page)
-  await page.getByRole('button', { name: 'Close all tabs' }).click()
+  await closeAllTabs(page)
   const confirm = page.getByRole('dialog', { name: /Close all 3 tabs/ })
   await confirm.getByRole('button', { name: 'Keep open' }).click()
   await expect(page.locator('.stream-tab')).toHaveCount(3)
@@ -106,10 +116,53 @@ test('the tab strip keeps its controls visible at 390', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.waitForTimeout(120)
   await expect(page.getByRole('button', { name: 'Find a tab' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Close all tabs' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Close tabs' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Open quick start' })).toBeVisible()
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
   expect(overflow).toBe(false)
+})
+
+test('close inactive tabs closes ended streams and spares live ones', async ({ page }) => {
+  const consoleWatch = watchConsole(page)
+
+  const endedA = startPipe('ended-a')
+  const endedB = startPipe('ended-b')
+  pipes.push(endedA, endedB)
+  await endedA.write([line(1)])
+  await endedB.write([line(1)])
+  await waitForStream('ended-a')
+  await waitForStream('ended-b')
+  endedA.end()
+  endedB.end()
+  await page.waitForTimeout(600)
+
+  const live = startPipe('live-c')
+  pipes.push(live)
+  await live.write([line(1)])
+  await waitForStream('live-c')
+
+  await page.goto('/')
+  await expect(page.locator('.stream-tab')).toHaveCount(3)
+
+  await openCloseMenu(page)
+  await expect(page.getByRole('menuitem', { name: /Close inactive tabs/ })).toContainText('2')
+  await page.getByRole('menuitem', { name: /Close inactive tabs/ }).click()
+
+  const confirm = page.getByRole('dialog', { name: /Close 2 inactive tabs/ })
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toContainText('1 live stream stays open')
+  await confirm.getByRole('button', { name: 'Close inactive tabs' }).click()
+
+  await expect(page.locator('.stream-tab')).toHaveCount(1)
+  await expect(page.locator('.stream-tab')).toContainText('live-c')
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
+test('close inactive is disabled when every tab is live', async ({ page }) => {
+  await seedTabs(page)
+  await openCloseMenu(page)
+  await expect(page.getByRole('menuitem', { name: /Close inactive tabs/ })).toBeDisabled()
 })
