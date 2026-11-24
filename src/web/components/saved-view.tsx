@@ -8,7 +8,7 @@ import {
   renameSavedLog,
   type SavedMeta,
 } from '../app/api.ts'
-import { formatNumber, formatTime } from '../lib/format-time.ts'
+import { formatNumber, formatSavedAt, formatTime } from '../lib/format-time.ts'
 import { ConfirmDialog } from './confirm-dialog.tsx'
 import { Segment } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
@@ -333,7 +333,9 @@ export function SavedView({
                 </span>
                 <LevelMix counts={meta.counts} />
                 <span className="saved-rows">{formatNumber(meta.rowCount)}</span>
-                <span className="saved-when">{formatTime(meta.savedAt, 'utc')}</span>
+                <span className="saved-when" title={formatTime(meta.savedAt, 'utc')}>
+                  {formatSavedAt(meta.savedAt, 'utc')}
+                </span>
                 <span className="saved-actions">
                   {renaming === meta.id ? (
                     <>

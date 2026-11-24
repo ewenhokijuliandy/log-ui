@@ -3625,7 +3625,7 @@ dialog.quick-dialog {
 }
 
 .saved-table {
-  --saved-cols: minmax(180px, 1fr) 148px 168px 64px 104px 148px;
+  --saved-cols: minmax(180px, 1fr) 128px 168px 64px 142px 148px;
   max-width: 1180px;
   margin-top: 14px;
   overflow: hidden;
