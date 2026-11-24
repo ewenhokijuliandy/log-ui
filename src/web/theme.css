@@ -345,6 +345,7 @@ dialog:focus-visible {
 .rail-btn {
   position: relative;
   display: grid;
+  grid-auto-flow: column;
   place-items: center;
   width: 34px;
   height: 34px;
@@ -378,7 +379,7 @@ dialog:focus-visible {
 .rail-btn[aria-current="page"]::after {
   content: "";
   position: absolute;
-  right: -8px;
+  right: -6px;
   top: 8px;
   bottom: 8px;
   width: 1px;
@@ -4788,6 +4789,11 @@ textarea.paste::placeholder {
 
   .rail .bottom {
     display: contents;
+  }
+
+  .rail-btn,
+  .rail-expanded .rail-btn:not(.rail-btn-phone) {
+    grid-auto-flow: row;
   }
 
   .rail-btn {
