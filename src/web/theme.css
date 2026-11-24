@@ -3627,8 +3627,11 @@ dialog.quick-dialog {
 .saved-table {
   --saved-cols: minmax(180px, 1fr) 148px 168px 64px 104px 148px;
   max-width: 1180px;
-  margin-top: 4px;
-  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
 }
 
 .saved-head {
@@ -3636,9 +3639,10 @@ dialog.quick-dialog {
   grid-template-columns: var(--saved-cols);
   align-items: center;
   gap: 12px;
-  height: 30px;
-  padding: 0 4px;
+  height: 32px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
   color: var(--faint);
   font-size: var(--fs-meta);
   white-space: nowrap;
@@ -3660,9 +3664,13 @@ dialog.quick-dialog {
   align-items: center;
   gap: 12px;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--rule);
   transition: background-color 120ms ease;
+}
+
+.saved-row:last-child {
+  border-bottom: 0;
 }
 
 .saved-row:hover {
@@ -3851,10 +3859,12 @@ dialog.quick-dialog {
 }
 
 .saved-empty {
-  max-width: 1040px;
+  max-width: 1180px;
   margin: 14px 0 0;
-  padding: 28px 0 0;
-  border-top: 1px solid var(--border);
+  padding: 28px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
 }
 
 .saved-empty-title {
