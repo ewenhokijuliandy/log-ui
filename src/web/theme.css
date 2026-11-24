@@ -572,6 +572,15 @@ dialog:focus-visible {
   color: var(--text);
 }
 
+.btn.ghost.btn-destructive {
+  color: var(--negative);
+}
+
+.btn.ghost.btn-destructive:hover:not(:disabled) {
+  background: var(--pill-neg-bg);
+  color: var(--negative);
+}
+
 .btn.danger {
   border-color: var(--negative);
   background: var(--negative);
@@ -931,7 +940,7 @@ h1 {
 .title-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -1242,6 +1251,23 @@ h1 {
   gap: 2px;
   margin-left: auto;
   flex: none;
+}
+
+.tool-sep,
+.title-sep {
+  flex: none;
+  width: 1px;
+  background: var(--border);
+}
+
+.tool-sep {
+  height: 16px;
+  margin: 0 6px;
+}
+
+.title-sep {
+  height: 14px;
+  margin: 0 4px;
 }
 
 .toolbar .levels-trigger,

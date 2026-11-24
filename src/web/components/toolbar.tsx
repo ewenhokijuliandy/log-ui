@@ -21,6 +21,7 @@ export function Toolbar(props: ToolbarProps) {
       <div className="tools">
         <RangePicker filter={props.filter} onFilter={props.onFilter} />
         <SortMenu sort={props.sort} onSort={props.onSort} />
+        <span className="tool-sep" aria-hidden="true" />
         <DisplayTools
           zone={props.zone}
           autoscroll={props.autoscroll}
@@ -32,6 +33,7 @@ export function Toolbar(props: ToolbarProps) {
           onToggleAutoscroll={props.onToggleAutoscroll}
           onTogglePause={props.onTogglePause}
         />
+        <span className="tool-sep" aria-hidden="true" />
         <PresetsMenu
           presets={props.presets}
           onApplyPreset={props.onApplyPreset}

@@ -47,6 +47,7 @@ export function StreamHeader({
             {droppedLines > 0 ? ` retained · ${formatNumber(droppedLines)} dropped` : ' retained'}
           </span>
         </span>
+        <span className="title-sep" aria-hidden="true" />
         {canSave ? (
           <button
             className="btn ghost"
@@ -58,7 +59,12 @@ export function StreamHeader({
             Save log
           </button>
         ) : null}
-        <button className="btn ghost" type="button" onClick={onClearBuffer}>
+        <button
+          className="btn ghost btn-destructive"
+          type="button"
+          title="Discard the buffered lines for this stream"
+          onClick={onClearBuffer}
+        >
           Clear buffer
         </button>
       </div>
