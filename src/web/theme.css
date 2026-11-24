@@ -28,6 +28,12 @@
   --diff-add-bg: #1a3a2c;
   --diff-remove-bg: #452733;
   --diff-change-bg: #1e3350;
+  --syntax-key: #a8c7e8;
+  --syntax-string: #d4a27f;
+  --syntax-number: #93c9a5;
+  --syntax-bool: #b9a7e0;
+  --syntax-null: #b9a7e0;
+  --syntax-punct: #9a9ca2;
   --primary-bg: #ffffff;
   --primary-ink: #171719;
   --scrim: rgba(0, 0, 0, 0.34);
@@ -86,6 +92,12 @@
   --diff-add-bg: #c9e0d1;
   --diff-remove-bg: #f4cccc;
   --diff-change-bg: #c6d8ec;
+  --syntax-key: #1f5f9e;
+  --syntax-string: #8a4b1f;
+  --syntax-number: #185c38;
+  --syntax-bool: #6b3fa0;
+  --syntax-null: #6b3fa0;
+  --syntax-punct: #54585c;
   --primary-bg: #111315;
   --primary-ink: #ffffff;
   --scrim: rgba(17, 19, 21, 0.32);
@@ -2000,28 +2012,28 @@ body.is-resizing {
 }
 
 .json-key {
-  color: var(--text);
+  color: var(--syntax-key);
 }
 
 .json-punct {
-  color: var(--faint);
+  color: var(--syntax-punct);
 }
 
 .val-string {
-  color: var(--muted);
+  color: var(--syntax-string);
   overflow-wrap: anywhere;
 }
 
 .val-number {
-  color: var(--text);
+  color: var(--syntax-number);
 }
 
 .val-bool {
-  color: var(--accent);
+  color: var(--syntax-bool);
 }
 
 .val-null {
-  color: var(--faint);
+  color: var(--syntax-null);
 }
 
 .json-empty {

@@ -10,6 +10,7 @@ import {
 } from '../lib/json-line-diff.ts'
 import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
 import { Icon } from './icons.tsx'
+import { JsonLine } from './json-tree.tsx'
 import { ToolView } from './tool-view.tsx'
 
 const MAX_SIDE_BYTES = 1_000_000
@@ -71,12 +72,16 @@ function DiffRowView({ row }: { row: DiffRow }) {
   return (
     <div className={`diff-row ${row.kind}`}>
       <span className="diff-no left-no">{row.leftNo ?? ''}</span>
-      <span className="diff-cell left">{row.leftText ?? ''}</span>
+      <span className="diff-cell left">
+        {row.leftText === null ? null : <JsonLine text={row.leftText} />}
+      </span>
       <span className="diff-gutter" aria-hidden="true">
         {gutterSign(row.kind)}
       </span>
       <span className="diff-no right-no">{row.rightNo ?? ''}</span>
-      <span className="diff-cell right">{row.rightText ?? ''}</span>
+      <span className="diff-cell right">
+        {row.rightText === null ? null : <JsonLine text={row.rightText} />}
+      </span>
     </div>
   )
 }

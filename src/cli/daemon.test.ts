@@ -3,6 +3,6 @@ import { readVersion } from '../server/version.ts'
 
 describe('daemon version handshake', () => {
   test('the CLI and the daemon read the same version source', () => {
-    expect(readVersion()).toBe('1.3.1')
+    expect(readVersion()).toBe('1.4.0')
   })
 })

@@ -4,6 +4,7 @@ import { type PrettifyIndent, prettifyJsonText } from '../lib/json-format.ts'
 import { useCopyFeedback } from '../lib/use-copy-feedback.ts'
 import { Segment } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
+import { JsonText } from './json-tree.tsx'
 import { ToolView } from './tool-view.tsx'
 
 const SAMPLE =
@@ -141,7 +142,7 @@ export function PrettyView() {
               className={`diff-textarea diff-output${output === '' ? ' empty' : ''}`}
               aria-label="Formatted JSON"
             >
-              {output === '' ? 'Formatted JSON appears here.' : output}
+              {output === '' ? 'Formatted JSON appears here.' : <JsonText text={output} />}
             </output>
           </div>
         </div>

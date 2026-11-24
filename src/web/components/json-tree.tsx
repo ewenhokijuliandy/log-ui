@@ -1,4 +1,4 @@
-import type { JsonToken, JsonTokenKind } from '../lib/json-pretty.ts'
+import { type JsonToken, type JsonTokenKind, jsonLineTokens } from '../lib/json-pretty.ts'
 import { jsonEntries, jsonLeafText } from '../lib/json-value.ts'
 import { Icon } from './icons.tsx'
 
@@ -9,6 +9,38 @@ const TOKEN_CLASS: Record<JsonTokenKind, string | undefined> = {
   bool: 'val-bool',
   null: 'val-null',
   plain: undefined,
+}
+
+export function JsonLine({ text }: { text: string }) {
+  const tokens = jsonLineTokens(text)
+  if (tokens.length === 0) return null
+  return (
+    <>
+      {tokens.map((token, index) => {
+        const className = TOKEN_CLASS[token.kind]
+        if (className === undefined) return token.text
+        return (
+          <span key={`${String(index)}-${token.kind}`} className={className}>
+            {token.text}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
+export function JsonText({ text }: { text: string }) {
+  const lines = text.split('\n')
+  return (
+    <>
+      {lines.map((line, index) => (
+        <span key={index}>
+          <JsonLine text={line} />
+          {index === lines.length - 1 ? null : '\n'}
+        </span>
+      ))}
+    </>
+  )
 }
 
 export function PrettyJson({ tokens, wrap }: { tokens: JsonToken[]; wrap: boolean }) {

@@ -88,3 +88,83 @@ test('compare diffs every line of a 3000-line input', async ({ page }) => {
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
+
+test('JSON syntax colouring renders and clears contrast targets', async ({ page }) => {
+  const consoleWatch = watchConsole(page)
+  const pipe = startPipe('colours')
+  pipes.push(pipe)
+  await pipe.write([line(1)])
+  await waitForStream('colours')
+
+  await page.goto('/')
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Compare JSON' }).click()
+  const view = page.locator('.view-slot:not([hidden])')
+  await view.getByRole('button', { name: 'Load sample' }).click()
+  await view.getByRole('button', { name: 'Compare', exact: true }).click()
+
+  await expect(view.locator('.diff-cell .json-key').first()).toBeVisible()
+  await expect(view.locator('.diff-cell .val-string').first()).toBeVisible()
+  await expect(view.locator('.diff-cell .val-number').first()).toBeVisible()
+
+  const report = await view.evaluate((root) => {
+    const parse = (value: string): number[] => {
+      const match = value.match(/rgba?\(([^)]+)\)/)
+      if (match === null) return [0, 0, 0]
+      return match[1]
+        .split(',')
+        .slice(0, 3)
+        .map((part) => Number(part.trim()))
+    }
+    const channel = (value: number): number => {
+      const unit = value / 255
+      return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = (rgb: number[]): number =>
+      0.2126 * channel(rgb[0] ?? 0) + 0.7152 * channel(rgb[1] ?? 0) + 0.0722 * channel(rgb[2] ?? 0)
+    const ratio = (a: number[], b: number[]): number => {
+      const first = luminance(a)
+      const second = luminance(b)
+      const high = Math.max(first, second)
+      const low = Math.min(first, second)
+      return (high + 0.05) / (low + 0.05)
+    }
+    const backgroundOf = (node: Element): number[] => {
+      let current: Element | null = node
+      while (current !== null) {
+        const value = getComputedStyle(current).backgroundColor
+        if (value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent') return parse(value)
+        current = current.parentElement
+      }
+      return parse(getComputedStyle(document.documentElement).backgroundColor)
+    }
+    const rows = [...root.querySelectorAll('.diff-row')]
+    const samples: Array<{ cls: string; ratio: number }> = []
+    for (const row of rows) {
+      const spans = [...row.querySelectorAll('.diff-cell span')]
+      if (spans.length === 0) continue
+      const background = backgroundOf(row)
+      for (const span of spans) {
+        const cls = span.className
+        if (cls.length === 0) continue
+        samples.push({ cls, ratio: ratio(parse(getComputedStyle(span).color), background) })
+      }
+      if (samples.length > 40) break
+    }
+    const worst: Record<string, number> = {}
+    for (const sample of samples) {
+      worst[sample.cls] = Math.min(worst[sample.cls] ?? Number.POSITIVE_INFINITY, sample.ratio)
+    }
+    const rowHeight =
+      rows[0] === undefined ? null : Math.round(rows[0].getBoundingClientRect().height)
+    return { worst, rowHeight, sampled: samples.length }
+  })
+
+  expect(report.sampled).toBeGreaterThan(0)
+  expect(report.rowHeight).toBe(22)
+  for (const [cls, value] of Object.entries(report.worst)) {
+    expect(value, `contrast for ${cls}`).toBeGreaterThanOrEqual(4.5)
+  }
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
