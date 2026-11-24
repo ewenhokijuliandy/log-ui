@@ -81,7 +81,6 @@ export function GraphqlView() {
     <ToolView
       title="GraphQL"
       description="Paste a messy query or schema, then copy it back formatted. Parsed in this browser."
-      flush
     >
       <div className="diff-panes diff-panes-input">
         <div className="diff-heads">

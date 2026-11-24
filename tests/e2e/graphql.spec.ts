@@ -72,3 +72,46 @@ test('reports unbalanced input instead of emitting mangled output', async ({ pag
 
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
+
+test('graphql content uses the same padding as compare and pretty', async ({ page }) => {
+  const consoleWatch = watchConsole(page)
+  const pipe = startPipe('gql-pad')
+  pipes.push(pipe)
+  await pipe.write([line(1)])
+  await waitForStream('gql-pad')
+
+  await page.goto('/')
+  await page.keyboard.press('Escape')
+
+  const measure = async (): Promise<Record<string, number | null>> => {
+    return page.locator('.view-slot:not([hidden])').evaluate((root) => {
+      const left = (selector: string): number | null => {
+        const node = root.querySelector(selector)
+        return node === null ? null : Math.round(node.getBoundingClientRect().left)
+      }
+      return {
+        head: left('.diff-head'),
+        card: left('.diff-input-card'),
+        summary: left('.diff-summary'),
+        actions: left('.diff-actions'),
+      }
+    })
+  }
+
+  await page.getByRole('button', { name: 'Compare JSON', exact: true }).click()
+  await expect(page.locator('.view-slot:not([hidden]) .diff-head').first()).toBeVisible()
+  const compare = await measure()
+
+  await page.getByRole('button', { name: 'GraphQL', exact: true }).click()
+  await expect(page.locator('.view-slot:not([hidden]) .diff-head').first()).toBeVisible()
+  const graphql = await measure()
+
+  expect(graphql.head).not.toBeNull()
+  expect(graphql).toEqual(compare)
+
+  const viewport = page.viewportSize()
+  expect(graphql.head ?? 0).toBeGreaterThan(0)
+  expect(graphql.head ?? 0).toBeLessThan((viewport?.width ?? 0) / 4)
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})

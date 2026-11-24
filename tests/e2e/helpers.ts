@@ -121,9 +121,11 @@ export function watchConsole(page: Page): { problems: string[] } {
 
 export function unexpectedConsole(problems: readonly string[]): string[] {
   return problems.filter((problem) => {
-    return (
-      !problem.includes('WebSocket connection to') &&
-      !problem.includes('net::ERR_CONNECTION_REFUSED')
-    )
+    if (problem.includes('WebSocket connection to')) return false
+    if (problem.includes('net::ERR_CONNECTION_REFUSED')) return false
+    const externalFont =
+      problem.includes('fonts.googleapis.com') || problem.includes('fonts.gstatic.com')
+    if (externalFont && problem.includes('net::ERR_NAME_NOT_RESOLVED')) return false
+    return true
   })
 }
