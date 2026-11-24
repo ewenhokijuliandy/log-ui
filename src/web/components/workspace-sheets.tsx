@@ -20,6 +20,8 @@ export function WorkspaceSheets({ sheets }: { sheets: SheetsModel }) {
           zone={sheets.detail.zone}
           source={sheets.detail.source}
           onClose={sheets.detail.onClose}
+          onShowAll={sheets.detail.onShowAll}
+          showAllCount={sheets.detail.showAllCount}
         />
       )}
 

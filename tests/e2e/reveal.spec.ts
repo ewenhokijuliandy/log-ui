@@ -36,12 +36,12 @@ test('show all lines clears the filter and keeps the selected line in view', asy
 
   await view.getByLabel('Search logs').fill('request 100')
   await expect(view.locator('.log-row')).toHaveCount(1)
-  await expect(view.getByRole('button', { name: 'Show all lines' })).toHaveCount(0)
+  await expect(view.getByRole('button', { name: /Show all/ })).toHaveCount(0)
 
   await view.locator('.log-row').first().click()
   await expect(view.locator('.inspector-head h2')).toHaveText('Line 100')
 
-  const reveal = view.getByRole('button', { name: 'Show all lines' })
+  const reveal = view.getByRole('button', { name: /Show all/ })
   await expect(reveal).toBeVisible()
   await reveal.click()
 

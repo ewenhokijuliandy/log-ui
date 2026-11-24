@@ -11,11 +11,15 @@ export function DetailSheet({
   zone,
   source,
   onClose,
+  onShowAll,
+  showAllCount,
 }: {
   record: LogRecord
   zone: Zone
   source: string | null
   onClose: () => void
+  onShowAll?: () => void
+  showAllCount?: number
 }) {
   return (
     <DialogFrame
@@ -32,6 +36,8 @@ export function DetailSheet({
         width={0}
         onWidth={noop}
         onResetWidth={noop}
+        onShowAll={onShowAll}
+        showAllCount={showAllCount}
         sheet
       />
     </DialogFrame>

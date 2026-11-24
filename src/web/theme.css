@@ -1914,10 +1914,37 @@ body.is-resizing {
 }
 
 .inspector-showall {
-  height: 26px;
-  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-family: var(--font-ui);
   font-size: var(--fs-meta);
+  font-weight: 500;
   white-space: nowrap;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.inspector-showall svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--accent);
+}
+
+.inspector-showall:hover {
+  background: var(--raised);
+}
+
+.inspector-showall:active {
+  transform: translateY(1px);
 }
 
 .inspector-head h2 {

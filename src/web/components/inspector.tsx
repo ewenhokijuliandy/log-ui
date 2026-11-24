@@ -18,6 +18,7 @@ export function Inspector({
   onWidth,
   onResetWidth,
   onShowAll,
+  showAllCount,
   sheet = false,
 }: InspectorProps) {
   const close = useUi((state) => state.setInspectorOpen)
@@ -79,12 +80,15 @@ export function Inspector({
         <div className="inspector-head-actions">
           {onShowAll === undefined ? null : (
             <button
-              className="btn ghost inspector-showall"
+              className="inspector-showall"
               type="button"
               title="Clear the filter and keep this line in view"
               onClick={onShowAll}
             >
-              Show all lines
+              <Icon name="list" />
+              {showAllCount === undefined
+                ? 'Show all lines'
+                : `Show all ${formatNumber(showAllCount)} lines`}
             </button>
           )}
           <button
@@ -242,6 +246,7 @@ export type InspectorProps = {
   onWidth: (width: number) => void
   onResetWidth: () => void
   onShowAll?: () => void
+  showAllCount?: number
   sheet?: boolean
 }
 

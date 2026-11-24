@@ -154,6 +154,7 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
           onWidth={actions.onInspectorWidth}
           onResetWidth={actions.onResetInspectorWidth}
           onShowAll={on ? actions.onRevealSelected : undefined}
+          showAllCount={on ? data.totalLines : undefined}
         />
       </div>
       <SaveLogDialog

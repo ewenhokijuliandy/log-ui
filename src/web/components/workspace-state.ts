@@ -407,7 +407,18 @@ export function useWorkspace(): Workspace {
     },
     detail:
       showDetailSheet && selectedRecord !== null
-        ? { record: selectedRecord, zone: prefs.zone, source: null }
+        ? {
+            record: selectedRecord,
+            zone: prefs.zone,
+            source: null,
+            onShowAll: filtersActive(filter, isolateTrace)
+              ? () => {
+                  revealSelected()
+                  setInspectorOpen(false)
+                }
+              : undefined,
+            showAllCount: filtersActive(filter, isolateTrace) ? totalLines : undefined,
+          }
         : null,
     onCloseDetail: () => setInspectorOpen(false),
     closeAllOpen,

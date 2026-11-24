@@ -37,6 +37,8 @@ export type SheetsModel = {
     record: LogRecord
     zone: Prefs['zone']
     source: string | null
+    onShowAll?: () => void
+    showAllCount?: number
     onClose: () => void
   } | null
   quick: {
@@ -89,7 +91,13 @@ export type SheetsInput = {
   onQuickManual: () => void
   onQuickHelp: () => void
   onQuickClose: () => void
-  detail: { record: LogRecord; zone: Prefs['zone']; source: string | null } | null
+  detail: {
+    record: LogRecord
+    zone: Prefs['zone']
+    source: string | null
+    onShowAll?: () => void
+    showAllCount?: number
+  } | null
   onCloseDetail: () => void
   clearTarget: StreamEntry | null
   onConfirmClear: () => void
@@ -125,6 +133,8 @@ export function buildSheets(input: SheetsInput): SheetsModel {
       input.detail === null
         ? null
         : {
+            onShowAll: input.detail.onShowAll,
+            showAllCount: input.detail.showAllCount,
             record: input.detail.record,
             zone: input.detail.zone,
             source: input.detail.source,
