@@ -63,14 +63,22 @@ test('saves a stream log, renames it, opens it and deletes it', async ({ page })
   await expect(view.locator('.saved-open').first()).toHaveText('payment decline')
 
   await view.locator('.saved-open').first().click()
-  await expect(view.locator('.log-row')).toHaveCount(1)
-  await expect(view.locator('.log-row').first()).toContainText('declined order ord_1')
 
-  await view.locator('.log-row').first().click()
-  await expect(view.locator('.inspector')).toBeVisible()
+  const streamView = page.locator('.view-slot:not([hidden])')
+  await expect(page.getByRole('tab', { name: /payment decline/ })).toBeVisible()
+  await expect(streamView.locator('.title-line h1')).toHaveText('payment decline')
+  await expect(streamView.locator('.log-row')).toHaveCount(1)
+  await expect(streamView.locator('.log-row').first()).toContainText('declined order ord_1')
+  await expect(streamView.locator('.toolbar')).toHaveCount(1)
+  await expect(streamView.locator('.signal')).toHaveCount(1)
+  await expect(streamView.getByRole('button', { name: 'Save log', exact: true })).toHaveCount(0)
 
-  await view.getByRole('button', { name: 'Back to saved logs' }).click()
-  await view
+  await streamView.locator('.log-row').first().click()
+  await expect(streamView.locator('.inspector')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Saved logs' }).click()
+  const listView = page.locator('.view-slot:not([hidden])')
+  await listView
     .getByRole('button', { name: /^Delete/ })
     .first()
     .click()
@@ -78,7 +86,7 @@ test('saves a stream log, renames it, opens it and deletes it', async ({ page })
     .getByRole('dialog', { name: /Delete/ })
     .getByRole('button', { name: 'Delete log' })
     .click()
-  await expect(view.locator('.saved-empty')).toContainText('Nothing saved yet')
+  await expect(listView.locator('.saved-empty')).toContainText('Nothing saved yet')
 
   const after = await page.request.get('/api/saved')
   expect((await after.json()) as unknown[]).toHaveLength(0)

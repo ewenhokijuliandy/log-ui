@@ -52,7 +52,10 @@ export function App() {
               <GraphqlView />
             </div>
             <div hidden={view !== 'saved'} className="view-slot">
-              <SavedView {...workspace.merge} active={view === 'saved'} />
+              <SavedView
+                active={view === 'saved'}
+                onOpenStream={() => workspace.rail.onStreams()}
+              />
             </div>
             <div hidden={view !== 'merge'} className="view-slot">
               <MergeView {...workspace.merge} />

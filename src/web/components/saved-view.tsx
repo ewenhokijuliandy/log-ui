@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { countLevels } from '../../shared/levels.ts'
-import type { LogRecord } from '../../shared/types.ts'
 import {
   deleteSavedLog,
   fetchSaved,
@@ -8,11 +6,11 @@ import {
   renameSavedLog,
   type SavedMeta,
 } from '../app/api.ts'
+import { useStreams } from '../app/store.ts'
 import { formatNumber, formatSavedAt, formatTime } from '../lib/format-time.ts'
 import { ConfirmDialog } from './confirm-dialog.tsx'
 import { Segment } from './dialog-frame.tsx'
 import { Icon } from './icons.tsx'
-import { Inspector } from './inspector.tsx'
 import { ToolView } from './tool-view.tsx'
 
 type SavedSort = 'newest' | 'name' | 'rows'
@@ -57,18 +55,8 @@ function LevelMix({ counts }: { counts: SavedMeta['counts'] }) {
   )
 }
 
-export function SavedView({
-  active,
-  inspectorWidth,
-  onInspectorWidth,
-  onResetInspectorWidth,
-}: SavedViewProps) {
+export function SavedView({ active, onOpenStream }: SavedViewProps) {
   const [list, setList] = useState<SavedMeta[]>([])
-  const [openId, setOpenId] = useState<string | null>(null)
-  const [rows, setRows] = useState<LogRecord[]>([])
-  const [zone, setZone] = useState<'utc' | 'local'>('utc')
-  const [selectedSeq, setSelectedSeq] = useState<number | null>(null)
-  const [inspectorOpen, setInspectorOpen] = useState(false)
   const [error, setError] = useState('')
   const [renaming, setRenaming] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
@@ -85,48 +73,18 @@ export function SavedView({
     void refresh()
   }, [active, refresh])
 
-  const openSaved = useCallback(async (id: string): Promise<void> => {
-    const envelope = await fetchSaved(id)
-    if (envelope === null) {
-      setError('Could not open this saved log.')
-      return
-    }
-    setError('')
-    setOpenId(id)
-    setRows(envelope.rows)
-    setZone(envelope.zone)
-    setSelectedSeq(null)
-    setInspectorOpen(false)
-  }, [])
-
-  const closeSaved = (): void => {
-    setOpenId(null)
-    setRows([])
-    setSelectedSeq(null)
-    setInspectorOpen(false)
-  }
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    const matched =
-      needle.length === 0
-        ? list
-        : list.filter(
-            (meta) =>
-              meta.name.toLowerCase().includes(needle) ||
-              meta.streamName.toLowerCase().includes(needle),
-          )
-    const ordered = [...matched]
-    if (sort === 'name') ordered.sort((a, b) => a.name.localeCompare(b.name))
-    if (sort === 'rows') ordered.sort((a, b) => b.rowCount - a.rowCount)
-    if (sort === 'newest') ordered.sort((a, b) => b.savedAt - a.savedAt)
-    return ordered
-  }, [list, query, sort])
-
-  const counts = useMemo(() => (rows.length === 0 ? null : countLevels(rows)), [rows])
-  const selected = useMemo(
-    () => (selectedSeq === null ? null : (rows.find((row) => row.seq === selectedSeq) ?? null)),
-    [rows, selectedSeq],
+  const openSaved = useCallback(
+    async (id: string): Promise<void> => {
+      const envelope = await fetchSaved(id)
+      if (envelope === null) {
+        setError('Could not open this saved log.')
+        return
+      }
+      setError('')
+      useStreams.getState().addManual(envelope.rows, envelope.rowCount, envelope.name)
+      onOpenStream()
+    },
+    [onOpenStream],
   )
 
   async function commitRename(id: string): Promise<void> {
@@ -145,97 +103,25 @@ export function SavedView({
       setError(outcome.error)
       return
     }
-    if (openId === id) closeSaved()
     await refresh()
   }
 
-  if (openId !== null) {
-    return (
-      <ToolView
-        title={list.find((item) => item.id === openId)?.name ?? 'Saved log'}
-        description="A saved snapshot. Read-only — filters and saving are disabled here."
-        flush
-        actions={
-          <button className="btn" type="button" onClick={closeSaved}>
-            Back to saved logs
-          </button>
-        }
-      >
-        {error.length === 0 ? null : <p className="saved-error">{error}</p>}
-        <div className="saved-summary">
-          <span className="note">
-            {formatNumber(rows.length)} rows · Times {zone === 'utc' ? 'UTC' : 'Local'}
-          </span>
-          {counts === null ? null : (
-            <>
-              <span className="removed">{formatNumber(counts.fatal + counts.error)} error</span>
-              <span className="warn">{formatNumber(counts.warn)} warn</span>
-              <span className="note">{formatNumber(counts.info)} info</span>
-              <span className="note">{formatNumber(counts.debug + counts.trace)} debug</span>
-            </>
-          )}
-        </div>
-        <div
-          className={`log-shell${inspectorOpen && selected !== null ? '' : ' no-inspector'}`}
-          style={{ '--inspector-w': `${String(inspectorWidth)}px` } as React.CSSProperties}
-        >
-          <section className="log-panel" aria-label="Saved lines">
-            <div className="log-head merge-head" aria-hidden="true">
-              <span />
-              <span className="h-seq">seq</span>
-              <span>time</span>
-              <span>level</span>
-              <span>message</span>
-              <span className="h-ids">ids</span>
-            </div>
-            <ul className="log-list">
-              {rows.map((record) => (
-                <li
-                  key={`${String(record.seq)}-${String(record.ts)}`}
-                  className="log-row"
-                  tabIndex={record.seq === selectedSeq ? 0 : -1}
-                  aria-current={record.seq === selectedSeq ? 'true' : undefined}
-                  onClick={() => {
-                    setSelectedSeq(record.seq)
-                    setInspectorOpen(true)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return
-                    event.preventDefault()
-                    setSelectedSeq(record.seq)
-                    setInspectorOpen(true)
-                  }}
-                >
-                  <span className="thread" aria-hidden="true" />
-                  <span className="seq">{formatNumber(record.seq)}</span>
-                  <span className="time">{formatTime(record.ts, zone)}</span>
-                  <span className={`level ${record.level}`}>
-                    <span className="dot" />
-                    {record.level.toUpperCase()}
-                  </span>
-                  <span className="msg">{record.message}</span>
-                  <span className="ids">
-                    {record.ids.slice(0, 2).map((id) => (
-                      <span className="trace-chip" key={id}>
-                        {id.slice(0, 8)}
-                      </span>
-                    ))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-          <Inspector
-            record={selected}
-            zone={zone}
-            width={inspectorWidth}
-            onWidth={onInspectorWidth}
-            onResetWidth={onResetInspectorWidth}
-          />
-        </div>
-      </ToolView>
-    )
-  }
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    const matched =
+      needle.length === 0
+        ? list
+        : list.filter(
+            (meta) =>
+              meta.name.toLowerCase().includes(needle) ||
+              meta.streamName.toLowerCase().includes(needle),
+          )
+    const ordered = [...matched]
+    if (sort === 'name') ordered.sort((a, b) => a.name.localeCompare(b.name))
+    if (sort === 'rows') ordered.sort((a, b) => b.rowCount - a.rowCount)
+    if (sort === 'newest') ordered.sort((a, b) => b.savedAt - a.savedAt)
+    return ordered
+  }, [list, query, sort])
 
   return (
     <ToolView
@@ -398,7 +284,5 @@ export function SavedView({
 
 export type SavedViewProps = {
   active: boolean
-  inspectorWidth: number
-  onInspectorWidth: (width: number) => void
-  onResetInspectorWidth: () => void
+  onOpenStream: () => void
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { BUFFER_CAP_DEFAULT, normalizeBufferCap } from '../../shared/buffer-cap.ts'
 import type { LevelCounts } from '../../shared/levels.ts'
-import { allocateStreamName } from '../../shared/name-allocator.ts'
+import { allocateStreamName, uniqueStreamName } from '../../shared/name-allocator.ts'
 import { streamNameProblem } from '../../shared/stream-name.ts'
 import type {
   LogLevel,
@@ -61,7 +61,7 @@ type StoreActions = {
   setSimulatedLost: (value: boolean) => void
   setBufferCap: (value: number) => void
   moveTab: (dragId: string, overId: string, before: boolean) => void
-  addManual: (records: LogRecord[], totalLines: number) => void
+  addManual: (records: LogRecord[], totalLines: number, preferredName?: string) => void
   setPaused: (id: string, paused: boolean) => void
   renameStream: (id: string, name: string) => Promise<RenameResult>
   closeStream: (id: string) => Promise<void>
@@ -184,9 +184,12 @@ export const useStreams = create<StoreState & StoreActions>((set, get) => ({
     applyOrder(ordered)
   },
 
-  addManual: (records, totalLines) => {
+  addManual: (records, totalLines, preferredName) => {
     const existing = get().streams.map((entry) => entry.name)
-    const name = allocateStreamName(existing, 'manual')
+    const name =
+      preferredName === undefined
+        ? allocateStreamName(existing, 'manual')
+        : uniqueStreamName(existing, preferredName)
     const entry = createManualEntry(
       records,
       totalLines,

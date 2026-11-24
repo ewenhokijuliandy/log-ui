@@ -8,6 +8,7 @@ export function StreamHeader({
   bootError,
   onClearBuffer,
   onSave,
+  canSave = true,
   saveDisabled = false,
 }: {
   entry: StreamEntry
@@ -16,6 +17,7 @@ export function StreamHeader({
   bootError: string | null
   onClearBuffer: () => void
   onSave: () => void
+  canSave?: boolean
   saveDisabled?: boolean
 }) {
   return (
@@ -45,15 +47,17 @@ export function StreamHeader({
             {droppedLines > 0 ? ` retained · ${formatNumber(droppedLines)} dropped` : ' retained'}
           </span>
         </span>
-        <button
-          className="btn ghost"
-          type="button"
-          disabled={saveDisabled}
-          title={saveDisabled ? 'Nothing to save yet' : 'Save this log'}
-          onClick={onSave}
-        >
-          Save log
-        </button>
+        {canSave ? (
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={saveDisabled}
+            title={saveDisabled ? 'Nothing to save yet' : 'Save this log'}
+            onClick={onSave}
+          >
+            Save log
+          </button>
+        ) : null}
         <button className="btn ghost" type="button" onClick={onClearBuffer}>
           Clear buffer
         </button>

@@ -82,6 +82,7 @@ export function StreamView({ data, actions, filter, sort, prefs, presets }: Stre
         bootError={data.bootError}
         onClearBuffer={() => actions.onClearBuffer(active.id)}
         onSave={() => setSaveTarget(active.id)}
+        canSave={active.kind !== 'manual'}
         saveDisabled={data.totalLines === 0}
       />
 
