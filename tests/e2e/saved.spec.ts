@@ -116,6 +116,35 @@ test('saved logs survive a reload', async ({ page }) => {
   expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
 })
 
+test('the empty card spans the same width as the saved table', async ({ page }) => {
+  const consoleWatch = watchConsole(page)
+  const pipe = startPipe('widths')
+  pipes.push(pipe)
+  await pipe.write([line(1, 'INFO', 'ok')])
+  await waitForStream('widths')
+
+  await page.setViewportSize({ width: 1600, height: 900 })
+  await page.goto('/')
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Saved logs' }).click()
+
+  const view = page.locator('.view-slot:not([hidden])')
+  const empty = view.locator('.saved-empty')
+  await expect(empty).toBeVisible()
+  const emptyBox = await empty.boundingBox()
+
+  await page.getByRole('tab', { name: /widths/ }).click()
+  await saveCurrentStream(page)
+  const table = view.locator('.saved-table')
+  await expect(table).toBeVisible()
+  const tableBox = await table.boundingBox()
+
+  expect(Math.round(emptyBox?.x ?? -1)).toBe(Math.round(tableBox?.x ?? -2))
+  expect(Math.round(emptyBox?.width ?? -1)).toBe(Math.round(tableBox?.width ?? -2))
+
+  expect(unexpectedConsole(consoleWatch.problems)).toEqual([])
+})
+
 test('filters, sorts and guards deletion of saved logs', async ({ page }) => {
   const consoleWatch = watchConsole(page)
   const first = startPipe('alpha')

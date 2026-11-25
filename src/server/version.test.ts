@@ -7,6 +7,6 @@ describe('readVersion', () => {
   })
 
   test('reads the current version, not a cached one', () => {
-    expect(readVersion()).toBe('1.4.0')
+    expect(readVersion()).toBe('1.4.1')
   })
 })

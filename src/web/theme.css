@@ -3995,9 +3995,8 @@ dialog.quick-dialog {
 }
 
 .saved-empty {
-  max-width: 1180px;
   margin: 14px 0 0;
-  padding: 28px 18px;
+  padding: 28px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   background: var(--surface);

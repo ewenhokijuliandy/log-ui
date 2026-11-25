@@ -193,7 +193,7 @@ describe('daemon server', () => {
     const info = JSON.parse(res.text) as Record<string, unknown>
     expect(info.ok).toBe(true)
     expect(info.pid).toBe(process.pid)
-    expect(info.version).toBe('1.4.0')
+    expect(info.version).toBe('1.4.1')
     expect(info.node).toBe(process.version)
     expect(info.port).toBe(server.port)
   })
@@ -209,7 +209,7 @@ describe('daemon server', () => {
       unknown
     >
     expect(first.version).toBe(second.version)
-    expect(first.version).toBe('1.4.0')
+    expect(first.version).toBe('1.4.1')
   })
 
   test('12k ingest yields 10k retained with dropped count and gap policy', async () => {
